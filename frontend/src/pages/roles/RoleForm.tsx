@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FormActions, FormSection, TextField } from '@/components/ui/form';
 import { ALL_MODULES, rolesApi, type ModuleFlags, type RoleListItem } from '@/lib/api/roles';
 import { RolePermissionMatrix } from './RolePermissionMatrix';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { ApiError } from '@/lib/api/client';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 
 function emptyPermissions(): Record<string, ModuleFlags> {
   return Object.fromEntries(ALL_MODULES.map((m) => [m, { has_access: false, read_only: false, own_data: false }]));
@@ -14,11 +14,12 @@ interface RoleFormProps {
   mode: 'create' | 'edit';
   initial?: RoleListItem;
   onSaved: (roleId: number) => void;
+  onCancel: () => void;
 }
 
-export function RoleForm({ mode, initial, onSaved }: RoleFormProps) {
-  const navigate = useNavigate();
+export function RoleForm({ mode, initial, onSaved, onCancel }: RoleFormProps) {
   const toast = useToast();
+  useEscapeAction(onCancel);
 
   const [name, setName] = useState(initial?.name ?? '');
   const [displayName, setDisplayName] = useState(initial?.display_name ?? '');
@@ -81,7 +82,7 @@ export function RoleForm({ mode, initial, onSaved }: RoleFormProps) {
         <RolePermissionMatrix value={permissions} onChange={togglePermission} />
       </div>
 
-      <FormActions submitLabel={mode === 'create' ? 'Utwórz rolę' : 'Zapisz zmiany'} onCancel={() => navigate('/roles')} isLoading={submitting} />
+      <FormActions submitLabel={mode === 'create' ? 'Utwórz rolę' : 'Zapisz zmiany'} onCancel={onCancel} isLoading={submitting} />
     </form>
   );
 }

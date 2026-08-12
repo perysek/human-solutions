@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons/Icon';
+import { useEscapeClaim } from '@/lib/a11y/useEscapeClaim';
 
 type ThemeValue = '' | 'blue' | 'green' | 'graphite';
 
@@ -44,6 +45,7 @@ export function ThemeSwitcher() {
   const [theme, setTheme] = useState<ThemeValue>(() => readInitialTheme());
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  useEscapeClaim(open);
 
   useEffect(() => {
     if (!open) return;

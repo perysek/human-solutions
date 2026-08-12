@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/lib/icons/Icon';
 import { useFocusTrap } from '@/lib/a11y/useFocusTrap';
+import { useEscapeClaim } from '@/lib/a11y/useEscapeClaim';
 
 type ConfirmType = 'danger' | 'warning' | 'info';
 
@@ -59,6 +60,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useFocusTrap(isOpen, panelRef);
+  useEscapeClaim(isOpen);
 
   const type = options?.type ?? 'danger';
 

@@ -19,6 +19,10 @@ frontend/dist/
 .idea/
 .vscode/
 
+# Claude Code — settings.json is shared/team config, settings.local.json is
+# per-developer (same idea as .env vs .env.local).
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db

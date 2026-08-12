@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useApiData } from '@/lib/api/useApiData';
 import { usersApi } from '@/lib/api/users';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 
 const ROLE_LABELS: Record<string, string> = {
   superuser: 'Superadmin',
@@ -24,6 +25,7 @@ export function UserViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: user, loading, error } = useApiData(() => usersApi.get(Number(id)), [id]);
+  useEscapeAction(() => navigate('/users'));
 
   return (
     <div className="refined-page">

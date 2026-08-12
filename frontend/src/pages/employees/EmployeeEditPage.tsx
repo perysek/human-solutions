@@ -18,7 +18,7 @@ export function EmployeeEditPage() {
       ) : error || !employee ? (
         <EmptyState icon="error" title="Nie znaleziono pracownika" message={error ?? undefined} />
       ) : (
-        <EmployeeForm mode="edit" initial={employee} onSaved={(savedId) => navigate(`/employees/${savedId}`)} />
+        <EmployeeForm mode="edit" initial={employee} onSaved={(savedId) => navigate(`/employees/${savedId}`)} onCancel={() => navigate('/employees')} />
       )}
     </div>
   );

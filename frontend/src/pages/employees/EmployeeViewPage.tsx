@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useApiData } from '@/lib/api/useApiData';
 import { employeesApi, EMPLOYMENT_STATUS_LABELS } from '@/lib/api/employees';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export function EmployeeViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: employee, loading, error } = useApiData(() => employeesApi.get(Number(id)), [id]);
+  useEscapeAction(() => navigate('/employees'));
 
   return (
     <div className="refined-page">

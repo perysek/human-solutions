@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FormActions, FormSection, TextField, SelectField, TextareaField } from '@/components/ui/form';
 import { employeesApi, type EmployeeListItem, type EmployeePayload } from '@/lib/api/employees';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { ApiError } from '@/lib/api/client';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Zatrudniony' },
@@ -15,11 +15,12 @@ interface EmployeeFormProps {
   mode: 'create' | 'edit';
   initial?: EmployeeListItem;
   onSaved: (employeeId: number) => void;
+  onCancel: () => void;
 }
 
-export function EmployeeForm({ mode, initial, onSaved }: EmployeeFormProps) {
-  const navigate = useNavigate();
+export function EmployeeForm({ mode, initial, onSaved, onCancel }: EmployeeFormProps) {
   const toast = useToast();
+  useEscapeAction(onCancel);
 
   const [firstName, setFirstName] = useState(initial?.first_name ?? '');
   const [lastName, setLastName] = useState(initial?.last_name ?? '');
@@ -99,7 +100,7 @@ export function EmployeeForm({ mode, initial, onSaved }: EmployeeFormProps) {
         <TextareaField label="Notatki" name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} fullWidth />
       </FormSection>
 
-      <FormActions submitLabel={mode === 'create' ? 'Utwórz pracownika' : 'Zapisz zmiany'} onCancel={() => navigate('/employees')} isLoading={submitting} />
+      <FormActions submitLabel={mode === 'create' ? 'Utwórz pracownika' : 'Zapisz zmiany'} onCancel={onCancel} isLoading={submitting} />
     </form>
   );
 }

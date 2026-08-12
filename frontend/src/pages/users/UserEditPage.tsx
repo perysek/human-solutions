@@ -18,7 +18,7 @@ export function UserEditPage() {
       ) : error || !user ? (
         <EmptyState icon="error" title="Nie znaleziono użytkownika" message={error ?? undefined} />
       ) : (
-        <UserForm mode="edit" initial={user} onSaved={(savedId) => navigate(`/users/${savedId}`)} />
+        <UserForm mode="edit" initial={user} onSaved={(savedId) => navigate(`/users/${savedId}`)} onCancel={() => navigate('/users')} />
       )}
     </div>
   );

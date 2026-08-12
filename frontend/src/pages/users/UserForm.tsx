@@ -1,20 +1,22 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FormActions, FormSection, TextField, SelectField, CheckboxField } from '@/components/ui/form';
 import { useApiData } from '@/lib/api/useApiData';
 import { usersApi, type EmployeeOption, type UserListItem, type UserPayload } from '@/lib/api/users';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { ApiError } from '@/lib/api/client';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 
 interface UserFormProps {
   mode: 'create' | 'edit';
   initial?: UserListItem;
   onSaved: (userId: number) => void;
+  /** Cancel button AND Escape key both call this — one target, two triggers. */
+  onCancel: () => void;
 }
 
-export function UserForm({ mode, initial, onSaved }: UserFormProps) {
-  const navigate = useNavigate();
+export function UserForm({ mode, initial, onSaved, onCancel }: UserFormProps) {
   const toast = useToast();
+  useEscapeAction(onCancel);
   const { data: options } = useApiData(() => usersApi.formOptions());
 
   const [fullName, setFullName] = useState(initial?.full_name ?? '');
@@ -109,7 +111,7 @@ export function UserForm({ mode, initial, onSaved }: UserFormProps) {
         <CheckboxField name="is_active" label="Konto aktywne" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
       </FormSection>
 
-      <FormActions submitLabel={mode === 'create' ? 'Utwórz użytkownika' : 'Zapisz zmiany'} onCancel={() => navigate('/users')} isLoading={submitting} />
+      <FormActions submitLabel={mode === 'create' ? 'Utwórz użytkownika' : 'Zapisz zmiany'} onCancel={onCancel} isLoading={submitting} />
     </form>
   );
 }

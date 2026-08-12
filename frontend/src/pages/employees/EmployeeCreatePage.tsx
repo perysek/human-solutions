@@ -7,7 +7,7 @@ export function EmployeeCreatePage() {
   return (
     <div className="refined-page">
       <PageHeader title="Nowy pracownik" subtitle="Dodaj pracownika do kadry salonu" />
-      <EmployeeForm mode="create" onSaved={(id) => navigate(`/employees/${id}`)} />
+      <EmployeeForm mode="create" onSaved={(id) => navigate(`/employees/${id}`)} onCancel={() => navigate('/employees')} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ export function UserCreatePage() {
   return (
     <div className="refined-page">
       <PageHeader title="Nowy użytkownik" subtitle="Utwórz konto logowania" />
-      <UserForm mode="create" onSaved={(id) => navigate(`/users/${id}`)} />
+      <UserForm mode="create" onSaved={(id) => navigate(`/users/${id}`)} onCancel={() => navigate('/users')} />
     </div>
   );
 }

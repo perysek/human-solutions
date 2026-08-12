@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons/Icon';
+import { useEscapeClaim } from '@/lib/a11y/useEscapeClaim';
 
 export interface FilterOption {
   value: string;
@@ -25,6 +26,7 @@ export function ColumnFilterDropdown({ columnLabel, options, selected, onChange 
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const isFiltered = selected.size < options.length;
+  useEscapeClaim(open);
 
   useEffect(() => {
     if (!open) return;

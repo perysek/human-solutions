@@ -19,7 +19,7 @@ export function RoleEditPage() {
       ) : error || !role ? (
         <EmptyState icon="error" title="Nie znaleziono roli" message={error ?? undefined} />
       ) : (
-        <RoleForm mode="edit" initial={role} onSaved={(savedId) => navigate(`/roles/${savedId}`)} />
+        <RoleForm mode="edit" initial={role} onSaved={(savedId) => navigate(`/roles/${savedId}`)} onCancel={() => navigate('/roles')} />
       )}
     </div>
   );

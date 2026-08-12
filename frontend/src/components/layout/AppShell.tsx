@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 
@@ -22,7 +22,23 @@ function pageTitleFor(pathname: string): string {
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const isFirstRender = useRef(true);
   const location = useLocation();
+
+  // SPA route-change focus management: a client-side navigation never fires
+  // a browser "page load", so screen readers get no signal anything
+  // happened unless focus visibly moves. Moving it to the main landmark on
+  // every navigation (skipping the very first mount, where the browser's
+  // own initial-focus behavior is already correct) is the standard fix —
+  // same pattern React Router's own accessibility guidance recommends.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    mainRef.current?.focus();
+  }, [location.pathname]);
 
   return (
     <div className="flex h-full">
@@ -63,7 +79,7 @@ export function AppShell() {
             pages own their scrolling (.refined-page scrolls itself if tall;
             list pages instead let their table-shell's row area scroll,
             keeping the page header/search bar fixed in view). */}
-        <main className="flex-1 min-h-0 overflow-hidden p-0" id="main-content">
+        <main ref={mainRef} className="flex-1 min-h-0 overflow-hidden p-0" id="main-content" tabIndex={-1} style={{ outline: 'none' }}>
           <Outlet />
         </main>
 

@@ -7,7 +7,7 @@ export function RoleCreatePage() {
   return (
     <div className="refined-page">
       <PageHeader title="Nowa rola" subtitle="Zdefiniuj poziom dostępu" />
-      <RoleForm mode="create" onSaved={(id) => navigate(`/roles/${id}`)} />
+      <RoleForm mode="create" onSaved={(id) => navigate(`/roles/${id}`)} onCancel={() => navigate('/roles')} />
     </div>
   );
 }
