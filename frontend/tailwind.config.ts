@@ -10,7 +10,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Geist Variable', 'system-ui', 'sans-serif'],
       },
       colors: {
         primary: {

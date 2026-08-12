@@ -67,7 +67,10 @@ export function AppShell() {
             </svg>
           </button>
           <div className="lg:hidden flex items-center gap-2 min-w-0">
-            <img src="/logo.webp" alt="" className="h-6 w-auto object-contain" aria-hidden="true" />
+            {/* logo-inline.webp is a purpose-built small export (494x143),
+                not the 3290x956 hero master downscaled 40x — the previous
+                aliasing culprit at this size. */}
+            <img src="/logo-inline.webp" alt="" className="h-7 w-auto object-contain" aria-hidden="true" />
             <span className="truncate text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               {pageTitleFor(location.pathname)}
             </span>

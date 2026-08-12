@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
@@ -56,9 +57,7 @@ export function RolesListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <div className="empty-state">
-            <p className="empty-text">Ładowanie…</p>
-          </div>
+          <TableSkeleton cols={4} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : roles.length === 0 ? (
@@ -76,7 +75,7 @@ export function RolesListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {roles.map((r) => (
+                  {roles.map((r, i) => (
                     <tr
                       key={r.id}
                       onClick={() => goToView(r)}
@@ -84,7 +83,7 @@ export function RolesListPage() {
                         if (e.key === 'Enter') goToView(r);
                       }}
                       tabIndex={0}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: 'pointer', animationDelay: `${Math.min(i, 7) * 30}ms` }}
                       aria-label={`Zobacz rolę ${r.display_name}`}
                     >
                       <td>{r.display_name}</td>

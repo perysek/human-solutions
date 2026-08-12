@@ -38,7 +38,10 @@ export function RoleViewPage() {
       ) : error || !role ? (
         <EmptyState icon="error" title="Nie znaleziono roli" message={error ?? undefined} />
       ) : (
-        <RolePermissionMatrix value={role.permissions_detail} readOnly />
+        <div className="form-card">
+          <h2 className="form-legend">Uprawnienia modułowe</h2>
+          <RolePermissionMatrix value={role.permissions_detail} readOnly />
+        </div>
       )}
     </div>
   );

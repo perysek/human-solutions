@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'brand';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -12,6 +12,7 @@ const VARIANT_CLASS: Record<Variant, string> = {
   secondary: 'refined-btn-secondary',
   ghost: 'refined-btn-ghost',
   danger: 'refined-btn-danger',
+  brand: 'refined-btn-brand',
 };
 
 /** Flat/refined button — the canonical variants from input.css §Buttons. */

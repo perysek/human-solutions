@@ -76,12 +76,12 @@ export function UserForm({ mode, initial, onSaved, onCancel }: UserFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" style={{ maxWidth: '40rem' }}>
+    <form onSubmit={handleSubmit} className="form-shell space-y-3">
       {error && <div className="flash-message flash-error">{error}</div>}
 
       <FormSection title="Dane konta">
-        <TextField label="Imię i nazwisko" name="full_name" value={fullName} onChange={(e) => setFullName(e.target.value)} required fullWidth />
-        <TextField label="Email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
+        <TextField label="Imię i nazwisko" name="full_name" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+        <TextField label="Email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <SelectField
           label="Rola"
           name="role"
@@ -103,6 +103,7 @@ export function UserForm({ mode, initial, onSaved, onCancel }: UserFormProps) {
           label={mode === 'create' ? 'Hasło' : 'Nowe hasło (opcjonalnie)'}
           name="password"
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required={mode === 'create'}

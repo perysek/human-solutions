@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { Icon } from '@/lib/icons/Icon';
@@ -112,9 +113,7 @@ export function UsersListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <div className="empty-state">
-            <p className="empty-text">Ładowanie…</p>
-          </div>
+          <TableSkeleton cols={6} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : sorted.length === 0 ? (
@@ -145,7 +144,7 @@ export function UsersListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((u) => (
+                  {sorted.map((u, i) => (
                     <tr
                       key={u.id}
                       onClick={() => goToView(u)}
@@ -153,7 +152,7 @@ export function UsersListPage() {
                         if (e.key === 'Enter') goToView(u);
                       }}
                       tabIndex={0}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: 'pointer', animationDelay: `${Math.min(i, 7) * 30}ms` }}
                       aria-label={`Zobacz użytkownika ${u.full_name}`}
                     >
                       <td>{u.full_name}</td>

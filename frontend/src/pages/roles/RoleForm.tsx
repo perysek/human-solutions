@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { FormActions, FormSection, TextField } from '@/components/ui/form';
+import { FormActions, FormCard, FormFieldset, TextField } from '@/components/ui/form';
 import { ALL_MODULES, rolesApi, type ModuleFlags, type RoleListItem } from '@/lib/api/roles';
 import { RolePermissionMatrix } from './RolePermissionMatrix';
 import { useToast } from '@/lib/feedback/ToastProvider';
@@ -58,29 +58,29 @@ export function RoleForm({ mode, initial, onSaved, onCancel }: RoleFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" style={{ maxWidth: '40rem' }}>
+    <form onSubmit={handleSubmit} className="form-shell space-y-3">
       {error && <div className="flash-message flash-error">{error}</div>}
 
-      <FormSection title="Dane roli">
-        {mode === 'create' && (
-          <TextField
-            label="Identyfikator (kod)"
-            name="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            helper="Wewnętrzna nazwa, bez spacji — np. koordynator"
-          />
-        )}
-        <TextField label="Wyświetlana nazwa" name="display_name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required fullWidth={mode === 'edit'} />
-      </FormSection>
+      <FormCard>
+        <FormFieldset title="Dane roli">
+          {mode === 'create' && (
+            <TextField
+              label="Identyfikator (kod)"
+              name="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              helper="Wewnętrzna nazwa, bez spacji — np. koordynator"
+            />
+          )}
+          <TextField label="Wyświetlana nazwa" name="display_name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required fullWidth={mode === 'edit'} />
+        </FormFieldset>
 
-      <div>
-        <h2 className="text-base font-semibold mb-3" style={{ color: 'var(--color-ink)' }}>
-          Uprawnienia modułowe
-        </h2>
-        <RolePermissionMatrix value={permissions} onChange={togglePermission} />
-      </div>
+        <fieldset className="form-fieldset">
+          <legend className="form-legend">Uprawnienia modułowe</legend>
+          <RolePermissionMatrix value={permissions} onChange={togglePermission} />
+        </fieldset>
+      </FormCard>
 
       <FormActions submitLabel={mode === 'create' ? 'Utwórz rolę' : 'Zapisz zmiany'} onCancel={onCancel} isLoading={submitting} />
     </form>

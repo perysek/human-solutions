@@ -75,9 +75,40 @@
 .refined-btn-primary:hover {
   background: var(--color-ink-muted);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 .refined-btn-primary:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Brand CTA — gold gradient, used sparingly at high-value brand touchpoints
+   (e.g. the login submit button), not as a general "primary" replacement. */
+.refined-btn-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-ink);
+  background: linear-gradient(135deg, #d9b23c 0%, var(--color-accent) 45%, var(--color-accent-deep) 100%);
+  border: 1px solid var(--color-accent-deep);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--shadow-sm);
+  transition: all 0.25s var(--ease-out-expo);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.refined-btn-brand:hover {
+  background: linear-gradient(135deg, #e0ba3f 0%, #d9b23c 45%, var(--color-accent) 100%);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), var(--shadow-md);
+}
+.refined-btn-brand:disabled {
   opacity: 0.6;
   pointer-events: none;
 }
@@ -188,12 +219,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
 .page-header .page-title {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 .page-header-actions {
   display: flex;
@@ -212,7 +243,7 @@
   border: 1px solid var(--color-border);
   border-radius: 2px;
   padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -228,18 +259,18 @@
 .stat-icon.blue { background: rgba(59, 130, 246, 0.08); color: var(--color-status-scheduled); }
 .stat-icon.green { background: rgba(45, 106, 79, 0.08); color: var(--color-success); }
 .stat-icon.purple { background: rgba(147, 51, 234, 0.08); color: var(--color-purple); }
-.stat-icon.orange { background: rgba(234, 88, 12, 0.08); color: #c2410c; }
+.stat-icon.orange { background: var(--color-orange-bg); color: var(--color-orange); }
 .stat-value.blue { color: var(--color-status-scheduled); }
 .stat-value.green { color: var(--color-success); }
 .stat-value.purple { color: var(--color-purple); }
-.stat-value.orange { color: #c2410c; }
+.stat-value.orange { color: var(--color-orange); }
 
 .search-card {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: 2px;
   padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
   margin-bottom: 1.5rem;
 }
 .search-wrapper {
@@ -264,7 +295,7 @@
 .search-card .refined-input:focus {
   outline: none;
   border-color: var(--color-ink-muted);
-  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.04);
+  box-shadow: var(--shadow-focus);
 }
 .search-input-wrap {
   position: relative;
@@ -323,7 +354,7 @@
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: 2px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -383,9 +414,19 @@
   border-bottom: 1px solid var(--color-border-subtle);
   vertical-align: middle;
 }
-.refined-table tbody tr { transition: background-color 0.2s ease; }
+.refined-table tbody tr {
+  transition: background-color 0.2s ease;
+  animation: row-enter 0.2s var(--ease-out-quart) both;
+}
 .refined-table tbody tr:hover { background: var(--color-surface); }
 .refined-table tbody tr:last-child td { border-bottom: none; }
+@keyframes row-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .refined-table tbody tr { animation: none; }
+}
 
 .th-sortable { cursor: pointer; user-select: none; transition: color 0.2s ease; }
 .th-sortable:hover { color: var(--color-ink); }
@@ -427,7 +468,7 @@
   position: absolute; top: 100%; left: 0; margin-top: 0.375rem; z-index: 20;
   min-width: 11rem; padding: 0.375rem;
   background: var(--color-surface-elevated); border: 1px solid var(--color-border);
-  border-radius: var(--radius-md); box-shadow: 0 6px 20px rgba(0,0,0,.14), 0 1px 4px rgba(0,0,0,.06);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
   text-transform: none; letter-spacing: normal; font-weight: 400;
 }
 .col-filter-actions {
@@ -461,7 +502,7 @@
   border-radius: 1px;
 }
 .status-badge.active { background: rgba(45, 106, 79, 0.08); color: var(--color-success); }
-.status-badge.on-leave { background: rgba(234, 88, 12, 0.08); color: #c2410c; }
+.status-badge.on-leave { background: var(--color-orange-bg); color: var(--color-orange); }
 .status-badge.terminated { background: rgba(155, 44, 44, 0.08); color: var(--color-error); }
 .status-badge.inactive { background: rgba(107, 114, 128, 0.08); color: var(--color-ink-muted); }
 
@@ -544,7 +585,7 @@
 .form-input::placeholder, .form-textarea::placeholder { color: var(--color-ink-subtle); }
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--color-ink-muted);
-  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.04);
+  box-shadow: var(--shadow-focus);
 }
 .form-input:disabled, .form-input[readonly] { background: var(--color-surface); cursor: not-allowed; }
 .form-select { appearance: none; cursor: pointer; padding-right: 2.5rem; }
@@ -552,9 +593,103 @@
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 1rem 1.125rem;
+  box-shadow: var(--shadow-sm);
 }
+
+/* Form pages sit at the top of .refined-page's own width — unlike the
+   40-48rem caps this replaced, .form-shell only bounds the form on very
+   wide monitors so inputs don't stretch to unreadable widths; on normal
+   desktop viewports it uses the full width .page-header already uses,
+   which is what lets .form-grid below fit more fields per row instead of
+   stacking them. */
+.form-shell { width: 100%; max-width: 80rem; }
+
+/* Auto-fit (not a fixed column count, and not auto-fill): each field
+   claims a column only while there's >=220px of room for it, so the same
+   markup goes from one column on a narrow viewport to four or five on a
+   wide one with no breakpoints to maintain. auto-fit (rather than
+   auto-fill) matters specifically for short groups like "Kontakt" (2
+   fields): auto-fill would reserve the extra columns the row *could* hold
+   even though nothing is placed in them, leaving visible dead space next
+   to the 2 real fields; auto-fit collapses those unused tracks so the
+   real fields share the row's full width instead. */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 0.875rem;
+}
+.form-field-full { grid-column: 1 / -1; }
+
+/* Groups multiple field clusters inside one .form-card (fieldset per
+   topic) instead of one card per topic — cuts the repeated card
+   padding/border/shadow that was the single biggest source of wasted
+   vertical space on the employee form's three-card layout. */
+.form-fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
+.form-fieldset + .form-fieldset {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.form-legend {
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-muted);
+  margin-bottom: 0.75rem;
+}
+.form-fieldset-description {
+  font-size: 0.8125rem;
+  color: var(--color-ink-muted);
+  margin-top: -0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Permission matrix — a grid of checkbox tiles instead of an 11-row,
+   single-column table. Each tile is a native <label> wrapping its
+   checkbox, so the whole tile is the click/tap target (44px+) and no
+   aria-label duplication of the visible text is needed. */
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+.permission-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  min-height: 44px;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease-out;
+}
+.permission-tile:hover { border-color: var(--color-ink-muted); background: var(--color-surface); }
+.permission-tile:active { transform: scale(0.98); }
+.permission-tile:has(:focus-visible) { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.permission-tile:has(input:checked) {
+  border-color: var(--color-accent-deep);
+  background: var(--color-accent-muted);
+  animation: tile-check-pop 0.2s var(--ease-out-quart);
+}
+.permission-tile:has(input:disabled) { cursor: not-allowed; opacity: 0.65; }
+@keyframes tile-check-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .permission-tile { transition: border-color 0.15s ease, background 0.15s ease; }
+  .permission-tile:active { transform: none; }
+  .permission-tile:has(input:checked) { animation: none; }
+}
+.permission-tile input { accent-color: var(--color-accent); flex-shrink: 0; width: 1rem; height: 1rem; }
 .form-btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 0.625rem 1.25rem; font-size: 0.875rem; font-weight: 500;
@@ -562,7 +697,7 @@
   border-radius: var(--radius-sm); cursor: pointer;
   transition: all 0.25s var(--ease-out-expo); text-decoration: none;
 }
-.form-btn-primary:hover { background: var(--color-ink-muted); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+.form-btn-primary:hover { background: var(--color-ink-muted); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .form-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 .form-btn-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
@@ -598,7 +733,7 @@
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-xl);
   animation: modal-content-in 0.25s var(--ease-out-expo) forwards;
 }
 @keyframes modal-content-in {
@@ -628,7 +763,7 @@
   color: var(--color-on-ink); background: var(--color-ink); border: none;
   border-radius: var(--radius-sm); cursor: pointer; transition: all 0.25s var(--ease-out-expo);
 }
-.modal-footer .btn-primary:hover { background: var(--color-ink-muted); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transform: translateY(-1px); }
+.modal-footer .btn-primary:hover { background: var(--color-ink-muted); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .modal-footer .btn-secondary {
   padding: 0.625rem 1.25rem; font-size: 0.8125rem; font-weight: 500;
   color: var(--color-ink-muted); background: var(--color-surface-elevated);
@@ -661,7 +796,7 @@
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: 3px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-xl);
   max-width: 26rem; width: 100%;
   transform: translateY(8px) scale(0.98);
   opacity: 0;
@@ -718,6 +853,9 @@
   animation: shimmer 1.5s ease-in-out infinite;
 }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background: var(--color-border-subtle); }
+}
 
 .animate-fade-up { animation: fade-up 0.4s ease-out forwards; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -741,14 +879,20 @@
 .stagger-item:nth-child(10) { animation-delay: 0.20s; }
 
 .hover-lift { transition: transform 200ms ease-out, box-shadow 200ms ease-out; }
-.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05); }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 
 .fade-in { animation: fadeIn 0.4s var(--ease-out-expo) forwards; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ============================================
-   SIDEBAR — token-driven, warm-light + gold active pill
+   SIDEBAR — token-driven, dark espresso + gold active pill
    ============================================ */
+.avatar-gradient {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-deep) 100%);
+  color: var(--color-on-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
 .sidebar-link--default { color: var(--sidebar-text); }
 .sidebar-link--default:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-text-hover); }
 
@@ -777,10 +921,21 @@
 @keyframes sidebar-vt-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sidebar-vt-out { from { opacity: 1; } to { opacity: 0; } }
 
+/* Route content cross-fade — same view-transition pass as the sidebar pill
+   above, so a page navigation doesn't hard-cut while the active link glides. */
+#main-content { view-transition-name: main-content; }
+::view-transition-new(main-content) { animation: sidebar-vt-in 0.2s var(--ease-out-expo) both; }
+::view-transition-old(main-content) { animation: sidebar-vt-out 0.15s ease-in both; }
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar-link--active,
   .sidebar-link--active::before {
     animation: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
 
@@ -791,7 +946,7 @@
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 6px 20px rgba(0,0,0,.14), 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: var(--shadow-lg);
   z-index: 50;
 }
 .theme-menu-item {
@@ -818,6 +973,50 @@
   .sidebar-nav .sidebar-link { min-height: 40px !important; padding-top: 0.375rem !important; padding-bottom: 0.375rem !important; }
 }
 
+/* Mobile drawer motion — aside stays mounted at all times (off-canvas via
+   transform, not display:none) so opening/closing can animate instead of
+   snapping. Desktop (>=lg) overrides both to a static, always-visible
+   panel. Backdrop reuses the .is-open opacity-toggle idiom already
+   established by #confirm-modal-backdrop. */
+.sidebar-drawer {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  transform: translateX(-100%);
+  visibility: hidden;
+  /* visibility flips to hidden only after the slide-out finishes, so the
+     drawer stays paintable (and out of the tab order the instant it starts
+     closing — visibility:hidden pulls a subtree from both immediately). */
+  transition: transform 0.3s var(--ease-out-quart), visibility 0s linear 0.3s;
+}
+.sidebar-drawer.is-open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.3s var(--ease-out-quart), visibility 0s linear 0s;
+}
+@media (min-width: 1024px) {
+  .sidebar-drawer {
+    position: static;
+    transform: none;
+    visibility: visible;
+    transition: none;
+  }
+}
+
+.sidebar-backdrop {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease-out;
+}
+.sidebar-backdrop.is-open { opacity: 1; pointer-events: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-drawer { transition: none; }
+  .sidebar-backdrop { transition: none; }
+}
+
 /* ============================================
    AUTH PAGES (login/profile "refined" card language)
    ============================================ */
@@ -825,7 +1024,7 @@
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: 2px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm);
 }
 .refined-input {
   width: 100%; padding: 0.625rem 1rem;
@@ -835,7 +1034,7 @@
   transition: all 0.3s var(--ease-out-expo);
 }
 .refined-input::placeholder { color: var(--color-ink-subtle); }
-.refined-input:focus { outline: none; border-color: var(--color-ink-muted); box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.04); }
+.refined-input:focus { outline: none; border-color: var(--color-ink-muted); box-shadow: var(--shadow-focus); }
 .refined-label {
   display: block; font-size: 0.75rem; font-weight: 500; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--color-ink-subtle); margin-bottom: 0.5rem;
@@ -865,7 +1064,7 @@
 .badge-purple { background: rgba(147, 51, 234, 0.08); color: var(--color-purple); }
 .badge-blue { background: rgba(37, 99, 235, 0.08); color: var(--color-chart-blue-dark); }
 .badge-green { background: rgba(45, 106, 79, 0.08); color: var(--color-success); }
-.badge-pink { background: rgba(236, 72, 153, 0.08); color: #be185d; }
+.badge-pink { background: var(--color-pink-bg); color: var(--color-pink); }
 .badge-red { background: rgba(155, 44, 44, 0.08); color: var(--color-error); }
 .badge-gray { background: rgba(107, 114, 128, 0.08); color: var(--color-ink-muted); }
 

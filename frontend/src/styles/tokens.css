@@ -13,8 +13,8 @@
 
   /* Surfaces */
   --color-surface: #fafafa;
-  --color-surface-warm: #f7f6f3;
-  --color-surface-elevated: #ffffff;
+  --color-surface-warm: #f2f0ea;
+  --color-surface-elevated: #fdfcfa;
 
   /* Borders */
   --color-border: #e8e6e1;
@@ -28,8 +28,18 @@
   --color-accent: #c9a227;
   --color-accent-muted: rgba(201, 162, 39, 0.12);
   --color-accent-deep: #a07d1a;
-  --color-on-accent: #ffffff;
+  --color-on-accent: var(--color-ink);
   --color-on-ink: #ffffff;
+
+  /* Elevation — warm ink-brown tint (26,20,12) instead of pure black,
+     dual-layer "contact + ambient" shadows for a richer, premium depth */
+  --shadow-xs: 0 1px 1px rgba(26, 20, 12, 0.04);
+  --shadow-sm: 0 1px 2px rgba(26, 20, 12, 0.05), 0 2px 4px rgba(26, 20, 12, 0.04);
+  --shadow-md: 0 2px 4px rgba(26, 20, 12, 0.06), 0 8px 16px rgba(26, 20, 12, 0.10);
+  --shadow-lg: 0 4px 8px rgba(26, 20, 12, 0.08), 0 12px 28px rgba(26, 20, 12, 0.14);
+  --shadow-xl: 0 6px 12px rgba(26, 20, 12, 0.10), 0 24px 48px rgba(26, 20, 12, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(26, 20, 12, 0.05);
+  --shadow-sidebar: 4px 0 16px rgba(26, 20, 12, 0.14), 1px 0 2px rgba(26, 20, 12, 0.08);
 
   /* Functional accent (focus rings, links, primary actions) — kept constant
      across every theme; it is a functional signal, not brand decoration. */
@@ -45,28 +55,32 @@
   --color-purple: #7e22ce;
   --color-purple-bg: #f5f3ff;
   --color-purple-badge: rgba(126, 34, 206, 0.15);
+  --color-orange: #c2410c;
+  --color-orange-bg: rgba(234, 88, 12, 0.08);
+  --color-pink: #be185d;
+  --color-pink-bg: rgba(236, 72, 153, 0.08);
 
   /* Typography */
-  --font-display: 'Inter', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Geist Variable', system-ui, sans-serif;
+  --font-body: 'Geist Variable', system-ui, sans-serif;
 
   /* Status — kept constant across every theme (categorical data semantics) */
   --color-status-scheduled: #2563eb;
   --color-status-scheduled-bg: #eff6ff;
-  --color-status-scheduled-badge: rgba(59, 130, 246, 0.15);
+  --color-status-scheduled-badge: rgba(59, 130, 246, 0.08);
   --color-status-confirmed: #059669;
   --color-status-confirmed-dark: #047857;
   --color-status-confirmed-bg: #ecfdf5;
-  --color-status-confirmed-badge: rgba(16, 185, 129, 0.15);
+  --color-status-confirmed-badge: rgba(16, 185, 129, 0.08);
   --color-status-in-progress: #d97706;
   --color-status-in-progress-bg: #fffbeb;
-  --color-status-in-progress-badge: rgba(245, 158, 11, 0.15);
+  --color-status-in-progress-badge: rgba(245, 158, 11, 0.08);
   --color-status-completed: #2d6a4f;
   --color-status-completed-bg: #f0fdf4;
   --color-status-cancelled: #dc2626;
   --color-status-cancelled-dark: #b91c1c;
   --color-status-cancelled-bg: #fef2f2;
-  --color-status-cancelled-badge: rgba(220, 38, 38, 0.15);
+  --color-status-cancelled-badge: rgba(220, 38, 38, 0.08);
   --color-status-no-show: #6b7280;
   --color-chart-blue-dark: #1d4ed8;
 
@@ -96,17 +110,20 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
-  /* Sidebar — warm light theme (a shade darker than the app surface) */
-  --sidebar-bg: #dedad3;
-  --sidebar-bg-deep: #d2cec6;
-  --sidebar-text: #525252;
-  --sidebar-text-hover: #1a1a1a;
-  --sidebar-text-active: #1a1a1a;
-  --sidebar-heading: #595959;
-  --sidebar-border: #ccc7be;
-  --sidebar-hover-bg: #e6e2db;
-  --sidebar-active-bg: var(--color-accent-muted);
-  --sidebar-active-border: var(--color-accent);
+  /* Sidebar — dark espresso theme, gold-on-dark for a boutique/private-banking feel */
+  --sidebar-bg: #241f1a;
+  --sidebar-bg-deep: #1c1712;
+  --sidebar-text: #b3a99c;
+  --sidebar-text-hover: #f5efe3;
+  --sidebar-text-active: #f5efe3;
+  --sidebar-heading: #948a7c;
+  --sidebar-border: #3a332a;
+  --sidebar-hover-bg: #312c28;
+  --sidebar-active-bg: rgba(217, 178, 60, 0.16);
+  --sidebar-active-border: #d9b23c;
+  /* Dark sidebar needs the dark-ink logo wordmark inverted to read; light-family
+     themes below reset this to none since their sidebar stays light. */
+  --sidebar-logo-filter: brightness(0) invert(1);
 }
 
 /* ── Theme system ──────────────────────────────────────────────────
@@ -144,6 +161,7 @@
   --sidebar-hover-bg: #e5edf7;
   --sidebar-active-bg: var(--color-accent-muted);
   --sidebar-active-border: var(--color-accent);
+  --sidebar-logo-filter: none;
 }
 
 [data-theme='green'] {
@@ -173,6 +191,7 @@
   --sidebar-hover-bg: #e3efdf;
   --sidebar-active-bg: var(--color-accent-muted);
   --sidebar-active-border: var(--color-accent);
+  --sidebar-logo-filter: none;
 }
 
 [data-theme='graphite'] {
@@ -202,4 +221,5 @@
   --sidebar-hover-bg: #e8e8eb;
   --sidebar-active-bg: var(--color-accent-muted);
   --sidebar-active-border: var(--color-accent);
+  --sidebar-logo-filter: none;
 }

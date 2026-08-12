@@ -51,10 +51,21 @@ export function LoginPage() {
           <img
             src="/logo.webp"
             alt="MyWay Nails &amp; Beauty"
-            style={{ display: 'block', width: '100%', maxWidth: 220, height: 'auto', objectFit: 'contain', margin: '0 auto 1.5rem' }}
+            style={{ display: 'block', width: '100%', maxWidth: 200, height: 'auto', objectFit: 'contain', margin: '0 auto 0.75rem' }}
           />
-          <h1 className="refined-title">Beauty Salon</h1>
-          <p className="refined-subtitle">Management System</p>
+          {/* Single tracked caption instead of the previous large sans-serif
+              "Beauty Salon" heading, which clashed with the serif logo above
+              it — now matches the sidebar's own logo+caption treatment. */}
+          <p
+            className="text-[13px] tracking-widest uppercase text-center"
+            style={{ color: 'var(--color-ink-subtle)' }}
+          >
+            Beauty Salon Management
+          </p>
+          <div
+            aria-hidden="true"
+            style={{ width: '2.5rem', height: '2px', background: 'linear-gradient(90deg, var(--color-accent-deep), var(--color-accent))', margin: '0.75rem auto 0' }}
+          />
         </div>
 
         {error && <div className="flash-message flash-error">{error}</div>}
@@ -108,7 +119,7 @@ export function LoginPage() {
             </label>
           </div>
 
-          <button type="submit" className="refined-btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
+          <button type="submit" className="refined-btn-brand" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
             {submitting ? 'Logowanie…' : 'Zaloguj się'}
           </button>
         </form>

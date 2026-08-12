@@ -22,7 +22,7 @@ interface FieldWrapperProps {
 
 function FieldWrapper({ label, htmlFor, required, error, helper, fullWidth, children }: FieldWrapperProps) {
   return (
-    <div className={fullWidth ? 'md:col-span-2' : undefined}>
+    <div className={fullWidth ? 'form-field-full' : undefined}>
       <label htmlFor={htmlFor} className="form-label">
         {label}
         {required && (
@@ -124,19 +124,37 @@ export function CheckboxField({ name, label, description, ...rest }: CheckboxFie
   );
 }
 
+/** Card shell for one or more FormFieldset groups. Kept separate from
+ * FormFieldset so multi-topic forms (see EmployeeForm) can put several
+ * fieldsets — each a lighter divider, not a full card — inside a single
+ * card instead of paying full card padding/border/shadow per topic. */
+export function FormCard({ children }: { children: ReactNode }) {
+  return <div className="form-card animate-fade-up">{children}</div>;
+}
+
+/** One labeled group of fields, laid out in the auto-fill .form-grid.
+ * A real <fieldset>/<legend> pair — screen readers announce the group
+ * name before each field inside it, which a styled <h2> wouldn't do. */
+export function FormFieldset({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <fieldset className="form-fieldset">
+      <legend className="form-legend">{title}</legend>
+      {description && <p className="form-fieldset-description">{description}</p>}
+      <div className="form-grid">{children}</div>
+    </fieldset>
+  );
+}
+
+/** Single-topic convenience wrapper (RoleForm, UserForm): one card holding
+ * one fieldset. Forms with several topics compose FormCard + FormFieldset
+ * directly instead (see EmployeeForm) to share one card across topics. */
 export function FormSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <div className="form-card animate-fade-up">
-      <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--color-ink)' }}>
-        {title}
-      </h2>
-      {description && (
-        <p className="text-sm mb-4" style={{ color: 'var(--color-ink-muted)' }}>
-          {description}
-        </p>
-      )}
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
-    </div>
+    <FormCard>
+      <FormFieldset title={title} description={description}>
+        {children}
+      </FormFieldset>
+    </FormCard>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { FormActions, FormSection, TextField, SelectField, TextareaField } from '@/components/ui/form';
+import { FormActions, FormCard, FormFieldset, TextField, SelectField, TextareaField } from '@/components/ui/form';
 import { employeesApi, type EmployeeListItem, type EmployeePayload } from '@/lib/api/employees';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { ApiError } from '@/lib/api/client';
@@ -77,28 +77,30 @@ export function EmployeeForm({ mode, initial, onSaved, onCancel }: EmployeeFormP
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" style={{ maxWidth: '48rem' }}>
+    <form onSubmit={handleSubmit} className="form-shell space-y-3">
       {error && <div className="flash-message flash-error">{error}</div>}
 
-      <FormSection title="Dane podstawowe">
-        <TextField label="Imię" name="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-        <TextField label="Nazwisko" name="last_name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-        <TextField label="Stanowisko" name="position" value={position} onChange={(e) => setPosition(e.target.value)} />
-        <SelectField label="Status zatrudnienia" name="employment_status" value={status} onChange={(e) => setStatus(e.target.value)} options={STATUS_OPTIONS} required />
-      </FormSection>
+      <FormCard>
+        <FormFieldset title="Dane podstawowe">
+          <TextField label="Imię" name="first_name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+          <TextField label="Nazwisko" name="last_name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+          <TextField label="Stanowisko" name="position" value={position} onChange={(e) => setPosition(e.target.value)} />
+          <SelectField label="Status zatrudnienia" name="employment_status" value={status} onChange={(e) => setStatus(e.target.value)} options={STATUS_OPTIONS} required />
+        </FormFieldset>
 
-      <FormSection title="Kontakt">
-        <TextField label="Telefon" name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <TextField label="Email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </FormSection>
+        <FormFieldset title="Kontakt">
+          <TextField label="Telefon" name="phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <TextField label="Email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </FormFieldset>
 
-      <FormSection title="Zatrudnienie i wynagrodzenie">
-        <TextField label="Data zatrudnienia" name="hire_date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
-        <TextField label="Data zwolnienia" name="termination_date" type="date" value={terminationDate} onChange={(e) => setTerminationDate(e.target.value)} />
-        <TextField label="Wynagrodzenie podstawowe (zł)" name="base_salary" type="number" step="0.01" value={baseSalary} onChange={(e) => setBaseSalary(e.target.value)} />
-        <TextField label="Prowizja (%)" name="commission_rate" type="number" step="0.01" value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} />
-        <TextareaField label="Notatki" name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} fullWidth />
-      </FormSection>
+        <FormFieldset title="Zatrudnienie i wynagrodzenie">
+          <TextField label="Data zatrudnienia" name="hire_date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
+          <TextField label="Data zwolnienia" name="termination_date" type="date" value={terminationDate} onChange={(e) => setTerminationDate(e.target.value)} />
+          <TextField label="Wynagrodzenie podstawowe (zł)" name="base_salary" type="number" inputMode="decimal" step="0.01" value={baseSalary} onChange={(e) => setBaseSalary(e.target.value)} />
+          <TextField label="Prowizja (%)" name="commission_rate" type="number" inputMode="decimal" step="0.01" value={commissionRate} onChange={(e) => setCommissionRate(e.target.value)} />
+          <TextareaField label="Notatki" name="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} fullWidth />
+        </FormFieldset>
+      </FormCard>
 
       <FormActions submitLabel={mode === 'create' ? 'Utwórz pracownika' : 'Zapisz zmiany'} onCancel={onCancel} isLoading={submitting} />
     </form>

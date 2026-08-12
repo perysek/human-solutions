@@ -23,10 +23,10 @@ const TYPE_ICON: Record<ConfirmType, string> = {
   info: 'info',
 };
 
-const TYPE_TINT: Record<ConfirmType, string> = {
-  danger: 'bg-red-100 text-red-600',
-  warning: 'bg-amber-100 text-amber-600',
-  info: 'bg-blue-100 text-blue-600',
+const TYPE_TINT: Record<ConfirmType, { background: string; color: string }> = {
+  danger: { background: 'rgba(155, 44, 44, 0.08)', color: 'var(--color-error)' },
+  warning: { background: 'rgba(154, 103, 0, 0.08)', color: 'var(--color-warning)' },
+  info: { background: 'rgba(30, 96, 145, 0.08)', color: 'var(--color-info)' },
 };
 
 /**
@@ -88,7 +88,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             className="p-6"
           >
             <div className="flex items-start gap-3 mb-4">
-              <span className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${TYPE_TINT[type]}`}>
+              <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={TYPE_TINT[type]}>
                 <Icon name={TYPE_ICON[type]} size={22} />
               </span>
               <div>

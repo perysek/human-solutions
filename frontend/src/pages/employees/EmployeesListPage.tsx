@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { Icon } from '@/lib/icons/Icon';
@@ -109,9 +110,7 @@ export function EmployeesListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <div className="empty-state">
-            <p className="empty-text">Ładowanie…</p>
-          </div>
+          <TableSkeleton cols={6} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : sorted.length === 0 ? (
@@ -142,7 +141,7 @@ export function EmployeesListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((e) => (
+                  {sorted.map((e, i) => (
                     <tr
                       key={e.id}
                       onClick={() => goToView(e)}
@@ -150,7 +149,7 @@ export function EmployeesListPage() {
                         if (ev.key === 'Enter') goToView(e);
                       }}
                       tabIndex={0}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: 'pointer', animationDelay: `${Math.min(i, 7) * 30}ms` }}
                       aria-label={`Zobacz pracownika ${e.full_name}`}
                     >
                       <td>{e.full_name}</td>

@@ -72,14 +72,21 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
       <aside
         ref={asideRef}
         id="sidebar"
-        className={`w-[17rem] flex-col shadow-xl ${mobileOpen ? 'fixed inset-y-0 left-0 z-40 flex' : 'hidden lg:flex'}`}
-        style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)' }}
+        className={`sidebar-drawer w-[17rem] flex-col ${mobileOpen ? 'is-open' : ''}`}
+        style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)', boxShadow: 'var(--shadow-sidebar)' }}
       >
         <div
           className="px-4 py-2 flex flex-col items-center gap-1"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}
         >
-          <img src="/logo.webp" alt="MyWay Nails &amp; Beauty" className="w-full h-auto object-contain" />
+          {/* Deliberate clear space: a fixed width instead of w-full stretch,
+              so the mark doesn't crowd the sidebar's edges. */}
+          <img
+            src="/logo.webp"
+            alt="MyWay Nails &amp; Beauty"
+            className="w-[200px] max-w-full h-auto object-contain py-1"
+            style={{ filter: 'var(--sidebar-logo-filter)' }}
+          />
           <p className="text-[13px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
             Beauty Salon Management
           </p>
@@ -99,6 +106,7 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
                   key={link.to}
                   to={link.to}
                   end
+                  viewTransition
                   onClick={onCloseMobile}
                   className={({ isActive }) =>
                     `sidebar-link flex items-center gap-2.5 px-4 py-[0.425rem] min-h-[44px] lg:min-h-0 text-base font-medium transition-all duration-200 group rounded-[var(--radius-sm)] ${
@@ -119,17 +127,11 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
           style={{ borderTop: '1px solid var(--sidebar-border)', background: 'var(--sidebar-bg-deep)' }}
         >
           <div className="flex items-center gap-2">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shadow-lg"
-              style={{
-                background: 'linear-gradient(135deg, var(--color-accent), var(--color-accent-deep))',
-                color: 'var(--color-on-accent)',
-              }}
-            >
+            <div className="avatar-gradient w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shadow-lg">
               {user.fullName.slice(0, 2).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-medium truncate" style={{ color: 'var(--color-ink)' }}>
+              <p className="text-base font-medium truncate" style={{ color: 'var(--sidebar-text-active)' }}>
                 {user.fullName}
               </p>
               <p className="text-[13px]" style={{ color: 'var(--sidebar-text)' }}>
@@ -142,8 +144,8 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
               className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--radius-sm)] border border-transparent transition-all duration-200"
               style={{ color: 'var(--sidebar-text)' }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-error)';
-                e.currentTarget.style.background = 'var(--color-status-cancelled-bg)';
+                e.currentTarget.style.color = '#e0807f';
+                e.currentTarget.style.background = 'rgba(155, 44, 44, 0.18)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = 'var(--sidebar-text)';
@@ -166,13 +168,11 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
         </div>
       </aside>
 
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          aria-hidden="true"
-          onClick={onCloseMobile}
-        />
-      )}
+      <div
+        className={`sidebar-backdrop fixed inset-0 bg-black/50 z-30 lg:hidden ${mobileOpen ? 'is-open' : ''}`}
+        aria-hidden="true"
+        onClick={onCloseMobile}
+      />
     </>
   );
 }
