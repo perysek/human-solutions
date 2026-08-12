@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}Użytkownicy — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.refined-page { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+.refined-card { background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 2px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .refined-table { width: 100%; border-collapse: collapse; }
+    .refined-table th { padding: 0.625rem 1rem; text-align: left; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-ink-subtle); border-bottom: 1px solid var(--color-border); }
+    .refined-table td { padding: 0.875rem 1rem; font-size: 0.8125rem; border-bottom: 1px solid var(--color-border-subtle, var(--color-border-subtle)); vertical-align: middle; }
+    .refined-table tr:last-child td { border-bottom: none; }
+    .refined-table tr:hover td { background: var(--color-surface); }
+    .badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; border-radius: 2px; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.03em; }
+    .badge-active { background: var(--color-status-confirmed-bg); color: var(--color-success); }
+    .badge-inactive { background: var(--color-surface); color: var(--color-ink-subtle); }
+    .badge-role { background: var(--color-status-scheduled-bg); color: var(--color-chart-blue-dark); }
+    .badge-superuser { background: var(--color-status-in-progress-bg); color: var(--color-warning); }
+    .btn-primary { background: var(--color-ink); color: var(--color-on-ink); border: none; padding: 0.5rem 1rem; border-radius: 2px; font-size: 0.8125rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.375rem; text-decoration: none; transition: opacity 0.15s; }
+    .btn-primary:hover { opacity: 0.8; }
+    .btn-ghost { background: none; border: 1px solid var(--color-border); color: var(--color-ink-muted); padding: 0.375rem 0.75rem; border-radius: 2px; font-size: 0.75rem; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+    .btn-ghost:hover { border-color: var(--color-ink); color: var(--color-ink); }
+    .search-input { border: 1px solid var(--color-border); border-radius: 2px; padding: 0.5rem 0.75rem; font-size: 0.8125rem; background: var(--color-surface-elevated); color: var(--color-ink); outline: none; width: 240px; }
+    .search-input:focus { border-color: var(--color-ink); }
+    #loading-state, #empty-state { text-align: center; padding: 3rem; color: var(--color-ink-muted); font-size: 0.875rem; }
+    .btn-reset { background: none; border: 1px solid #fca5a5; color: var(--color-status-cancelled-dark); padding: 0.375rem 0.75rem; border-radius: 2px; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; margin-left: 0.375rem; }
+    .btn-reset:hover { background: var(--color-status-cancelled-bg); border-color: var(--color-status-cancelled-dark); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="refined-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Użytkownicy</h1>
+            <p class="page-subtitle">Zarządzanie kontami użytkowników systemu</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <input type="text" id="search-input" class="search-input" placeholder="Szukaj użytkownika..." autocomplete="off">
+            <a href="{{ url_for('users.create_user') }}" class="btn-primary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Nowy użytkownik
+            </a>
+        </div>
+    </div>
+
+    <div class="refined-card">
+        <div id="loading-state">Ładowanie...</div>
+        <div id="empty-state" style="display:none;">Brak użytkowników.</div>
+        <table class="refined-table stack-cards" id="users-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Imię i nazwisko</th>
+                    <th>Email</th>
+                    <th>Rola</th>
+                    <th>Pracownik</th>
+                    <th>Status</th>
+                    <th>Ostatnie logowanie</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+        </table>
+    </div>
+</div>
+
+{% if current_user.role == 'superuser' %}
+<!-- Reset Password Modal (superuser only) -->
+<!-- Look + motion via id-scoped CSS (no rebuild-dependent arbitrary Tailwind) — matches golden master appointments/list.html -->
+<style>
+    #reset-pw-backdrop {
+        background: rgba(0,0,0,0.35);
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        opacity: 0; transition: opacity 0.25s var(--ease-out-expo);
+    }
+    #reset-pw-backdrop.is-open { opacity: 1; }
+    #reset-pw-panel {
+        background: var(--color-surface-elevated);
+        border: 1px solid var(--color-border);
+        border-radius: 3px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        opacity: 0; transform: translateY(8px) scale(0.98);
+        transition: opacity 0.25s var(--ease-out-expo), transform 0.25s var(--ease-out-expo);
+    }
+    #reset-pw-panel.is-open { opacity: 1; transform: none; }
+</style>
+<div id="reset-pw-modal" class="fixed inset-0 z-[9999] hidden" role="dialog" aria-modal="true" aria-labelledby="reset-pw-modal-title">
+    <div class="absolute inset-0" id="reset-pw-backdrop" onclick="closeResetPwModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div class="relative max-w-md w-full pointer-events-auto" id="reset-pw-panel">
+
+            <!-- Header -->
+            <div style="padding: 1.5rem 1.5rem 1rem;">
+                <div class="flex items-start gap-4">
+                    <div class="flex items-center justify-center flex-shrink-0 text-brand-500"
+                         style="width: 2.5rem; height: 2.5rem; border-radius: 2px; background: var(--color-accent-muted);">
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 style="font-size: 1rem; font-weight: 600; color: var(--color-ink); line-height: 1.3;" id="reset-pw-modal-title">Resetuj hasło</h3>
+                        <p style="font-size: 0.8125rem; color: var(--color-ink-muted); margin-top: 0.125rem;" id="reset-pw-subtitle"></p>
+                    </div>
+                    <button type="button" onclick="closeResetPwModal()"
+                            title="Zamknij" aria-label="Zamknij"
+                            style="background: none; border: none; cursor: pointer; color: var(--color-ink-subtle); padding: 0.25rem; border-radius: 2px; line-height: 0; transition: color 0.15s;"
+                            onmouseover="this.style.color='var(--color-ink-muted)'" onmouseout="this.style.color='var(--color-ink-subtle)'">
+                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 0 1.5rem 1rem;">
+                <div id="reset-pw-error" class="hidden" style="margin-bottom: 0.75rem; padding: 0.625rem 0.75rem; background: var(--color-status-cancelled-bg); border: 1px solid #fecaca; border-radius: 2px; font-size: 0.8125rem; color: var(--color-error);"></div>
+                <div id="reset-pw-success" class="hidden" style="margin-bottom: 0.75rem; padding: 0.625rem 0.75rem; background: var(--color-status-completed-bg); border: 1px solid #bbf7d0; border-radius: 2px; font-size: 0.8125rem; color: var(--color-success);"></div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-ink-muted); margin-bottom: 0.375rem;" for="reset-pw-new">Nowe hasło</label>
+                    <input type="password" id="reset-pw-new" minlength="8" autocomplete="new-password"
+                           style="width: 100%; border: 1px solid var(--color-border); border-radius: 2px; padding: 0.625rem 0.75rem; font-size: 0.875rem; color: var(--color-ink); background: var(--color-surface-elevated); outline: none; box-sizing: border-box;"
+                           placeholder="Minimum 8 znaków"
+                           onfocus="this.style.borderColor='var(--color-ink)'" onblur="this.style.borderColor='var(--color-border)'">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-ink-muted); margin-bottom: 0.375rem;" for="reset-pw-confirm">Potwierdź hasło</label>
+                    <input type="password" id="reset-pw-confirm" autocomplete="new-password"
+                           style="width: 100%; border: 1px solid var(--color-border); border-radius: 2px; padding: 0.625rem 0.75rem; font-size: 0.875rem; color: var(--color-ink); background: var(--color-surface-elevated); outline: none; box-sizing: border-box;"
+                           placeholder="Powtórz nowe hasło"
+                           onfocus="this.style.borderColor='var(--color-ink)'" onblur="this.style.borderColor='var(--color-border)'">
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding: 0.875rem 1.5rem; display: flex; justify-content: flex-end; gap: 0.625rem; background: var(--color-surface-warm); border-top: 1px solid var(--color-border); border-radius: 0 0 2px 2px;">
+                <button type="button" onclick="closeResetPwModal()" class="btn-ghost">Anuluj</button>
+                <button type="button" id="reset-pw-submit" class="btn-primary">Zapisz hasło</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const isSuperuser = {{ 'true' if current_user.role == 'superuser' else 'false' }};
+    const currentUserId = {{ current_user.id }};
+    let allUsers = [];
+
+    async function loadUsers() {
+        try {
+            const resp = await fetch('{{ url_for("users.api_list") }}');
+            const data = await resp.json();
+            allUsers = data.users || [];
+            renderUsers(allUsers);
+        } catch(e) {
+            document.getElementById('loading-state').textContent = 'Błąd ładowania danych.';
+        }
+    }
+
+    function renderUsers(users) {
+        const loading = document.getElementById('loading-state');
+        const empty = document.getElementById('empty-state');
+        const table = document.getElementById('users-table');
+        const tbody = document.getElementById('users-body');
+
+        loading.style.display = 'none';
+        if (!users.length) {
+            empty.style.display = 'block';
+            table.style.display = 'none';
+            return;
+        }
+        empty.style.display = 'none';
+        table.style.display = 'table';
+
+        tbody.innerHTML = users.map(u => {
+            const roleBadgeClass = u.role === 'superuser' ? 'badge-superuser' : 'badge-role';
+            const statusBadge = u.is_active
+                ? '<span class="badge badge-active">Aktywny</span>'
+                : '<span class="badge badge-inactive">Nieaktywny</span>';
+            const lastLogin = u.last_login
+                ? new Date(u.last_login).toLocaleString('pl-PL', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+                : '—';
+            const employeeName = u.employee_name || '<span style="color:var(--color-ink-subtle)">—</span>';
+
+            const resetBtn = isSuperuser
+                ? `<button class="btn-reset" onclick="openResetPwModal(${u.id}, '${escapeHtml(u.full_name).replace(/'/g, "\\'")}')">Resetuj hasło</button>`
+                : '';
+
+            const isSelf = u.id === currentUserId;
+            const canDelete = !isSelf && (isSuperuser || u.role !== 'superuser');
+            const deleteBtn = canDelete
+                ? `<button title="Usuń użytkownika" aria-label="Usuń"
+                       onclick="deleteUser(${u.id}, '${escapeHtml(u.full_name).replace(/'/g, "\\'")}')"
+                       style="background:none;border:none;cursor:pointer;padding:0.25rem;
+                              border-radius:2px;color:var(--color-ink-subtle);line-height:0;
+                              transition:color 0.15s,background 0.15s;vertical-align:middle;"
+                       onmouseover="this.style.color='#c2410c';this.style.background='var(--color-status-cancelled-bg)'"
+                       onmouseout="this.style.color='var(--color-ink-subtle)';this.style.background='none'">
+                       <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                           <path stroke-linecap="round" stroke-linejoin="round"
+                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                       </svg>
+                   </button>`
+                : '';
+
+            return `<tr>
+                <td class="cell-name" style="font-weight:500">${escapeHtml(u.full_name)}</td>
+                <td data-label="Email" style="color:var(--color-ink-muted)">${escapeHtml(u.email)}</td>
+                <td data-label="Rola"><span class="badge ${roleBadgeClass}">${escapeHtml(u.role)}</span></td>
+                <td data-label="Pracownik">${employeeName}</td>
+                <td data-label="Status">${statusBadge}</td>
+                <td data-label="Ostatnie logowanie" style="color:var(--color-ink-muted)">${lastLogin}</td>
+                <td class="cell-actions" style="white-space:nowrap;">
+                    <a href="/system/users/${u.id}/edit" class="btn-ghost">Edytuj</a>
+                    ${resetBtn}
+                    ${deleteBtn}
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.getElementById('search-input').addEventListener('input', function() {
+        saveFilterState('users', ['search-input']);
+        const q = this.value.toLowerCase();
+        renderUsers(allUsers.filter(u =>
+            u.full_name.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q) ||
+            u.role.toLowerCase().includes(q)
+        ));
+    });
+
+    (async () => {
+        await loadUsers();
+        if (restoreFilterState('users', ['search-input'])) {
+            document.getElementById('search-input').dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    })();
+
+    const _savedMsg = sessionStorage.getItem('listNotification');
+    if (_savedMsg) {
+        sessionStorage.removeItem('listNotification');
+        setTimeout(() => Notifications.success(_savedMsg), 300);
+    }
+
+    // ─── Reset Password Modal ──────────────────────────────────────────────────
+    let resetPwTargetId = null;
+
+    function openResetPwModal(userId, userName) {
+        resetPwTargetId = userId;
+        document.getElementById('reset-pw-subtitle').textContent = userName;
+        document.getElementById('reset-pw-new').value = '';
+        document.getElementById('reset-pw-confirm').value = '';
+        document.getElementById('reset-pw-error').classList.add('hidden');
+        document.getElementById('reset-pw-success').classList.add('hidden');
+
+        const modal = document.getElementById('reset-pw-modal');
+        const backdrop = document.getElementById('reset-pw-backdrop');
+        const panel = document.getElementById('reset-pw-panel');
+
+        document.body.style.overflow = 'hidden';
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            backdrop.classList.add('is-open');
+            panel.classList.add('is-open');
+        });
+        setTimeout(() => document.getElementById('reset-pw-new').focus(), 100);
+    }
+
+    function closeResetPwModal() {
+        const modal = document.getElementById('reset-pw-modal');
+        const backdrop = document.getElementById('reset-pw-backdrop');
+        const panel = document.getElementById('reset-pw-panel');
+
+        backdrop.classList.remove('is-open');
+        panel.classList.remove('is-open');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+            resetPwTargetId = null;
+        }, 250);
+    }
+
+    document.getElementById('reset-pw-submit')?.addEventListener('click', async function() {
+        const newPw = document.getElementById('reset-pw-new').value;
+        const confirmPw = document.getElementById('reset-pw-confirm').value;
+        const errorEl = document.getElementById('reset-pw-error');
+        const successEl = document.getElementById('reset-pw-success');
+
+        errorEl.classList.add('hidden');
+        successEl.classList.add('hidden');
+
+        if (!newPw) {
+            errorEl.textContent = 'Podaj nowe hasło.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        if (newPw.length < 8) {
+            errorEl.textContent = 'Hasło musi mieć co najmniej 8 znaków.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+        if (newPw !== confirmPw) {
+            errorEl.textContent = 'Hasła nie pasują do siebie.';
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        this.disabled = true;
+        this.textContent = 'Zapisywanie...';
+        try {
+            const resp = await fetch(`/system/users/api/${resetPwTargetId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ new_password: newPw }),
+            });
+            const data = await resp.json();
+            if (data.success) {
+                successEl.textContent = 'Hasło zostało zmienione.';
+                successEl.classList.remove('hidden');
+                document.getElementById('reset-pw-new').value = '';
+                document.getElementById('reset-pw-confirm').value = '';
+                setTimeout(closeResetPwModal, 1200);
+            } else {
+                errorEl.textContent = data.error || 'Błąd zmiany hasła.';
+                errorEl.classList.remove('hidden');
+            }
+        } catch (e) {
+            errorEl.textContent = 'Błąd połączenia z serwerem.';
+            errorEl.classList.remove('hidden');
+        } finally {
+            this.disabled = false;
+            this.textContent = 'Zapisz hasło';
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('reset-pw-modal');
+            if (modal && !modal.classList.contains('hidden')) closeResetPwModal();
+        }
+    });
+
+    function deleteUser(userId, userName) {
+        Modals.confirm({
+            title: 'Kasujemy człowieka?',
+            message: `Skasować konto <strong>${escapeHtml(userName)}</strong>? Zniknie bez śladu, jak kawa o 15:00.`,
+            confirmText: 'Kasuj',
+            onConfirm: async () => {
+                try {
+                    const resp = await fetch(`/system/users/api/${userId}`, {
+                        method: 'DELETE',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        Notifications.success('Użytkownik wykasowany. Konto poszło w niebyt.');
+                        setTimeout(() => location.reload(), 700);
+                    } else {
+                        Notifications.error(data.error || 'Błąd usuwania użytkownika');
+                    }
+                } catch (e) {
+                    Notifications.error(MSG('error.server.unreachable'));
+                }
+            },
+        });
+    }
+</script>
+{% endblock %}

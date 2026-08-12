@@ -1,0 +1,83 @@
+/* Base layer — ported from input.css @layer base (minus Tailwind's own reset,
+   which @tailwind base already provides). */
+
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  background: var(--color-surface-warm);
+  font-family: var(--font-body);
+  color: var(--color-ink);
+}
+
+/* Global transitions — theme/token swaps animate instead of snapping */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* Keyboard-only focus ring (never fires for a mouse click) */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* iOS Safari input-zoom guard: any control under 16px makes mobile Safari
+   zoom on focus and never zoom back. Force >=16px at mobile widths. */
+@media (max-width: 1023px) {
+  input,
+  select,
+  textarea,
+  .ss-trigger,
+  .ss-search,
+  .refined-input {
+    font-size: 16px !important;
+  }
+}
+
+/* Utilities */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+.scroll-lock {
+  overflow: hidden;
+}

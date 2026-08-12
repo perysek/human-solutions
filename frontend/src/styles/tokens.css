@@ -1,0 +1,205 @@
+/*
+ * Design tokens — ported verbatim from the reference project's
+ * static/css/input.css (:root block + [data-theme] overrides).
+ * These are the GUI-GOLDEN-BOOK / STYLESEED.md "Design Lock" values.
+ * Do not hand-edit hex values in components — consume var(--token-name).
+ */
+
+:root {
+  /* Text / ink */
+  --color-ink: #1a1a1a;
+  --color-ink-muted: #525252;
+  --color-ink-subtle: #6b6b6b;
+
+  /* Surfaces */
+  --color-surface: #fafafa;
+  --color-surface-warm: #f7f6f3;
+  --color-surface-elevated: #ffffff;
+
+  /* Borders */
+  --color-border: #e8e6e1;
+  --color-border-subtle: #f0eeea;
+
+  /* Radii — flat/minimal system (System A), the one actually shipped */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+
+  /* Brand / accent (decorative gold) */
+  --color-accent: #c9a227;
+  --color-accent-muted: rgba(201, 162, 39, 0.12);
+  --color-accent-deep: #a07d1a;
+  --color-on-accent: #ffffff;
+  --color-on-ink: #ffffff;
+
+  /* Functional accent (focus rings, links, primary actions) — kept constant
+     across every theme; it is a functional signal, not brand decoration. */
+  --color-focus-ring: #2563eb;
+
+  /* Semantic */
+  --color-success: #2d6a4f;
+  --color-success-action: #10b981;
+  --color-success-action-dark: #059669;
+  --color-warning: #9a6700;
+  --color-error: #9b2c2c;
+  --color-info: #1e6091;
+  --color-purple: #7e22ce;
+  --color-purple-bg: #f5f3ff;
+  --color-purple-badge: rgba(126, 34, 206, 0.15);
+
+  /* Typography */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  /* Status — kept constant across every theme (categorical data semantics) */
+  --color-status-scheduled: #2563eb;
+  --color-status-scheduled-bg: #eff6ff;
+  --color-status-scheduled-badge: rgba(59, 130, 246, 0.15);
+  --color-status-confirmed: #059669;
+  --color-status-confirmed-dark: #047857;
+  --color-status-confirmed-bg: #ecfdf5;
+  --color-status-confirmed-badge: rgba(16, 185, 129, 0.15);
+  --color-status-in-progress: #d97706;
+  --color-status-in-progress-bg: #fffbeb;
+  --color-status-in-progress-badge: rgba(245, 158, 11, 0.15);
+  --color-status-completed: #2d6a4f;
+  --color-status-completed-bg: #f0fdf4;
+  --color-status-cancelled: #dc2626;
+  --color-status-cancelled-dark: #b91c1c;
+  --color-status-cancelled-bg: #fef2f2;
+  --color-status-cancelled-badge: rgba(220, 38, 38, 0.15);
+  --color-status-no-show: #6b7280;
+  --color-chart-blue-dark: #1d4ed8;
+
+  /* Info panel */
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-text: #1e40af;
+  --color-info-text-dark: #1e3a8a;
+
+  /* Chart palette */
+  --color-chart-blue: #2563eb;
+  --color-chart-green: #16a34a;
+  --color-chart-orange: #ea580c;
+  --color-chart-red: #ef4444;
+  --color-chart-purple: #7c3aed;
+  --color-chart-pink: #db2777;
+  --color-chart-teal: #14b8a6;
+  --color-chart-amber: #f59e0b;
+  --color-chart-slate: #64748b;
+  --color-chart-sky: #0ea5e9;
+
+  /* Star / rating */
+  --color-star-filled: #f59e0b;
+  --color-star-empty: #d1d5db;
+
+  /* Easing */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Sidebar — warm light theme (a shade darker than the app surface) */
+  --sidebar-bg: #dedad3;
+  --sidebar-bg-deep: #d2cec6;
+  --sidebar-text: #525252;
+  --sidebar-text-hover: #1a1a1a;
+  --sidebar-text-active: #1a1a1a;
+  --sidebar-heading: #595959;
+  --sidebar-border: #ccc7be;
+  --sidebar-hover-bg: #e6e2db;
+  --sidebar-active-bg: var(--color-accent-muted);
+  --sidebar-active-border: var(--color-accent);
+}
+
+/* ── Theme system ──────────────────────────────────────────────────
+   :root above IS the "light" theme (default, no [data-theme] attribute
+   needed). Overrides below apply for [data-theme="…"] on <html>, set by
+   src/lib/theme/ThemeSwitcher + the no-FOUC inline script in index.html.
+   All four themes are light-family; semantic/status/chart tokens are
+   deliberately unchanged across themes (an operations-console must not
+   let a theme reassign what a color means). */
+
+[data-theme='blue'] {
+  --color-ink: #1a2233;
+  --color-ink-muted: #4a5568;
+  --color-ink-subtle: #5b6b82;
+
+  --color-surface: #f0f5fb;
+  --color-surface-warm: #eef3fa;
+  --color-surface-elevated: #ffffff;
+
+  --color-border: #d7e3f0;
+  --color-border-subtle: #e6edf6;
+
+  --color-accent: #3b6ea5;
+  --color-accent-muted: rgba(59, 110, 165, 0.12);
+  --color-accent-deep: #2c5480;
+  --color-on-accent: #ffffff;
+
+  --sidebar-bg: #dde7f4;
+  --sidebar-bg-deep: #cddaed;
+  --sidebar-text: #4a5568;
+  --sidebar-text-hover: #1a2233;
+  --sidebar-text-active: #1a2233;
+  --sidebar-heading: #5b6b82;
+  --sidebar-border: #c3d3e8;
+  --sidebar-hover-bg: #e5edf7;
+  --sidebar-active-bg: var(--color-accent-muted);
+  --sidebar-active-border: var(--color-accent);
+}
+
+[data-theme='green'] {
+  --color-ink: #1a2419;
+  --color-ink-muted: #4b5d47;
+  --color-ink-subtle: #5a6e55;
+
+  --color-surface: #f0f6ee;
+  --color-surface-warm: #eef5eb;
+  --color-surface-elevated: #ffffff;
+
+  --color-border: #d9e7d3;
+  --color-border-subtle: #e7f0e3;
+
+  --color-accent: #4a7a4e;
+  --color-accent-muted: rgba(74, 122, 78, 0.12);
+  --color-accent-deep: #396138;
+  --color-on-accent: #ffffff;
+
+  --sidebar-bg: #dbe9d6;
+  --sidebar-bg-deep: #cbdec4;
+  --sidebar-text: #4b5d47;
+  --sidebar-text-hover: #1a2419;
+  --sidebar-text-active: #1a2419;
+  --sidebar-heading: #5a6e55;
+  --sidebar-border: #c5dabd;
+  --sidebar-hover-bg: #e3efdf;
+  --sidebar-active-bg: var(--color-accent-muted);
+  --sidebar-active-border: var(--color-accent);
+}
+
+[data-theme='graphite'] {
+  --color-ink: #24262b;
+  --color-ink-muted: #5b5e66;
+  --color-ink-subtle: #666970;
+
+  --color-surface: #f1f1f3;
+  --color-surface-warm: #eeeef0;
+  --color-surface-elevated: #ffffff;
+
+  --color-border: #dcdce0;
+  --color-border-subtle: #e7e7ea;
+
+  --color-accent: #6b4c6f;
+  --color-accent-muted: rgba(107, 76, 111, 0.12);
+  --color-accent-deep: #533a56;
+  --color-on-accent: #ffffff;
+
+  --sidebar-bg: #e2e2e6;
+  --sidebar-bg-deep: #d5d5da;
+  --sidebar-text: #5b5e66;
+  --sidebar-text-hover: #24262b;
+  --sidebar-text-active: #24262b;
+  --sidebar-heading: #666970;
+  --sidebar-border: #d2d2d7;
+  --sidebar-hover-bg: #e8e8eb;
+  --sidebar-active-bg: var(--color-accent-muted);
+  --sidebar-active-border: var(--color-accent);
+}

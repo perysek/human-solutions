@@ -1,0 +1,765 @@
+{% extends "base.html" %}
+{% from 'components/icons.html' import icon %}
+{% block title %}Bilanse urlopowe — {{ app_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .refined-page { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 1rem; }
+    .page-title { margin-bottom: 0.25rem; font-size: 1.375rem; font-weight: 600; color: var(--color-ink); }
+    .page-subtitle { font-size: 0.8125rem; color: var(--color-ink-subtle); font-weight: 300; }
+
+    /* Stats cards */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.75rem; }
+    .stat-card { background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 2px; padding: 1.125rem 1.375rem; }
+    .stat-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-ink-subtle); margin-bottom: 0.375rem; }
+    .stat-value { font-size: 1.625rem; font-weight: 600; color: var(--color-ink); line-height: 1; }
+    .stat-value.warning { color: #c2410c; }
+    .stat-value.exceeded { color: var(--color-error, #b91c1c); }
+
+    /* Filter bar */
+    .filter-bar { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+    .filter-input { font-family: var(--font-body); font-size: 0.8125rem; padding: 0.375rem 0.75rem;
+        border: 1px solid var(--color-border); border-radius: 2px; background: var(--color-surface-elevated); color: var(--color-ink); outline: none; }
+    .filter-input:focus { border-color: var(--color-ink-subtle); }
+
+    /* Table */
+    .card { background: var(--color-surface-elevated); border: 1px solid var(--color-border); border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .card-body { padding: 0; }
+    table.balance-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    table.balance-table thead tr { border-bottom: 2px solid var(--color-border); }
+    table.balance-table th { padding: 0.5rem 0.5rem; font-size: 0.6875rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-ink-subtle);
+        text-align: left; white-space: nowrap; }
+    table.balance-table td { padding: 0.375rem 0.5rem; border-bottom: 1px solid var(--color-border-subtle); vertical-align: middle; }
+    table.balance-table tr:last-child td { border-bottom: none; }
+    table.balance-table tr.exceeded-row td { background: rgba(185,28,28,.035); }
+
+    /* Employee group borders — applied to all td in first/last row of each group */
+    table.balance-table tr.group-first td { border-top: 2px solid var(--color-border); }
+    table.balance-table tr.group-last  td { border-bottom: 2px solid var(--color-border) !important; }
+
+    /* Progress bar */
+    .progress-wrap { height: 6px; background: var(--color-border); border-radius: 2px; overflow: hidden; min-width: 60px; }
+    .progress-bar { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+    .bar-ok       { background: var(--color-success, #16a34a); }
+    .bar-warning  { background: #c2410c; }
+    .bar-exceeded { background: var(--color-error, #b91c1c); }
+
+    /* Status badge */
+    .status-badge { display: inline-block; padding: 0.1875rem 0.5rem; border-radius: 2px; font-size: 0.6875rem; font-weight:
+    600; text-transform: uppercase; letter-spacing: 0.04em; width: 9rem; text-align: center; }
+    .badge-ok       { background: rgba(22,163,74,.1);   color: #166534; }
+    .badge-warning  { background: rgba(194,65,12,.1);   color: #c2410c; }
+    .badge-exceeded { background: rgba(185,28,28,.1);   color: #b91c1c; }
+    .badge-unlimited{ background: var(--color-surface); color: var(--color-ink-subtle); }
+
+    /* Inline row spinbox */
+    .row-spinbox-wrap { position: relative; display: inline-flex; align-items: center; }
+    .row-spinbox { width: 4rem; padding: 0.2rem 1.25rem 0.2rem 0.4rem;
+        font-family: var(--font-body); font-size: 0.8125rem;
+        border: 1px solid var(--color-border); border-radius: 2px;
+        text-align: right; -moz-appearance: textfield; outline: none; }
+    .row-spinbox:focus { border-color: var(--color-ink-muted); }
+    .row-spinbox::-webkit-outer-spin-button,
+    .row-spinbox::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .row-spinbox-arrows { position: absolute; right: 1px; top: 1px; bottom: 1px;
+        display: flex; flex-direction: column; width: 1rem;
+        border-left: 1px solid var(--color-border-subtle); }
+    .row-arrow { flex: 1; min-height: 0; margin: 0; border: none; background: transparent; cursor: pointer; padding: 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.4rem; line-height: 1; appearance: none; -webkit-appearance: none;
+        color: var(--color-ink-subtle); }
+    .row-arrow:hover { color: var(--color-ink); background: var(--color-surface); }
+    .row-period-input { width: 6rem; padding: 0.2rem 0.4rem; font-family: var(--font-body);
+        font-size: 0.8125rem; border: 1px solid var(--color-border); border-radius: 2px; outline: none; }
+    .row-period-input:focus { border-color: var(--color-ink-muted); }
+
+    /* Icon action buttons */
+    .icon-btn { width: 1.75rem; height: 1.75rem; display: inline-flex; align-items: center;
+        justify-content: center; border: 1px solid var(--color-border); border-radius: 2px;
+        background: var(--color-surface-elevated); cursor: pointer; transition: background 0.15s; padding: 0; flex-shrink: 0; }
+    .icon-btn .icon { font-size: 0.9375rem; }
+    .icon-btn:hover:not(:disabled) { background: var(--color-surface); }
+    .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    /* F-018: calm by default (neutral), red only on hover — kills the loud red delete column */
+    .icon-btn.delete-btn { border-color: var(--color-border); color: var(--color-ink-subtle); }
+    .icon-btn.delete-btn:hover:not(:disabled) { background: rgba(185,28,28,.06); border-color: rgba(185,28,28,.3); color: #b91c1c; }
+    .icon-btn.save-btn   { border-color: rgba(22,163,74,.35); color: #15803d; }
+    .icon-btn.save-btn:hover:not(:disabled)  { background: rgba(22,163,74,.06); }
+    .icon-btn.undo-btn   { color: var(--color-ink-muted); }
+
+    /* Inline reason input — sits BEFORE the spinbox in the Wykorzystano cell */
+    .row-reason { display: none; width: 11rem; flex-shrink: 0; padding: 0.2rem 0.4rem;
+        font-family: var(--font-body); font-size: 0.75rem;
+        border: 1px solid var(--color-border); border-radius: 2px; outline: none; }
+    .row-reason:focus { border-color: var(--color-ink-muted); }
+
+    /* Mobile cards (ADR-D-01): grouped employee name is hidden on desktop for
+       non-first rows; on stacked cards every card repeats it as its header. */
+    .emp-grouped-hidden { display: none; }
+    @media (max-width: 640px) {
+        .emp-grouped-hidden { display: inline; }
+        .card-body { overflow: visible; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="refined-page">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Bilanse urlopowe</h1>
+            <p class="page-subtitle">Zarządzanie limitami i korektami</p>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">Pracownicy ze śledzeniem</div>
+            <div class="stat-value" id="stat-tracked">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Śledzone kategorie</div>
+            <div class="stat-value" id="stat-cat-count">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Bliscy limitu</div>
+            <div class="stat-value warning" id="stat-warning">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Przekroczony limit</div>
+            <div class="stat-value exceeded" id="stat-exceeded">—</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+        <input type="text" class="filter-input" id="search-input"
+               placeholder="Szukaj pracownika…" oninput="filterTable()" style="min-width:220px;">
+        <select class="filter-input" id="cat-filter" aria-label="Filtruj według kategorii" onchange="filterTable()">
+            <option value="">Wszystkie kategorie</option>
+        </select>
+        <select class="filter-input" id="status-filter" aria-label="Filtruj według statusu" onchange="filterTable()">
+            <option value="">Wszystkie statusy</option>
+            <option value="ok">OK</option>
+            <option value="warning">Blisko limitu</option>
+            <option value="exceeded">Przekroczony</option>
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-body">
+            <table class="balance-table stack-cards" id="balance-table">
+                <thead>
+                    <tr>
+                        <th style="width:9rem;">Pracownik</th>
+                        <th style="width:9rem;">Kategoria</th>
+                        <th style="width:6rem;">Okres</th>
+                        <th>Wykorzystano</th>
+                        <th style="width:7rem;text-align:right;">Limit</th>
+                        <th style="width:13rem;text-align:center">% wykorzystania</th>
+                        <th style="width:13rem;text-align:center">Status</th>
+                        <th style="width:6rem;text-align:right;">Akcje</th>
+                    </tr>
+                </thead>
+                <tbody id="balance-tbody">
+                    <tr><td colspan="8" class="cell-empty" style="text-align:center;padding:2rem;color:var(--color-ink-subtle);">Ładowanie…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    'use strict';
+
+    let allRows = [];
+
+    // ── Utilities ─────────────────────────────────────────────────────────────
+
+    function escHtml(str) {
+        return String(str).replace(/[&<>"']/g,
+            c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    }
+
+    function unitLabel(unit) { return unit === 'hours' ? 'h' : 'd'; }
+
+    function barClass(s) {
+        return s === 'exceeded' ? 'bar-exceeded' : s === 'warning' ? 'bar-warning' : 'bar-ok';
+    }
+    function badgeClass(s) {
+        return {exceeded:'badge-exceeded', warning:'badge-warning',
+                unlimited:'badge-unlimited', ok:'badge-ok'}[s] || 'badge-ok';
+    }
+    function badgeLabel(s) {
+        return {exceeded:'Przekroczony', warning:'Blisko limitu',
+                unlimited:'Bez limitu', ok:'OK'}[s] || s;
+    }
+
+    function populateSelect(selectId, items, valueKey, labelFn, placeholder) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item[valueKey];
+            opt.textContent = labelFn(item);
+            sel.appendChild(opt);
+        });
+        if (cur) sel.value = cur;
+    }
+
+    // ── Load ─────────────────────────────────────────────────────────────────
+
+    async function loadDropdownData() {
+        try {
+            const res  = await fetch('/api/absence-categories/tracked');
+            const data = await res.json();
+            if (data.success) {
+                const cats = data.categories || [];
+                populateSelect('cat-filter', cats, 'id', c => c.name, 'Wszystkie kategorie');
+                const el = document.getElementById('stat-cat-count');
+                if (el) el.textContent = cats.length;
+            }
+        } catch (e) { console.error('loadDropdownData', e); }
+    }
+
+    async function buildDetailedRows() {
+        const sumRes = await fetch('/api/absence-balances/summary');
+        const sData  = await sumRes.json();
+        if (!sData.success) return [];
+
+        const rows   = [];
+        const empIds = Object.keys(sData.balances || {});
+        for (const empIdStr of empIds) {
+            const empId = parseInt(empIdStr, 10);
+            try {
+                const r = await fetch(`/api/employees/${empId}/absence-balances`);
+                const d = await r.json();
+                if (!d.success) continue;
+                for (const b of (d.balances || [])) {
+                    rows.push({
+                        employee_id:         empId,
+                        employee_name:       d.employee_name,
+                        category_id:         b.category_id,
+                        category_name:       b.category_name,
+                        period_label:        b.period_label,
+                        used:                b.net_used,
+                        limit:               b.limit,
+                        unit:                b.unit,
+                        pct:                 b.pct,
+                        status:              b.status,
+                        warning_threshold_pct: b.warning_threshold_pct,
+                    });
+                }
+            } catch (_) { /* skip */ }
+        }
+        return rows;
+    }
+
+    async function loadSummary() {
+        try {
+            const [sumRes, rows] = await Promise.all([
+                fetch('/api/absence-balances/summary'),
+                buildDetailedRows(),
+                loadDropdownData(),
+            ]);
+            const sData = await sumRes.json();
+            if (!sData.success) return;
+            allRows = rows;
+            updateStats();
+            renderTable(allRows);
+            warnIfExceeded();
+        } catch (e) { console.error('loadSummary', e); }
+    }
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+
+    function updateStats() {
+        const tracked  = new Set(allRows.map(r => r.employee_id)).size;
+        const warnings = allRows.filter(r => r.status === 'warning').length;
+        const exceeded = allRows.filter(r => r.status === 'exceeded').length;
+        document.getElementById('stat-tracked').textContent  = tracked;
+        document.getElementById('stat-warning').textContent  = warnings;
+        document.getElementById('stat-exceeded').textContent = exceeded;
+    }
+
+    function warnIfExceeded() {
+        const exc = allRows.filter(r => r.status === 'exceeded');
+        if (exc.length && typeof Notifications !== 'undefined') {
+            const names = [...new Set(exc.map(r => r.employee_name))].slice(0, 3).join(', ');
+            setTimeout(() => Notifications.warning(MSG('balance.limit_names', { names })), 800);
+        }
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+
+    function renderTable(rows) {
+        const tbody = document.getElementById('balance-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="cell-empty" style="text-align:center;padding:2rem;color:var(--color-ink-subtle);">Brak danych</td></tr>';
+            return;
+        }
+
+        // Sort descending by employee name (Z → A)
+        const sorted = [...rows].sort((a, b) =>
+            b.employee_name.localeCompare(a.employee_name, 'pl', {sensitivity: 'base'}));
+
+        const html    = [];
+        let prevEmpId = null;
+        for (let i = 0; i < sorted.length; i++) {
+            const row     = sorted[i];
+            const isFirst = row.employee_id !== prevEmpId;
+            const isLast  = i === sorted.length - 1 || sorted[i + 1].employee_id !== row.employee_id;
+            html.push(renderRow(row, isFirst, isLast));
+            prevEmpId = row.employee_id;
+        }
+        tbody.innerHTML = html.join('');
+    }
+
+    function renderRow(row, isFirst, isLast) {
+        const step         = row.unit === 'hours' ? 0.5 : 1;
+        const unitL        = unitLabel(row.unit);
+        const pctCapped    = Math.min(row.pct || 0, 100);
+        const exceededCls  = row.status === 'exceeded' ? 'exceeded-row' : '';
+        const groupCls     = [isFirst ? 'group-first' : '', isLast ? 'group-last' : ''].filter(Boolean).join(' ');
+        const usedVal      = row.used.toFixed(step === 1 ? 0 : 1);
+        const origLimit    = row.status === 'unlimited' ? 0 : row.limit;
+        const limitVal     = String(origLimit);
+        const statusLabel  = row.status === 'ok'
+            ? `Zostało: ${(row.limit - row.used).toFixed(step === 1 ? 0 : 1)} ${unitL}`
+            : badgeLabel(row.status);
+
+        // Employee name only in first row of each group on desktop; on mobile
+        // cards every row repeats it (grouping is meaningless once stacked).
+        const empCell = isFirst
+            ? `<td class="cell-name" style="font-weight:500;white-space:nowrap;">${escHtml(row.employee_name)}</td>`
+            : `<td class="cell-name"><span class="emp-grouped-hidden">${escHtml(row.employee_name)}</span></td>`;
+
+        // Spinbox builder
+        const rowCtx = `${escHtml(row.employee_name)}, ${escHtml(row.category_name)}`;
+        function spinbox(cls, val, label) {
+            return `<div class="row-spinbox-wrap">
+                        <input type="number" class="row-spinbox ${cls}" value="${val}"
+                               aria-label="${label} — ${rowCtx}"
+                               step="${step}" min="0" oninput="onRowChange(this.closest('tr'))">
+                        <div class="row-spinbox-arrows">
+                            <button type="button" class="row-arrow" onclick="stepRowSpinbox(this,1)" tabindex="-1">&#9650;</button>
+                            <button type="button" class="row-arrow" onclick="stepRowSpinbox(this,-1)" tabindex="-1">&#9660;</button>
+                        </div>
+                    </div>`;
+        }
+
+        const limitCell = `<td data-label="Limit" style="text-align:right;">
+            <div style="display:inline-flex;align-items:center;gap:0.25rem;">
+                ${spinbox('limit-input', limitVal, 'Limit')}
+                <span style="font-size:0.75rem;color:var(--color-ink-subtle);">
+                    ${row.status === 'unlimited' ? '∞' : unitL}
+                </span>
+            </div>
+        </td>`;
+
+        return `
+        <tr class="${exceededCls} ${groupCls}"
+            data-emp-id="${row.employee_id}"
+            data-cat-id="${row.category_id}"
+            data-status="${row.status}"
+            data-emp-name="${escHtml(row.employee_name).toLowerCase()}"
+            data-cat-name="${escHtml(row.category_name).toLowerCase()}"
+            data-unit="${row.unit}"
+            data-orig-used="${usedVal}"
+            data-orig-limit="${limitVal}"
+            data-orig-period="${escHtml(row.period_label || '')}"
+            data-warning-threshold="${row.warning_threshold_pct || 80}">
+            ${empCell}
+            <td data-label="Kategoria" style="white-space:nowrap;">${escHtml(row.category_name)}</td>
+            <td data-label="Okres">
+                <input type="text" class="row-period-input period-input"
+                       value="${escHtml(row.period_label || '')}"
+                       aria-label="Okres — ${rowCtx}"
+                       oninput="onRowChange(this.closest('tr'))"
+                       placeholder="np. 2026">
+            </td>
+            <td data-label="Wykorzystano">
+                <div style="display:flex;align-items:center;gap:0.3rem;white-space:nowrap;">
+                    ${spinbox('used-input', usedVal, 'Wykorzystano')}
+                    <span style="font-size:0.75rem;color:var(--color-ink-subtle);">${unitL}</span>
+                    <input type="text" class="row-reason"
+                           aria-label="Powód zmiany — ${rowCtx}"
+                           placeholder="Powód zmiany…"
+                           oninput="onReasonChange(this.closest('tr'))">
+                </div>
+            </td>
+            ${limitCell}
+            <td data-label="% wykorzystania">
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <div class="progress-wrap" style="flex:1;">
+                        <div class="progress-bar row-bar ${barClass(row.status)}"
+                             style="width:${pctCapped}%;"></div>
+                    </div>
+                    <span class="row-pct-label"
+                          style="font-size:0.75rem;color:var(--color-ink-subtle);min-width:2.5rem;text-align:right;">
+                        ${row.status === 'unlimited' ? '—' : (row.pct || 0).toFixed(0) + '%'}
+                    </span>
+                </div>
+            </td>
+            <td data-label="Status">
+                <span class="status-badge row-badge ${badgeClass(row.status)}">${statusLabel}</span>
+            </td>
+            <td class="cell-actions" style="white-space:nowrap;">
+                <div style="display:flex;gap:0.25rem;justify-content:flex-end;">
+                    <button type="button" class="icon-btn delete-btn"
+                            onclick="deleteRow(this,${row.employee_id},${row.category_id})"
+                            title="Resetuj bilans do zera">
+                        {{ icon('delete') }}
+                    </button>
+                    <button type="button" class="icon-btn save-btn"
+                            onclick="saveRow(this,${row.employee_id},${row.category_id})"
+                            title="Zapisz zmiany" disabled>
+                        {{ icon('save') }}
+                    </button>
+                    <button type="button" class="icon-btn undo-btn"
+                            onclick="undoRow(this,${row.employee_id},${row.category_id})"
+                            title="Cofnij ostatni zapis" disabled>
+                        {{ icon('undo') }}
+                    </button>
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    // ── Filter ────────────────────────────────────────────────────────────────
+
+    window.filterTable = function () {
+        const search  = document.getElementById('search-input').value.toLowerCase();
+        const catId   = document.getElementById('cat-filter').value;
+        const statusF = document.getElementById('status-filter').value;
+
+        renderTable(allRows.filter(row => {
+            if (search  && !row.employee_name.toLowerCase().includes(search)) return false;
+            if (catId   && String(row.category_id) !== catId) return false;
+            if (statusF && row.status !== statusF) return false;
+            return true;
+        }));
+    };
+
+    // ── Row change helpers ────────────────────────────────────────────────────
+
+    function getOriginals(tr) {
+        return {
+            used:   parseFloat(tr.dataset.origUsed)   || 0,
+            limit:  parseFloat(tr.dataset.origLimit)  || 0,
+            period: tr.dataset.origPeriod || '',
+        };
+    }
+
+    function getCurrentValues(tr) {
+        return {
+            used:   parseFloat(tr.querySelector('.used-input')?.value)   || 0,
+            limit:  parseFloat(tr.querySelector('.limit-input')?.value)  || 0,
+            period: (tr.querySelector('.period-input')?.value || '').trim(),
+        };
+    }
+
+    function hasChanges(tr) {
+        const o = getOriginals(tr), c = getCurrentValues(tr);
+        return (
+            Math.abs(c.used - o.used)   >= 0.001 ||
+            Math.abs(c.limit - o.limit) >= 0.001 ||
+            c.period !== o.period
+        );
+    }
+
+    window.onRowChange = function (tr) {
+        updateRowDisplay(tr);
+        const o = getOriginals(tr), c = getCurrentValues(tr);
+        const dirty      = hasChanges(tr);
+        const usedDirty  = Math.abs(c.used - o.used) >= 0.001;
+        const reasonEl   = tr.querySelector('.row-reason');
+        const saveBtn    = tr.querySelector('.save-btn');
+
+        // Reason field only required when 'used' value is edited (API mandate)
+        reasonEl.style.display = (dirty && usedDirty) ? 'block' : 'none';
+        if (!usedDirty) reasonEl.value = '';
+
+        const reasonOk = !usedDirty || reasonEl.value.trim().length > 0;
+        saveBtn.disabled = !dirty || !reasonOk;
+    };
+
+    window.onReasonChange = function (tr) {
+        const o = getOriginals(tr), c = getCurrentValues(tr);
+        const usedDirty = Math.abs(c.used - o.used) >= 0.001;
+        const dirty     = hasChanges(tr);
+        const reasonEl  = tr.querySelector('.row-reason');
+        const reasonOk  = !usedDirty || reasonEl.value.trim().length > 0;
+        tr.querySelector('.save-btn').disabled = !dirty || !reasonOk;
+    };
+
+    window.stepRowSpinbox = function (btn, dir) {
+        const input  = btn.closest('.row-spinbox-wrap').querySelector('.row-spinbox');
+        const step   = parseFloat(input.step) || 1;
+        const newVal = Math.max(0, (parseFloat(input.value) || 0) + dir * step);
+        input.value  = newVal.toFixed(step === 1 ? 0 : 1);
+        window.onRowChange(input.closest('tr'));
+    };
+
+    function updateRowDisplay(tr) {
+        const usedInput  = tr.querySelector('.used-input');
+        const limitInput = tr.querySelector('.limit-input');
+        const barEl      = tr.querySelector('.row-bar');
+        const badgeEl    = tr.querySelector('.row-badge');
+        const pctEl      = tr.querySelector('.row-pct-label');
+        if (!usedInput || !barEl || !badgeEl) return;
+
+        const used   = parseFloat(usedInput.value)  || 0;
+        const limit  = parseFloat(limitInput?.value) || 0;
+        const unit   = tr.dataset.unit;
+        const unitL  = unitLabel(unit);
+        const step   = unit === 'hours' ? 0.5 : 1;
+        const wThresh = parseFloat(tr.dataset.warningThreshold) || 0.8; // decimal fraction, e.g. 0.8 = 80%
+
+        if (!limitInput || limit <= 0) {
+            barEl.className = 'progress-bar row-bar bar-ok';
+            barEl.style.width = '0%';
+            badgeEl.className = 'status-badge row-badge badge-unlimited';
+            badgeEl.textContent = 'Bez limitu';
+            if (pctEl) pctEl.textContent = '—';
+            return;
+        }
+
+        const pct    = (used / limit) * 100;
+        // Mirror server logic: net_used >= limit * warning_pct (wThresh is decimal 0.0-1.0)
+        const status = used > limit ? 'exceeded' : used >= limit * wThresh ? 'warning' : 'ok';
+
+        barEl.className   = `progress-bar row-bar ${barClass(status)}`;
+        barEl.style.width = Math.min(pct, 100) + '%';
+        badgeEl.className = `status-badge row-badge ${badgeClass(status)}`;
+
+        if (status === 'ok') {
+            badgeEl.textContent = `Zostało: ${(limit - used).toFixed(step === 1 ? 0 : 1)} ${unitL}`;
+        } else {
+            badgeEl.textContent = badgeLabel(status);
+        }
+        if (pctEl) pctEl.textContent = pct.toFixed(0) + '%';
+
+        if (status === 'exceeded') {
+            tr.classList.add('exceeded-row');
+            if (!tr._warnedExceeded) {
+                tr._warnedExceeded = true;
+                if (typeof Notifications !== 'undefined')
+                    Notifications.warning(MSG('balance.limit_exceeded'));
+            }
+        } else {
+            tr.classList.remove('exceeded-row');
+            tr._warnedExceeded = false;
+        }
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
+
+    window.saveRow = async function (btn, empId, catId) {
+        const tr       = btn.closest('tr');
+        const o        = getOriginals(tr);
+        const c        = getCurrentValues(tr);
+        const delta    = parseFloat((c.used - o.used).toFixed(1));
+        const limChg   = Math.abs(c.limit - o.limit) >= 0.001;
+        const reasonEl = tr.querySelector('.row-reason');
+        const reason   = reasonEl ? reasonEl.value.trim() : '';
+
+        if (Math.abs(delta) >= 0.001 && !reason) {
+            if (typeof Notifications !== 'undefined') Notifications.error(MSG('balance.reason_required'));
+            if (reasonEl) { reasonEl.style.display = ''; reasonEl.focus(); }
+            return;
+        }
+
+        const calls = [];
+        if (Math.abs(delta) >= 0.001) {
+            calls.push(fetch(`/api/employees/${empId}/absence-adjustments`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    category_id: catId, delta_value: delta,
+                    reason, period_label: c.period || null,
+                }),
+            }).then(r => r.json()));
+        }
+        if (limChg) {
+            calls.push(fetch(`/api/employees/${empId}/absence-limits`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({category_id: catId, max_value: c.limit}),
+            }).then(r => r.json()));
+        }
+        if (!calls.length) return;
+
+        try {
+            const results = await Promise.all(calls);
+            if (results.every(d => d.success)) {
+                // Store undo state before overwriting originals
+                tr.dataset.undoUsed   = o.used;
+                tr.dataset.undoLimit  = o.limit;
+                tr.dataset.undoPeriod = o.period;
+                tr.dataset.undoDelta  = -delta;
+
+                tr.dataset.origUsed   = c.used;
+                tr.dataset.origLimit  = c.limit;
+                tr.dataset.origPeriod = c.period;
+
+                btn.disabled = true;
+                const undoBtn = tr.querySelector('.undo-btn');
+                if (undoBtn) undoBtn.disabled = false;
+                if (reasonEl) { reasonEl.style.display = 'none'; reasonEl.value = ''; }
+
+                if (typeof Notifications !== 'undefined') Notifications.success(MSG('balance.saved'));
+
+                allRows = allRows.map(r =>
+                    r.employee_id === empId && r.category_id === catId
+                        ? {...r, used: c.used, limit: c.limit, period_label: c.period}
+                        : r);
+                updateStats();
+            } else {
+                const err = results.find(d => !d.success)?.error || MSG('common.save_generic_failed');
+                if (typeof Notifications !== 'undefined') Notifications.error(err);
+            }
+        } catch (_) {
+            if (typeof Notifications !== 'undefined') Notifications.error(MSG('error.server.unreachable'));
+        }
+    };
+
+    // ── Undo ─────────────────────────────────────────────────────────────────
+
+    window.undoRow = async function (btn, empId, catId) {
+        const tr         = btn.closest('tr');
+        const undoDelta  = parseFloat(tr.dataset.undoDelta  || '0');
+        const undoLimit  = parseFloat(tr.dataset.undoLimit  || '0');
+        const undoPeriod = tr.dataset.undoPeriod || '';
+        const currLimit  = parseFloat(tr.dataset.origLimit  || '0');
+
+        const calls = [];
+        if (Math.abs(undoDelta) >= 0.001) {
+            calls.push(fetch(`/api/employees/${empId}/absence-adjustments`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    category_id: catId, delta_value: undoDelta,
+                    reason: 'Cofnięcie ostatniego zapisu',
+                    period_label: undoPeriod || null,
+                }),
+            }).then(r => r.json()));
+        }
+        if (Math.abs(undoLimit - currLimit) >= 0.001) {
+            calls.push(fetch(`/api/employees/${empId}/absence-limits`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({category_id: catId, max_value: undoLimit}),
+            }).then(r => r.json()));
+        }
+
+        try {
+            if (calls.length) {
+                const results = await Promise.all(calls);
+                if (!results.every(d => d.success)) {
+                    if (typeof Notifications !== 'undefined') Notifications.error(MSG('balance.undo_failed'));
+                    return;
+                }
+            }
+
+            const step = tr.dataset.unit === 'hours' ? 0.5 : 1;
+            const usedInput   = tr.querySelector('.used-input');
+            const limitInput  = tr.querySelector('.limit-input');
+            const periodInput = tr.querySelector('.period-input');
+            if (usedInput)   usedInput.value   = parseFloat(tr.dataset.undoUsed || '0').toFixed(step === 1 ? 0 : 1);
+            if (limitInput)  limitInput.value  = undoLimit;
+            if (periodInput) periodInput.value = undoPeriod;
+
+            tr.dataset.origUsed   = tr.dataset.undoUsed || '0';
+            tr.dataset.origLimit  = undoLimit;
+            tr.dataset.origPeriod = undoPeriod;
+            delete tr.dataset.undoUsed;
+            delete tr.dataset.undoLimit;
+            delete tr.dataset.undoPeriod;
+            delete tr.dataset.undoDelta;
+
+            btn.disabled = true;
+            tr.querySelector('.save-btn').disabled = true;
+            const reasonEl = tr.querySelector('.row-reason');
+            if (reasonEl) { reasonEl.style.display = 'none'; reasonEl.value = ''; }
+
+            updateRowDisplay(tr);
+            if (typeof Notifications !== 'undefined') Notifications.success(MSG('balance.undone'));
+
+            allRows = allRows.map(r =>
+                r.employee_id === empId && r.category_id === catId
+                    ? {...r, used: parseFloat(tr.dataset.origUsed), limit: undoLimit, period_label: undoPeriod}
+                    : r);
+            updateStats();
+
+        } catch (_) {
+            if (typeof Notifications !== 'undefined') Notifications.error(MSG('error.server.unreachable'));
+        }
+    };
+
+    // ── Delete / reset ────────────────────────────────────────────────────────
+
+    window.deleteRow = function (btn, empId, catId) {
+        const tr   = btn.closest('tr');
+        const used = parseFloat(tr.dataset.origUsed) || 0;
+
+        Modals.confirm({
+            title: 'Resetuj bilans',
+            message: `Wyzerować bilans tej kategorii? Wpadnie korekta −${used.toFixed(1)} do historii — wstecz się tego nie wyklika.`,
+            confirmText: 'Resetuj',
+            onConfirm: async () => {
+                if (used <= 0) {
+                    if (typeof Notifications !== 'undefined') Notifications.info(MSG('balance.already_zero'));
+                    return;
+                }
+                try {
+                    const r = await fetch(`/api/employees/${empId}/absence-adjustments`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            category_id: catId,
+                            delta_value: -used,
+                            reason: 'Resetowanie bilansu',
+                            period_label: null,
+                        }),
+                    });
+                    const d = await r.json();
+                    if (d.success) {
+                        if (typeof Notifications !== 'undefined') Notifications.success(MSG('balance.reset_zero'));
+                        await loadSummary();
+                    } else {
+                        if (typeof Notifications !== 'undefined') Notifications.error(d.error || MSG('common.save_generic_failed'));
+                    }
+                } catch (_) {
+                    if (typeof Notifications !== 'undefined') Notifications.error(MSG('error.server.unreachable'));
+                }
+            },
+        });
+    };
+
+    // ── ESC ───────────────────────────────────────────────────────────────────
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            const cm = document.getElementById('confirm-modal');
+            if (cm && !cm.classList.contains('hidden')) return;
+            window.location.href = '/absences';
+        }
+    });
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', loadSummary);
+
+}());
+</script>
+{% endblock %}

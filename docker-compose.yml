@@ -1,0 +1,38 @@
+# Not used by default in this dev setup — PostgreSQL runs natively on Windows
+# (see BACKEND_SETUP.md) because Docker Desktop would have required installing
+# WSL2 first, which risks a forced reboot. This file exists so the *option* of
+# fully containerized dev — and therefore closer parity with how this would
+# run on a Linux production host — is one `docker compose up -d` away
+# whenever that trade-off is worth it.
+#
+# The app itself doesn't care which path you take: config/database.py reads
+# a single DATABASE_URL env var via psycopg2 (standard Postgres wire
+# protocol), so switching between "native local Postgres" → "this compose
+# file" → "a real production Postgres on the Linux host" is never a code
+# change, only a connection string.
+#
+# Usage:
+#   docker compose up -d
+#   # then point .env.local at:
+#   # DATABASE_URL=postgresql://human_solutions_app:app_dev_pw_2026@localhost:5432/human_solutions_dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: human_solutions_app
+      POSTGRES_PASSWORD: app_dev_pw_2026
+      POSTGRES_DB: human_solutions_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U human_solutions_app -d human_solutions_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

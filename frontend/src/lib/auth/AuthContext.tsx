@@ -1,0 +1,130 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { api, ApiError } from '@/lib/api/client';
+import type { AuthUser, MeResponse, ModulePermission, Role } from './types';
+import type { ModuleName } from './permissions';
+
+interface AuthContextValue {
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  /** True until the initial GET /auth/me session-check resolves. */
+  isLoading: boolean;
+  isSupervisor: boolean;
+  hasLinkedEmployee: boolean;
+  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  hasModuleAccess: (moduleName: ModuleName | string) => boolean;
+  hasRole: (...roles: Role[]) => boolean;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function toAuthUser(raw: NonNullable<MeResponse['user']>): AuthUser {
+  return {
+    id: raw.id,
+    email: raw.email,
+    fullName: raw.full_name,
+    role: raw.role as Role,
+    isActive: raw.is_active,
+    lastLogin: raw.last_login,
+  };
+}
+
+function toPermissionsMap(raw: MeResponse['permissions']): Record<string, ModulePermission> {
+  const out: Record<string, ModulePermission> = {};
+  for (const [module, flags] of Object.entries(raw ?? {})) {
+    out[module] = { hasAccess: flags.has_access, readOnly: flags.read_only, ownData: flags.own_data };
+  }
+  return out;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [permissions, setPermissions] = useState<Record<string, ModulePermission>>({});
+  const [isSupervisor, setIsSupervisor] = useState(false);
+  const [hasLinkedEmployee, setHasLinkedEmployee] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const applyMe = useCallback((me: MeResponse) => {
+    if (me.authenticated && me.user) {
+      setUser(toAuthUser(me.user));
+      setPermissions(toPermissionsMap(me.permissions));
+      setIsSupervisor(Boolean(me.is_supervisor));
+      setHasLinkedEmployee(Boolean(me.has_linked_employee));
+    } else {
+      setUser(null);
+      setPermissions({});
+      setIsSupervisor(false);
+      setHasLinkedEmployee(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<MeResponse>('/auth/me')
+      .then((me) => {
+        if (!cancelled) applyMe(me);
+      })
+      .catch(() => {
+        if (!cancelled) applyMe({ authenticated: false });
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyMe]);
+
+  const login = useCallback(
+    async (email: string, password: string, remember = false) => {
+      try {
+        await api.post('/auth/login', { email, password, remember });
+        const me = await api.get<MeResponse>('/auth/me');
+        applyMe(me);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err instanceof ApiError ? err.message : 'Nie udało się połączyć z serwerem.' };
+      }
+    },
+    [applyMe],
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      await api.get('/auth/logout');
+    } finally {
+      applyMe({ authenticated: false });
+    }
+  }, [applyMe]);
+
+  const hasModuleAccess = useCallback(
+    (moduleName: ModuleName | string) => permissions[moduleName]?.hasAccess ?? false,
+    [permissions],
+  );
+
+  const hasRole = useCallback((...roles: Role[]) => (user ? roles.includes(user.role) : false), [user]);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      isAuthenticated: user !== null,
+      isLoading,
+      isSupervisor,
+      hasLinkedEmployee,
+      login,
+      logout,
+      hasModuleAccess,
+      hasRole,
+    }),
+    [user, isLoading, isSupervisor, hasLinkedEmployee, login, logout, hasModuleAccess, hasRole],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an <AuthProvider>');
+  return ctx;
+}
