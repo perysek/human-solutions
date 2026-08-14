@@ -28,4 +28,3 @@ assets/temp/*
 !uploads/.gitkeep
 !pdfs/.gitkeep
 node_modules
-static/css/output.css

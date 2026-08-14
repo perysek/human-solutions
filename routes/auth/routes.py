@@ -1,26 +1,22 @@
 """
-Trasy autentykacji - logowanie, wylogowanie, profil, reset hasła
+Trasy autentykacji - logowanie, wylogowanie, reset hasła
 
-Each view keeps its original HTML form-submit behaviour untouched and adds a
-JSON branch alongside it (checked via `request.is_json` / the existing
-`_wants_json()` heuristic from config/auth_config.py) for the React frontend
-in frontend/, which talks to this same session-cookie/Flask-Login auth —
-same methodology, just a second transport. `/me` is new: the original
-server-rendered app never needed a "who am I" endpoint (Jinja had
-current_user directly), but a client-rendered SPA does, for its
-session-check-on-load.
+JSON-only API for the React frontend (frontend/), which talks to this same
+session-cookie/Flask-Login auth. `/me` is the SPA's session-check-on-load
+endpoint — the original server-rendered app never needed a "who am I"
+endpoint (Jinja had current_user directly).
 """
 import secrets
 from datetime import datetime, timedelta
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, session, jsonify
+from flask import Blueprint, request, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from repositories.users.user_repository import UserRepository
 from repositories.audit_repository import AuditRepository
 from services.auth.auth_service import AuthService
 from config.database import DatabaseConnection
 from config.ui_messages import msg
-from config.auth_config import _wants_json, get_all_permission_flags, is_supervisor, get_linked_employee
+from config.auth_config import get_all_permission_flags, is_supervisor, get_linked_employee
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -56,216 +52,140 @@ def me():
     })
 
 
-@auth_bp.route('/login', methods=['GET', 'POST'])
+@auth_bp.route('/login', methods=['POST'])
 def login():
-    """Strona logowania"""
-    # Jeśli użytkownik już zalogowany, przekieruj do dashboard
+    """Logowanie"""
     if current_user.is_authenticated:
-        return redirect(url_for('auth.profile'))
+        return jsonify({'success': True, 'user': _user_json(current_user)})
 
-    if request.method == 'POST':
-        wants_json = request.is_json or _wants_json()
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip()
+    password = data.get('password') or ''
+    remember = bool(data.get('remember'))
 
-        if request.is_json:
-            data = request.get_json(silent=True) or {}
-            email = (data.get('email') or '').strip()
-            password = data.get('password') or ''
-            remember = bool(data.get('remember'))
-        else:
-            email = request.form.get('email', '').strip()
-            password = request.form.get('password', '')
-            remember = request.form.get('remember', False) == 'on'
+    if not email or not password:
+        return jsonify({'success': False, 'error': msg('auth.login.missing_credentials')}), 400
 
-        # Walidacja pól
-        if not email or not password:
-            if wants_json:
-                return jsonify({'success': False, 'error': msg('auth.login.missing_credentials')}), 400
-            flash(msg('auth.login.missing_credentials'), 'error')
-            return render_template('auth/login.html')
+    user_repo = UserRepository()
+    auth_service = AuthService(user_repo)
 
-        # Autentykacja
-        user_repo = UserRepository()
-        auth_service = AuthService(user_repo)
+    success, user, error_message = auth_service.authenticate(email, password)
 
-        success, user, error_message = auth_service.authenticate(email, password)
+    if success:
+        login_user(user, remember=remember)
+        session.permanent = True  # 30-day sliding session (PERMANENT_SESSION_LIFETIME)
 
-        if success:
-            login_user(user, remember=remember)
-            session.permanent = True  # 30-day sliding session (PERMANENT_SESSION_LIFETIME)
+        AuditRepository().safe_log_event(
+            entity_type='login', action='LOGIN',
+            entity_label=user.email,
+            new_value=request.remote_addr,
+            user_id=user.id, user_name=user.full_name,
+        )
+        return jsonify({'success': True, 'user': _user_json(user)})
 
-            AuditRepository().safe_log_event(
-                entity_type='login', action='LOGIN',
-                entity_label=user.email,
-                new_value=request.remote_addr,
-                user_id=user.id, user_name=user.full_name,
-            )
-
-            if wants_json:
-                return jsonify({'success': True, 'user': _user_json(user)})
-
-            flash(msg('auth.login.welcome', name=user.full_name), 'success')
-            next_page = request.args.get('next')
-            if next_page:
-                return redirect(next_page)
-            return redirect(url_for('auth.profile'))
-        else:
-            AuditRepository().safe_log_event(
-                entity_type='login', action='LOGIN_FAILED',
-                entity_label=email,
-                new_value=request.remote_addr,
-            )
-            if wants_json:
-                return jsonify({'success': False, 'error': error_message}), 401
-            flash(error_message, 'error')
-            return render_template('auth/login.html', email=email)
-
-    return render_template('auth/login.html')
+    AuditRepository().safe_log_event(
+        entity_type='login', action='LOGIN_FAILED',
+        entity_label=email,
+        new_value=request.remote_addr,
+    )
+    return jsonify({'success': False, 'error': error_message}), 401
 
 
 @auth_bp.route('/logout')
 @login_required
 def logout():
     """Wylogowanie użytkownika"""
-    wants_json = _wants_json()
     AuditRepository().safe_log_event(
         entity_type='login', action='LOGOUT',
         entity_label=current_user.email,
         user_id=current_user.id, user_name=current_user.full_name,
     )
     logout_user()
-    if wants_json:
-        return jsonify({'success': True})
-    flash(msg('auth.logout'), 'info')
-    return redirect(url_for('auth.login'))
+    return jsonify({'success': True})
 
 
-@auth_bp.route('/profile')
-@login_required
-def profile():
-    """Profil użytkownika"""
-    return render_template('auth/profile.html', user=current_user)
-
-
-@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@auth_bp.route('/change-password', methods=['POST'])
 @login_required
 def change_password():
     """Zmiana hasła"""
-    if request.method == 'POST':
-        wants_json = request.is_json or _wants_json()
+    data = request.get_json(silent=True) or {}
+    old_password = data.get('old_password') or ''
+    new_password = data.get('new_password') or ''
+    confirm_password = data.get('confirm_password') or new_password
 
-        if request.is_json:
-            data = request.get_json(silent=True) or {}
-            old_password = data.get('old_password') or ''
-            new_password = data.get('new_password') or ''
-            confirm_password = data.get('confirm_password') or new_password
-        else:
-            old_password = request.form.get('old_password', '')
-            new_password = request.form.get('new_password', '')
-            confirm_password = request.form.get('confirm_password', '')
+    if not old_password or not new_password or not confirm_password:
+        return jsonify({'success': False, 'error': msg('auth.change_password.missing_fields')}), 400
 
-        # Walidacja
-        if not old_password or not new_password or not confirm_password:
-            if wants_json:
-                return jsonify({'success': False, 'error': msg('auth.change_password.missing_fields')}), 400
-            flash(msg('auth.change_password.missing_fields'), 'error')
-            return render_template('auth/change_password.html')
+    if new_password != confirm_password:
+        return jsonify({'success': False, 'error': msg('auth.change_password.mismatch')}), 400
 
-        if new_password != confirm_password:
-            if wants_json:
-                return jsonify({'success': False, 'error': msg('auth.change_password.mismatch')}), 400
-            flash(msg('auth.change_password.mismatch'), 'error')
-            return render_template('auth/change_password.html')
+    user_repo = UserRepository()
+    auth_service = AuthService(user_repo)
 
-        # Zmień hasło
-        user_repo = UserRepository()
-        auth_service = AuthService(user_repo)
+    success, error_message = auth_service.change_password(
+        current_user.id,
+        old_password,
+        new_password
+    )
 
-        success, error_message = auth_service.change_password(
-            current_user.id,
-            old_password,
-            new_password
-        )
-
-        if success:
-            if wants_json:
-                return jsonify({'success': True})
-            flash(msg('auth.change_password.success'), 'success')
-            return redirect(url_for('auth.profile'))
-        else:
-            if wants_json:
-                return jsonify({'success': False, 'error': error_message}), 400
-            flash(error_message, 'error')
-            return render_template('auth/change_password.html')
-
-    return render_template('auth/change_password.html')
+    if success:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': error_message}), 400
 
 
 # ---------------------------------------------------------------------------
 # Forgot / Reset password (no email required — token shown directly on screen)
 # ---------------------------------------------------------------------------
 
-@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+@auth_bp.route('/forgot-password', methods=['POST'])
 def forgot_password():
-    """Formularz resetowania hasła — wyświetla link z tokenem na ekranie"""
+    """Wysyła (na ekran, nie mailem) link resetujący hasło"""
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
     reset_url = None
-    wants_json = request.method == 'POST' and (request.is_json or _wants_json())
 
-    if request.method == 'POST':
-        if request.is_json:
-            data = request.get_json(silent=True) or {}
-            email = (data.get('email') or '').strip().lower()
-        else:
-            email = request.form.get('email', '').strip().lower()
+    if email:
+        user_repo = UserRepository()
+        user = user_repo.get_by_email(email)
 
-        if email:
-            user_repo = UserRepository()
-            user = user_repo.get_by_email(email)
+        if user:
+            conn = DatabaseConnection.get_connection()
+            cursor = conn.cursor()
 
-            if user:
-                conn = DatabaseConnection.get_connection()
-                cursor = conn.cursor()
+            # Invalidate any existing unused tokens for this user
+            cursor.execute(
+                "UPDATE password_reset_tokens SET used = TRUE WHERE user_id = %s AND used = FALSE",
+                (user.id,)
+            )
 
-                # Invalidate any existing unused tokens for this user
-                cursor.execute(
-                    "UPDATE password_reset_tokens SET used = TRUE WHERE user_id = %s AND used = FALSE",
-                    (user.id,)
-                )
+            # Generate new token (256-bit URL-safe)
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(hours=1)
 
-                # Generate new token (256-bit URL-safe)
-                token = secrets.token_urlsafe(32)
-                expires_at = datetime.now() + timedelta(hours=1)
+            cursor.execute(
+                "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (%s, %s, %s)",
+                (user.id, token, expires_at)
+            )
+            conn.commit()
 
-                cursor.execute(
-                    "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (%s, %s, %s)",
-                    (user.id, token, expires_at)
-                )
-                conn.commit()
+            # The SPA is a separate origin/port from Flask — the link must
+            # point at ITS route, so a relative path (not an external URL).
+            reset_url = f'/reset-password/{token}'
 
-                # JSON callers are the React SPA (a separate origin/port from
-                # Flask) — the link must point at ITS route, not a Flask
-                # url_for(_external=True) which would point back at :5001.
-                if wants_json:
-                    reset_url = f'/reset-password/{token}'
-                else:
-                    reset_url = url_for('auth.reset_password', token=token, _external=True)
+            AuditRepository().safe_log_event(
+                entity_type='user', action='PASSWORD_RESET_REQUESTED',
+                entity_id=user.id, entity_label=user.email,
+            )
 
-                AuditRepository().safe_log_event(
-                    entity_type='user', action='PASSWORD_RESET_REQUESTED',
-                    entity_id=user.id, entity_label=user.email,
-                )
+        # Always show the same neutral response (prevents email enumeration)
+        # reset_url is only set when user was found
 
-            # Always show the same neutral message (prevents email enumeration)
-            # reset_url is only set when user was found
-
-        if wants_json:
-            return jsonify({'reset_url': reset_url})
-
-    return render_template('auth/forgot_password.html', reset_url=reset_url)
+    return jsonify({'reset_url': reset_url})
 
 
-@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+@auth_bp.route('/reset-password/<token>', methods=['POST'])
 def reset_password(token: str):
-    """Formularz ustawiania nowego hasła po kliknięciu w link z tokenem"""
+    """Ustawia nowe hasło po kliknięciu w link z tokenem"""
     conn = DatabaseConnection.get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -274,54 +194,32 @@ def reset_password(token: str):
     )
     token_row = cursor.fetchone()
 
-    wants_json = request.method == 'POST' and (request.is_json or _wants_json())
-
     if not token_row:
-        if wants_json:
-            return jsonify({'success': False, 'error': msg('auth.reset.link_dead')}), 400
-        flash(msg('auth.reset.link_dead'), 'error')
-        return redirect(url_for('auth.forgot_password'))
+        return jsonify({'success': False, 'error': msg('auth.reset.link_dead')}), 400
 
-    if request.method == 'POST':
-        if request.is_json:
-            data = request.get_json(silent=True) or {}
-            new_password = data.get('new_password') or ''
-            confirm_password = data.get('confirm_password') or new_password
-        else:
-            new_password = request.form.get('new_password', '')
-            confirm_password = request.form.get('confirm_password', '')
+    data = request.get_json(silent=True) or {}
+    new_password = data.get('new_password') or ''
+    confirm_password = data.get('confirm_password') or new_password
 
-        if len(new_password) < 8:
-            if wants_json:
-                return jsonify({'success': False, 'error': msg('auth.reset.weak_password')}), 400
-            flash(msg('auth.reset.weak_password'), 'error')
-            return render_template('auth/reset_password.html', token=token)
+    if len(new_password) < 8:
+        return jsonify({'success': False, 'error': msg('auth.reset.weak_password')}), 400
 
-        if new_password != confirm_password:
-            if wants_json:
-                return jsonify({'success': False, 'error': msg('auth.reset.mismatch')}), 400
-            flash(msg('auth.reset.mismatch'), 'error')
-            return render_template('auth/reset_password.html', token=token)
+    if new_password != confirm_password:
+        return jsonify({'success': False, 'error': msg('auth.reset.mismatch')}), 400
 
-        # Update password and mark token as used
-        user_repo = UserRepository()
-        user_repo.update_password(token_row['user_id'], new_password)
+    # Update password and mark token as used
+    user_repo = UserRepository()
+    user_repo.update_password(token_row['user_id'], new_password)
 
-        cursor.execute(
-            "UPDATE password_reset_tokens SET used = TRUE WHERE token = %s",
-            (token,)
-        )
-        conn.commit()
+    cursor.execute(
+        "UPDATE password_reset_tokens SET used = TRUE WHERE token = %s",
+        (token,)
+    )
+    conn.commit()
 
-        AuditRepository().safe_log_event(
-            entity_type='user', action='PASSWORD_RESET',
-            entity_id=token_row['user_id'],
-            new_value=request.remote_addr,
-        )
-
-        if wants_json:
-            return jsonify({'success': True})
-        flash(msg('auth.reset.success'), 'success')
-        return redirect(url_for('auth.login'))
-
-    return render_template('auth/reset_password.html', token=token)
+    AuditRepository().safe_log_event(
+        entity_type='user', action='PASSWORD_RESET',
+        entity_id=token_row['user_id'],
+        new_value=request.remote_addr,
+    )
+    return jsonify({'success': True})

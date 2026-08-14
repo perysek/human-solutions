@@ -3,7 +3,7 @@ Konfiguracja autentykacji i autoryzacji
 Role-based access control (RBAC) configuration
 """
 from functools import wraps
-from flask import redirect, url_for, flash, request, jsonify
+from flask import request, jsonify
 from flask_login import current_user
 from config.ui_messages import msg
 
@@ -12,31 +12,10 @@ from config.ui_messages import msg
 MUTATING_METHODS = frozenset({'POST', 'PUT', 'PATCH', 'DELETE'})
 
 
-def _wants_json() -> bool:
-    """Heuristic: does the caller expect a JSON body rather than an HTML page?
-
-    True for API paths, XHR/fetch requests, and Accept: application/json. Used so a
-    denied write returns a 403 JSON error to fetch callers (which the frontend can
-    surface) instead of a 302 redirect to an HTML page they can't parse.
-    """
-    if request.path.startswith('/api') or request.path.startswith('/appointments'):
-        return True
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return True
-    # Only treat as JSON when the client *explicitly* prefers it over HTML. A bare
-    # `*/*` (json == html) or a browser's `text/html,...` (html > json) is a page
-    # navigation → fall through to a flash + redirect, matching prior behaviour.
-    accept = request.accept_mimetypes
-    return accept['application/json'] > accept['text/html']
-
-
 def _deny(msg_key: str, **fmt):
-    """Uniform permission denial: JSON 403 for API/XHR callers, flash+redirect for
-    normal page navigations. Keeps the security boundary consistent across both."""
-    if _wants_json():
-        return jsonify({'success': False, 'error': msg(msg_key, **fmt)}), 403
-    flash(msg(msg_key, **fmt), 'error')
-    return redirect(request.referrer or url_for('main.dashboard'))
+    """Uniform permission denial: JSON 403. Every caller is the SPA (frontend/),
+    never a browser form post, so there's no HTML fallback to render."""
+    return jsonify({'success': False, 'error': msg(msg_key, **fmt)}), 403
 
 # Role hierarchy (higher number = more permissions)
 ROLE_HIERARCHY = {
@@ -75,12 +54,10 @@ def role_required(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                flash(msg('auth.guard.login_required'), 'error')
-                return redirect(url_for('auth.login'))
+                return jsonify({'success': False, 'error': msg('auth.guard.login_required')}), 401
 
             if current_user.role not in roles:
-                flash(msg('auth.permission.role_denied'), 'error')
-                return redirect(url_for('main.dashboard'))
+                return _deny('auth.permission.role_denied')
 
             return f(*args, **kwargs)
         return decorated_function
@@ -97,8 +74,7 @@ def module_permission_required(*module_names):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                flash(msg('auth.guard.login_required'), 'error')
-                return redirect(url_for('auth.login'))
+                return jsonify({'success': False, 'error': msg('auth.guard.login_required')}), 401
 
             # Resolve access AND write-capability across the route's module list.
             # has_access = user can reach ANY listed module (OR logic, unchanged).
@@ -196,38 +172,6 @@ def get_linked_employee(user):
         return EmployeeRepository().get_by_user_id(user.id)
     except Exception:
         return None
-
-
-def absence_management_required(f):
-    """Allow access to absence management views for admin/superuser OR supervisors.
-
-    Supervisors (stylists who manage subordinates) get tabs #1 and #2 but NOT
-    tab #3 (categories), which is gated by module_permission_required('absences').
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            flash(msg('auth.guard.login_required'), 'error')
-            return redirect(url_for('auth.login'))
-
-        has_access = False
-        try:
-            from repositories.roles.role_repository import RoleRepository
-            if RoleRepository().role_has_module_access(current_user.role, 'absences'):
-                has_access = True
-        except Exception:
-            if current_user.role in MODULE_PERMISSIONS.get('absences', []):
-                has_access = True
-
-        if not has_access:
-            has_access = is_supervisor(current_user)
-
-        if not has_access:
-            flash(msg('auth.permission.absences_denied'), 'error')
-            return redirect(url_for('main.dashboard'))
-
-        return f(*args, **kwargs)
-    return decorated_function
 
 
 def get_permission_flags(role_name: str, module_name: str) -> dict:

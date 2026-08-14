@@ -67,18 +67,12 @@ def create_app() -> Flask:
         return jsonify({'success': False, 'error': 'Wymagane logowanie.'}), 401
 
     # --- CSRF ---
-    # Flask-WTF protects every view by default via the <meta csrf-token> +
-    # fetch/XHR-patching shim in base.html — a server-rendered-page
-    # mechanism this SPA doesn't have (no Jinja page ever runs to embed the
-    # token). Per-blueprint exemption (csrf.exempt(bp)) was tried first but
-    # proved unreliable under the dev reloader — Flask-WTF's exemption
-    # tracks blueprint object identity, and requests intermittently failed
-    # CSRF anyway after a reload. Disabling it app-wide is the honest
-    # version of the same simplification: every route here is JSON-only API
-    # traffic from the SPA, never a browser form post. See BACKEND_SETUP.md
-    # for the production follow-up (double-submit-cookie CSRF) before this
-    # serves real traffic.
-    app.config['WTF_CSRF_ENABLED'] = False
+    # No CSRF middleware here: every consumer is the SPA (frontend/), making
+    # same-origin fetch/XHR calls with SESSION_COOKIE_SAMESITE='Lax' and an
+    # X-Requested-With header — there's no browser form ever posting to this
+    # API, so no cross-site form-submit vector to guard against. See
+    # BACKEND_SETUP.md for the production follow-up (double-submit-cookie
+    # CSRF) before this serves real traffic from an untrusted origin.
 
     # --- Blueprints ---
     from routes.auth.routes import auth_bp

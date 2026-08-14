@@ -4,11 +4,10 @@ Dostępne tylko dla: superuser, admin
 """
 import logging
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 
 from config.auth_config import role_required
-from config.ui_messages import msg
 from exceptions import AppError, ValidationError, NotFoundError, ConflictError
 from repositories.users.user_repository import UserRepository
 from repositories.roles.role_repository import RoleRepository
@@ -24,65 +23,6 @@ def _user_repo() -> UserRepository:
 
 def _role_repo() -> RoleRepository:
     return RoleRepository()
-
-
-# ─── Page Routes ─────────────────────────────────────────────────────────────
-
-@users_bp.route('/')
-@login_required
-@role_required('superuser', 'admin')
-def users_list():
-    """Lista użytkowników"""
-    return render_template('users/list.html')
-
-
-@users_bp.route('/create')
-@login_required
-@role_required('superuser', 'admin')
-def create_user():
-    """Formularz tworzenia użytkownika"""
-    user_repo = _user_repo()
-    # Employees without user accounts + the currently linked one (if editing)
-    available_employees = user_repo.get_available_employees()
-    roles = _role_repo().get_all()
-    # Superuser role only shown if current_user is superuser
-    if current_user.role != 'superuser':
-        roles = [r for r in roles if r['name'] != 'superuser']
-    return render_template('users/create.html',
-                           available_employees=available_employees,
-                           roles=roles)
-
-
-@users_bp.route('/<int:user_id>/edit')
-@login_required
-@role_required('superuser', 'admin')
-def edit_user(user_id):
-    """Formularz edycji użytkownika"""
-    user_repo = _user_repo()
-    row = user_repo.get_by_id(user_id)
-    if not row:
-        return render_template('errors/404.html'), 404
-
-    user = user_repo.row_to_user(row)
-
-    # Admin cannot edit superuser accounts
-    if user.role == 'superuser' and current_user.role != 'superuser':
-        flash(msg('users.edit.owner_denied'), 'error')
-        return redirect(url_for('users.users_list'))
-
-    linked_employee = user_repo.get_linked_employee(user_id)
-    available_employees = user_repo.get_available_employees()
-
-    roles = _role_repo().get_all()
-    # Non-superusers cannot assign superuser role
-    if current_user.role != 'superuser':
-        roles = [r for r in roles if r['name'] != 'superuser']
-
-    return render_template('users/edit.html',
-                           user=user,
-                           linked_employee=linked_employee,
-                           available_employees=available_employees,
-                           roles=roles)
 
 
 # ─── API Endpoints ────────────────────────────────────────────────────────────

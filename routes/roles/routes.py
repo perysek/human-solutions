@@ -4,56 +4,18 @@ Dostępne tylko dla: superuser
 """
 import logging
 
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from config.auth_config import role_required
 from exceptions import AppError, ValidationError, NotFoundError, ConflictError
-from repositories.roles.role_repository import RoleRepository, ALL_MODULES, MODULE_DISPLAY_NAMES
+from repositories.roles.role_repository import RoleRepository
 
 roles_bp = Blueprint('roles', __name__, url_prefix='/system/roles')
 
 
 def _role_repo() -> RoleRepository:
     return RoleRepository()
-
-
-# ─── Page Routes ─────────────────────────────────────────────────────────────
-
-@roles_bp.route('/')
-@login_required
-@role_required('superuser')
-def roles_list():
-    """Lista ról"""
-    return render_template('roles/list.html')
-
-
-@roles_bp.route('/create')
-@login_required
-@role_required('superuser')
-def create_role():
-    """Formularz tworzenia nowej roli"""
-    return render_template('roles/create.html',
-                           all_modules=ALL_MODULES,
-                           module_display_names=MODULE_DISPLAY_NAMES)
-
-
-@roles_bp.route('/<int:role_id>/edit')
-@login_required
-@role_required('superuser')
-def edit_role(role_id):
-    """Formularz edycji uprawnień roli"""
-    role_repo = _role_repo()
-    role = role_repo.get_by_id(role_id)
-    if not role:
-        return render_template('errors/404.html'), 404
-
-    permissions = role_repo.get_permissions(role_id)
-    return render_template('roles/edit.html',
-                           role=role,
-                           permissions=permissions,
-                           all_modules=ALL_MODULES,
-                           module_display_names=MODULE_DISPLAY_NAMES)
 
 
 # ─── API Endpoints ────────────────────────────────────────────────────────────
