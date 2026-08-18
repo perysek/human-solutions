@@ -1,15 +1,17 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useApiData } from '@/lib/api/useApiData';
 import { usersApi } from '@/lib/api/users';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
+import { useToast } from '@/lib/feedback/ToastProvider';
 
 const ROLE_LABELS: Record<string, string> = {
-  superuser: 'Superadmin',
-  admin: 'Administrator',
-  receptionist: 'Recepcjonistka',
+  superadmin: 'Administrator systemu',
+  hr_manager: 'Kierownik HR',
+  trainer: 'Trener',
+  viewer: 'Obserwator',
 };
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -24,8 +26,20 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export function UserViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: user, loading, error } = useApiData(() => usersApi.get(Number(id)), [id]);
+  const toast = useToast();
+  const { data: user, loading, error, reload } = useApiData(() => usersApi.get(Number(id)), [id]);
   useEscapeAction(() => navigate('/users'));
+
+  async function handleUnlock() {
+    if (!user) return;
+    try {
+      await usersApi.unlock(user.id);
+      toast.success('Konto odblokowane.');
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się odblokować konta.');
+    }
+  }
 
   return (
     <div className="refined-page">
@@ -54,14 +68,19 @@ export function UserViewPage() {
             <Field label="Rola" value={ROLE_LABELS[user.role] ?? user.role} />
             <Field label="Status" value={<span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>{user.is_active ? 'Aktywny' : 'Nieaktywny'}</span>} />
             <Field
-              label="Powiązany pracownik"
+              label="Blokada konta"
               value={
-                user.employee_id ? (
-                  <Link to={`/employees/${user.employee_id}`} style={{ color: 'var(--color-focus-ring)' }}>
-                    {user.employee_name}
-                  </Link>
+                user.is_locked ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span className="status-badge inactive">
+                      Zablokowane {user.locked_until ? `do ${new Date(user.locked_until).toLocaleString('pl-PL')}` : ''}
+                    </span>
+                    <Button variant="secondary" small onClick={handleUnlock}>
+                      Odblokuj
+                    </Button>
+                  </div>
                 ) : (
-                  '—'
+                  `Brak (${user.failed_logins} nieudanych prób od ostatniego sukcesu)`
                 )
               }
             />

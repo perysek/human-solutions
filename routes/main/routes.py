@@ -15,5 +15,5 @@ main_bp = Blueprint('main', __name__)
 def index():
     return jsonify({
         'status': 'ok',
-        'message': 'MyWay API server. The frontend runs separately — see frontend/.',
+        'message': 'HR system API server. The frontend runs separately — see frontend/.',
     })

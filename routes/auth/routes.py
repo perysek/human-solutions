@@ -16,7 +16,7 @@ from repositories.audit_repository import AuditRepository
 from services.auth.auth_service import AuthService
 from config.database import DatabaseConnection
 from config.ui_messages import msg
-from config.auth_config import get_all_permission_flags, is_supervisor, get_linked_employee
+from config.auth_config import get_all_permission_flags
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -36,19 +36,16 @@ def _user_json(user) -> dict:
 @auth_bp.route('/me')
 def me():
     """Session-check for the SPA: who (if anyone) is logged in, plus their
-    module permissions / supervisor / linked-employee flags — the same
-    inputs the reference sidebar.html used server-side to decide what to
-    render, now shipped as data instead of computed per Jinja include."""
+    module permissions — the same inputs the reference sidebar.html used
+    server-side to decide what to render, now shipped as data instead of
+    computed per Jinja include."""
     if not current_user.is_authenticated:
         return jsonify({'authenticated': False})
 
-    linked_employee = get_linked_employee(current_user)
     return jsonify({
         'authenticated': True,
         'user': _user_json(current_user),
         'permissions': get_all_permission_flags(current_user.role),
-        'is_supervisor': is_supervisor(current_user),
-        'has_linked_employee': linked_employee is not None,
     })
 
 

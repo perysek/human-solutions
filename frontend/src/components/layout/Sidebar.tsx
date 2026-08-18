@@ -8,9 +8,10 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 import { NAV_SECTIONS } from './navConfig';
 
 const ROLE_LABELS: Record<string, string> = {
-  superuser: 'Superadmin',
-  admin: 'Administrator',
-  receptionist: 'Recepcjonistka',
+  superadmin: 'Administrator systemu',
+  hr_manager: 'Kierownik HR',
+  trainer: 'Trener',
+  viewer: 'Obserwator',
 };
 
 interface SidebarProps {
@@ -20,18 +21,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarProps) {
-  const { user, isSupervisor, hasLinkedEmployee, hasModuleAccess, logout } = useAuth();
+  const { user, hasModuleAccess, logout } = useAuth();
   const location = useLocation();
   const asideRef = useRef<HTMLElement>(null);
 
   const visibleSections = useMemo(() => {
     if (!user) return [];
-    const ctx = { user, isSupervisor, hasLinkedEmployee, hasModuleAccess };
+    const ctx = { user, hasModuleAccess };
     return NAV_SECTIONS.map((section) => ({
       ...section,
       links: section.links.filter((link) => link.visible(ctx)),
     })).filter((section) => section.links.length > 0);
-  }, [user, isSupervisor, hasLinkedEmployee, hasModuleAccess]);
+  }, [user, hasModuleAccess]);
 
   const activeSectionId = useMemo(
     () => visibleSections.find((s) => s.links.some((l) => location.pathname.startsWith(l.to)))?.id ?? null,
@@ -83,12 +84,13 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
               so the mark doesn't crowd the sidebar's edges. */}
           <img
             src="/logo.webp"
-            alt="MyWay Nails &amp; Beauty"
+            alt=""
+            aria-hidden="true"
             className="w-[200px] max-w-full h-auto object-contain py-1"
             style={{ filter: 'var(--sidebar-logo-filter)' }}
           />
           <p className="text-[13px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
-            Beauty Salon Management
+            System Kadrowy
           </p>
         </div>
 

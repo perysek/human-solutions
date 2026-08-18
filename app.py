@@ -66,6 +66,10 @@ def create_app() -> Flask:
         # Every consumer of this API is the SPA (fetch/XHR) — always JSON, never a redirect.
         return jsonify({'success': False, 'error': 'Wymagane logowanie.'}), 401
 
+    # --- Idle-timeout guard (AUTH_4) ---
+    from config.session_guard import register_idle_timeout
+    register_idle_timeout(app)
+
     # --- CSRF ---
     # No CSRF middleware here: every consumer is the SPA (frontend/), making
     # same-origin fetch/XHR calls with SESSION_COOKIE_SAMESITE='Lax' and an
@@ -75,16 +79,16 @@ def create_app() -> Flask:
     # CSRF) before this serves real traffic from an untrusted origin.
 
     # --- Blueprints ---
+    # employees_bp (salon domain) retired here — IMPLEMENTATION_PLAN.md §5.4.
+    # workers_bp/jobs_bp (Staamp HR domain) land in Phase 1/2.
     from routes.auth.routes import auth_bp
     from routes.users.routes import users_bp
     from routes.roles.routes import roles_bp
-    from routes.employees.routes import employees_bp
     from routes.main.routes import main_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)
-    app.register_blueprint(employees_bp)
     app.register_blueprint(main_bp)
 
     # Singleton some routes reach via current_app.audit_repo (routes/users, routes/roles).

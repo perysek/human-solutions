@@ -1,10 +1,11 @@
 /**
- * Mirrors database/models.py `User.role`. Kept as a union of the 3 roles
- * this build's seed data (scripts/seed_dev_data.py) actually creates —
- * the backend's `roles` table is the real source of truth and could have
- * more/fewer rows; this is just what the UI knows how to label.
+ * Mirrors config/auth_config.py's ROLE_HIERARCHY — the Staamp HR domain's
+ * four roles (IMPLEMENTATION_PLAN.md §5.1). The backend's `roles` table is
+ * the real source of truth (a superadmin can add further custom roles via
+ * the Roles UI); this union is just what the UI knows how to label without
+ * an extra round-trip.
  */
-export type Role = 'superuser' | 'admin' | 'receptionist';
+export type Role = 'superadmin' | 'hr_manager' | 'trainer' | 'viewer';
 
 export interface AuthUser {
   id: number;
@@ -35,6 +36,4 @@ export interface MeResponse {
     last_login: string | null;
   };
   permissions?: RawPermissions;
-  is_supervisor?: boolean;
-  has_linked_employee?: boolean;
 }

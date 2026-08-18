@@ -7,9 +7,6 @@ const PAGE_TITLES: [prefix: string, title: string][] = [
   ['/employees/formy-zatrudnienia', 'Formy zatrudnienia'],
   ['/employees/hierarchy', 'Hierarchia pracowników'],
   ['/employees', 'Pracownicy'],
-  ['/absences/balances', 'Bilanse urlopowe'],
-  ['/absences/my', 'Moje nieobecności'],
-  ['/absences', 'Nieobecności'],
   ['/users', 'Użytkownicy'],
   ['/roles', 'Role'],
   ['/profile', 'Profil'],
@@ -94,7 +91,7 @@ export function AppShell() {
             color: 'var(--color-ink-subtle)',
           }}
         >
-          &copy; {new Date().getFullYear()} MyWay Beauty Salon. Wszelkie prawa zastrzeżone.
+          &copy; {new Date().getFullYear()} System Kadrowy. Wszelkie prawa zastrzeżone.
         </footer>
       </div>
     </div>

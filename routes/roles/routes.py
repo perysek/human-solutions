@@ -1,6 +1,6 @@
 """
 Zarządzanie rolami i uprawnieniami — strony i API
-Dostępne tylko dla: superuser
+Dostępne tylko dla: superadmin
 """
 import logging
 
@@ -22,7 +22,7 @@ def _role_repo() -> RoleRepository:
 
 @roles_bp.route('/api', methods=['GET'])
 @login_required
-@role_required('superuser')
+@role_required('superadmin')
 def api_list():
     """GET /system/roles/api — lista ról"""
     try:
@@ -52,7 +52,7 @@ def api_list():
 
 @roles_bp.route('/api', methods=['POST'])
 @login_required
-@role_required('superuser')
+@role_required('superadmin')
 def api_create():
     """POST /system/roles/api — utwórz nową rolę"""
     data = request.get_json() or {}
@@ -80,7 +80,7 @@ def api_create():
 
 @roles_bp.route('/api/<int:role_id>', methods=['PUT'])
 @login_required
-@role_required('superuser')
+@role_required('superadmin')
 def api_update(role_id):
     """PUT /system/roles/api/<id> — zaktualizuj display_name i uprawnienia"""
     role_repo = _role_repo()
@@ -108,7 +108,7 @@ def api_update(role_id):
 
 @roles_bp.route('/api/<int:role_id>', methods=['DELETE'])
 @login_required
-@role_required('superuser')
+@role_required('superadmin')
 def api_delete(role_id):
     """DELETE /system/roles/api/<id> — usuń niechronioną rolę"""
     try:

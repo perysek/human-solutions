@@ -4,8 +4,6 @@ export interface ModuleFlags {
   has_access: boolean;
   read_only: boolean;
   own_data: boolean;
-  can_edit_price_history?: boolean;
-  can_send_sms?: boolean;
 }
 
 export interface RoleListItem {
@@ -21,31 +19,27 @@ export interface RoleListItem {
 /** Mirrors repositories/roles/role_repository.py's ALL_MODULES + MODULE_DISPLAY_NAMES
  * (the JSON API doesn't ship display names, so this is a small kept-in-sync copy). */
 export const ALL_MODULES = [
-  'invoices',
-  'appointments',
-  'clients',
-  'employees',
-  'services',
-  'settings',
-  'reports',
-  'data_correction',
-  'data_import',
-  'absences',
-  'service_prices',
+  'workers',
+  'jobs',
+  'medical',
+  'bhp',
+  'skills',
+  'trainings',
+  'dashboard',
+  'audit',
+  'admin',
 ] as const;
 
 export const MODULE_DISPLAY_NAMES: Record<string, string> = {
-  invoices: 'Faktury / Koszty',
-  appointments: 'Wizyty',
-  clients: 'Klienci',
-  employees: 'Pracownicy',
-  services: 'Usługi',
-  settings: 'Ustawienia',
-  reports: 'Historia / Raporty',
-  data_correction: 'Korekta danych',
-  data_import: 'Import danych',
-  absences: 'Nieobecności',
-  service_prices: 'Ceny usług (historia)',
+  workers: 'Pracownicy',
+  jobs: 'Stanowiska',
+  medical: 'Badania lekarskie',
+  bhp: 'Szkolenia BHP',
+  skills: 'Umiejętności',
+  trainings: 'Szkolenia wewnętrzne',
+  dashboard: 'Pulpit',
+  audit: 'Historia zmian',
+  admin: 'Administracja',
 };
 
 const BASE = '/system/roles/api';

@@ -19,9 +19,6 @@ import { EmployeeViewPage } from '@/pages/employees/EmployeeViewPage';
 import { EmployeeEditPage } from '@/pages/employees/EmployeeEditPage';
 import { FormaZatrudnieniaPage } from '@/pages/employees/FormaZatrudnieniaPage';
 import { EmployeeHierarchyPage } from '@/pages/employees/EmployeeHierarchyPage';
-import { AbsenceManagementPage } from '@/pages/absences/AbsenceManagementPage';
-import { AbsenceBalancesPage } from '@/pages/absences/AbsenceBalancesPage';
-import { MyAbsencesPage } from '@/pages/absences/MyAbsencesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function AppRoutes() {
@@ -37,8 +34,14 @@ export function AppRoutes() {
           <Route path="/" element={<Navigate to="/profile" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
 
-          {/* module_permission_required('employees') */}
-          <Route element={<ProtectedRoute requireModule="employees" />}>
+          {/* Salon-era employees pages, kept mounted but dormant — no role
+              grants the 'employees' module in the Staamp RBAC rebuild
+              (IMPLEMENTATION_PLAN.md §5.1/§5.5), so this route group is
+              unreachable for everyone until Phase 1/2 replace it with the
+              real workers/jobs pages under a live module. Uses `guard`
+              (not `requireModule`) because 'employees' isn't part of the
+              typed ModuleName union any more — see permissions.ts. */}
+          <Route element={<ProtectedRoute guard={({ hasModuleAccess }) => hasModuleAccess('employees')} />}>
             <Route path="/employees" element={<EmployeesListPage />} />
             <Route path="/employees/create" element={<EmployeeCreatePage />} />
             <Route path="/employees/formy-zatrudnienia" element={<FormaZatrudnieniaPage />} />
@@ -47,33 +50,22 @@ export function AppRoutes() {
             <Route path="/employees/:id/edit" element={<EmployeeEditPage />} />
           </Route>
 
-          {/* role_required('superuser', 'admin') — routes/users/routes.py */}
-          <Route element={<ProtectedRoute requireModule="settings" />}>
+          {/* role_required('superadmin') — routes/users/routes.py gates every
+              endpoint to the literal role (a deliberate hard boundary, not a
+              module grant — see that file's module docstring). */}
+          <Route element={<ProtectedRoute guard={({ user }) => user.role === 'superadmin'} />}>
             <Route path="/users" element={<UsersListPage />} />
             <Route path="/users/create" element={<UserCreatePage />} />
             <Route path="/users/:id" element={<UserViewPage />} />
             <Route path="/users/:id/edit" element={<UserEditPage />} />
           </Route>
 
-          {/* role_required('superuser') only — routes/roles/routes.py gates every
-              endpoint to the literal role, not the 'settings' module an admin
-              also has (see navConfig.ts's matching comment). */}
-          <Route element={<ProtectedRoute guard={({ user }) => user.role === 'superuser'} />}>
+          {/* role_required('superadmin') — routes/roles/routes.py, same literal-role gate. */}
+          <Route element={<ProtectedRoute guard={({ user }) => user.role === 'superadmin'} />}>
             <Route path="/roles" element={<RolesListPage />} />
             <Route path="/roles/create" element={<RoleCreatePage />} />
             <Route path="/roles/:id" element={<RoleViewPage />} />
             <Route path="/roles/:id/edit" element={<RoleEditPage />} />
-          </Route>
-
-          {/* absence_management_required: module access OR is_supervisor */}
-          <Route element={<ProtectedRoute guard={({ isSupervisor, hasModuleAccess }) => isSupervisor || hasModuleAccess('absences')} />}>
-            <Route path="/absences" element={<AbsenceManagementPage />} />
-            <Route path="/absences/balances" element={<AbsenceBalancesPage />} />
-          </Route>
-
-          {/* has_linked_employee only — any authenticated user tied to an employee record */}
-          <Route element={<ProtectedRoute guard={({ hasLinkedEmployee }) => hasLinkedEmployee} />}>
-            <Route path="/absences/my" element={<MyAbsencesPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

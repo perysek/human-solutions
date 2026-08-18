@@ -2,9 +2,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 const ROLE_BADGE: Record<string, string> = {
-  superuser: 'badge-purple',
-  admin: 'badge-blue',
-  receptionist: 'badge-green',
+  superadmin: 'badge-purple',
+  hr_manager: 'badge-blue',
+  trainer: 'badge-green',
+  viewer: 'badge-gray',
 };
 
 /** Faithful port of templates/auth/profile.html. */
@@ -69,7 +70,7 @@ export function ProfilePage() {
               Zmień hasło
             </button>
 
-            <button type="button" className="refined-btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => navigate('/employees')}>
+            <button type="button" className="refined-btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => navigate('/')}>
               Powrót do pulpitu
             </button>
 

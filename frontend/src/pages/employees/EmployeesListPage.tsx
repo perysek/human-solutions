@@ -41,7 +41,7 @@ export function EmployeesListPage() {
   const { hasRole } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
-  const canDelete = hasRole('superuser');
+  const canDelete = hasRole('superadmin');
 
   const { data, loading, error, reload } = useApiData(() => employeesApi.list());
   const [search, setSearch] = useState('');

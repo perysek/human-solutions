@@ -8,8 +8,6 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   /** True until the initial GET /auth/me session-check resolves. */
   isLoading: boolean;
-  isSupervisor: boolean;
-  hasLinkedEmployee: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   hasModuleAccess: (moduleName: ModuleName | string) => boolean;
@@ -40,21 +38,15 @@ function toPermissionsMap(raw: MeResponse['permissions']): Record<string, Module
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [permissions, setPermissions] = useState<Record<string, ModulePermission>>({});
-  const [isSupervisor, setIsSupervisor] = useState(false);
-  const [hasLinkedEmployee, setHasLinkedEmployee] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const applyMe = useCallback((me: MeResponse) => {
     if (me.authenticated && me.user) {
       setUser(toAuthUser(me.user));
       setPermissions(toPermissionsMap(me.permissions));
-      setIsSupervisor(Boolean(me.is_supervisor));
-      setHasLinkedEmployee(Boolean(me.has_linked_employee));
     } else {
       setUser(null);
       setPermissions({});
-      setIsSupervisor(false);
-      setHasLinkedEmployee(false);
     }
   }, []);
 
@@ -110,14 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: user !== null,
       isLoading,
-      isSupervisor,
-      hasLinkedEmployee,
       login,
       logout,
       hasModuleAccess,
       hasRole,
     }),
-    [user, isLoading, isSupervisor, hasLinkedEmployee, login, logout, hasModuleAccess, hasRole],
+    [user, isLoading, login, logout, hasModuleAccess, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -15,7 +15,7 @@ export function RolesListPage() {
   const { hasRole } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
-  const canDelete = hasRole('superuser');
+  const canDelete = hasRole('superadmin');
 
   const { data, loading, error, reload } = useApiData(() => rolesApi.list());
   const roles = data?.roles ?? [];

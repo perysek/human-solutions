@@ -17,28 +17,33 @@ def _deny(msg_key: str, **fmt):
     never a browser form post, so there's no HTML fallback to render."""
     return jsonify({'success': False, 'error': msg(msg_key, **fmt)}), 403
 
-# Role hierarchy (higher number = more permissions)
+# Role hierarchy (higher number = more permissions).
+# Staamp HR domain (IMPLEMENTATION_PLAN.md §5.1) — replaces the salon's
+# superuser/admin/receptionist/stylist/accountant hierarchy.
 ROLE_HIERARCHY = {
-    'superuser': 5,
-    'admin': 4,
-    'receptionist': 3,
-    'stylist': 2,
-    'accountant': 1,
+    'superadmin': 4,
+    'hr_manager': 3,
+    'trainer': 2,
+    'viewer': 1,
 }
 
-# Module permissions - which roles can access which modules
+# Module permissions - which roles can access which modules.
+# This is the DB-unavailable fallback only — the real, authoritative grants
+# (including read_only/own_data, which this static map cannot express) live
+# in the roles/role_permissions tables, seeded by
+# alembic/versions/c2d3e4f5a6b7_seed_staamp_rbac.py. Keep this dict's has-any-
+# access shape in sync with that seed so a DB outage degrades to the same
+# broad strokes instead of a different one.
 MODULE_PERMISSIONS = {
-    'invoices': ['superuser', 'admin', 'accountant'],
-    'appointments': ['superuser', 'admin', 'receptionist', 'stylist'],
-    'clients': ['superuser', 'admin', 'receptionist', 'stylist'],
-    'employees': ['superuser', 'admin'],
-    'services': ['superuser', 'admin'],
-    'settings': ['superuser', 'admin'],
-    'reports': ['superuser', 'admin', 'accountant'],
-    'data_correction': ['superuser'],
-    'data_import': ['superuser', 'admin'],
-    'absences': ['superuser', 'admin'],  # full management (categories CRUD + global list)
-    'service_prices': ['superuser', 'admin', 'accountant'],  # accountant = read-only (view history)
+    'workers': ['superadmin', 'hr_manager'],
+    'jobs': ['superadmin', 'hr_manager'],
+    'medical': ['superadmin', 'hr_manager'],
+    'bhp': ['superadmin', 'hr_manager'],
+    'skills': ['superadmin', 'hr_manager'],
+    'trainings': ['superadmin', 'hr_manager', 'trainer', 'viewer'],
+    'dashboard': ['superadmin', 'hr_manager', 'trainer'],
+    'audit': ['superadmin', 'hr_manager'],
+    'admin': ['superadmin'],
 }
 
 def role_required(*roles):
@@ -46,7 +51,7 @@ def role_required(*roles):
     Decorator to require specific roles for a route
 
     Usage:
-        @role_required('admin', 'superuser')
+        @role_required('hr_manager', 'superadmin')
         def admin_only_view():
             pass
     """
@@ -146,34 +151,6 @@ def get_user_modules(user_role: str) -> list:
     return accessible_modules
 
 
-def is_supervisor(user) -> bool:
-    """True if the user's linked employee record appears on the supervisor side
-    of any employee_supervisors row. Used by context processor + decorator.
-    """
-    if not user or not user.is_authenticated:
-        return False
-    try:
-        from repositories.employees.employee_repository import EmployeeRepository
-        from repositories.absences.employee_supervisor_repository import EmployeeSupervisorRepository
-        emp_row = EmployeeRepository().get_by_user_id(user.id)
-        if not emp_row:
-            return False
-        return EmployeeSupervisorRepository().is_supervisor(emp_row['id'])
-    except Exception:
-        return False
-
-
-def get_linked_employee(user):
-    """Return the employee row linked to this user, or None."""
-    if not user or not user.is_authenticated:
-        return None
-    try:
-        from repositories.employees.employee_repository import EmployeeRepository
-        return EmployeeRepository().get_by_user_id(user.id)
-    except Exception:
-        return None
-
-
 def get_permission_flags(role_name: str, module_name: str) -> dict:
     """
     Zwraca pełne flagi uprawnień {has_access, read_only, own_data} dla roli+modułu.
@@ -197,49 +174,6 @@ def is_own_data_only(role_name: str, module_name: str) -> bool:
     """True jeśli rola może widzieć tylko własne dane w module."""
     flags = get_permission_flags(role_name, module_name)
     return flags['has_access'] and flags['own_data']
-
-
-def own_data_employee_id(user, module_name: str):
-    """Scope helper for the own_data flag.
-
-    Returns the employee id that `module_name` records must be filtered to when the
-    user's role is own_data-restricted for that module — i.e. the user's linked
-    employee. When the role has own_data but the user has no linked employee record,
-    returns a sentinel (-1) that matches nothing, so the user sees their own data
-    (none) rather than everyone's. Returns None when own_data does not apply, meaning
-    "no scoping — leave the query as-is".
-    """
-    role_name = getattr(user, 'role', None)
-    if not role_name or not is_own_data_only(role_name, module_name):
-        return None
-    emp = get_linked_employee(user)
-    return emp['id'] if emp else -1
-
-
-def can_edit_service_price_history(role_name: str) -> bool:
-    """True if the role may delete/edit service price-history entries.
-
-    Requires 'services' access AND the can_edit_price_history flag. Falls back
-    to built-in admin roles if the roles table is unavailable.
-    """
-    try:
-        from repositories.roles.role_repository import RoleRepository
-        return RoleRepository().role_can_edit_price_history(role_name)
-    except Exception:
-        return role_name in ('superuser', 'admin')
-
-
-def can_send_appointment_sms(role_name: str) -> bool:
-    """True if the role may send manual SMS from the appointment view.
-
-    Requires 'appointments' access AND the can_send_sms flag. Falls back
-    to built-in admin roles if the roles table is unavailable.
-    """
-    try:
-        from repositories.roles.role_repository import RoleRepository
-        return RoleRepository().role_can_send_sms(role_name)
-    except Exception:
-        return role_name in ('superuser', 'admin')
 
 
 def get_user_module_permissions(role_name: str) -> dict:
