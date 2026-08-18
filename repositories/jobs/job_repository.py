@@ -60,16 +60,14 @@ class JobRepository(AuditableMixin, BaseRepository):
         """Zlicza wiersze chronione ON DELETE RESTRICT, które zablokują
         twarde usunięcie tego stanowiska.
 
-        `workers.job_id` (Faza 2) jest ON DELETE RESTRICT — stanowisko
-        używane przez jakiegokolwiek pracownika nie może zostać usunięte.
-        `job_skills`/`training_job` (Fazy 3/5) są ON DELETE CASCADE, więc
-        nie blokują usunięcia — w tej metodzie liczą się tylko kolumny
-        RESTRICT. Zwraca {} (nigdy nie blokuje), dopóki tabela `workers` nie
-        istnieje — odpytanie nieistniejącej tabeli rzuciłoby UndefinedTable.
+        `workers.job_id` jest ON DELETE RESTRICT — stanowisko używane przez
+        jakiegokolwiek pracownika nie może zostać usunięte. `job_skills`/
+        `training_job` (Fazy 3/5) są ON DELETE CASCADE, więc nie blokują
+        usunięcia — w tej metodzie liczą się tylko kolumny RESTRICT.
         """
-        # TODO(Faza 2): po utworzeniu `workers` dodać
-        # SELECT COUNT(*) FROM workers WHERE job_id = %s
-        return {}
+        from repositories.workers.worker_repository import WorkerRepository
+        count = WorkerRepository().count_by_job(job_id)
+        return {'workers': count} if count else {}
 
     def delete(self, job_id: str) -> bool:
         """Usuń stanowisko (twardo — tabele słownikowe nie mają soft-delete).

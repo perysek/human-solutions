@@ -4,9 +4,7 @@ import { Sidebar } from './Sidebar';
 
 /** Mirrors config/page_titles.py PAGE_TITLES, trimmed to this app's routes. */
 const PAGE_TITLES: [prefix: string, title: string][] = [
-  ['/employees/formy-zatrudnienia', 'Formy zatrudnienia'],
-  ['/employees/hierarchy', 'Hierarchia pracowników'],
-  ['/employees', 'Pracownicy'],
+  ['/workers', 'Pracownicy'],
   ['/jobs', 'Stanowiska'],
   ['/skills', 'Umiejętności'],
   ['/users', 'Użytkownicy'],

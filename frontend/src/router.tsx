@@ -20,12 +20,11 @@ import { JobEditPage } from '@/pages/jobs/JobEditPage';
 import { SkillsListPage } from '@/pages/skills/SkillsListPage';
 import { SkillCreatePage } from '@/pages/skills/SkillCreatePage';
 import { SkillEditPage } from '@/pages/skills/SkillEditPage';
-import { EmployeesListPage } from '@/pages/employees/EmployeesListPage';
-import { EmployeeCreatePage } from '@/pages/employees/EmployeeCreatePage';
-import { EmployeeViewPage } from '@/pages/employees/EmployeeViewPage';
-import { EmployeeEditPage } from '@/pages/employees/EmployeeEditPage';
-import { FormaZatrudnieniaPage } from '@/pages/employees/FormaZatrudnieniaPage';
-import { EmployeeHierarchyPage } from '@/pages/employees/EmployeeHierarchyPage';
+import { WorkersListPage } from '@/pages/workers/WorkersListPage';
+import { WorkerCreatePage } from '@/pages/workers/WorkerCreatePage';
+import { WorkerViewPage } from '@/pages/workers/WorkerViewPage';
+import { WorkerEditPage } from '@/pages/workers/WorkerEditPage';
+import { WorkerHierarchyPage } from '@/pages/workers/WorkerHierarchyPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function AppRoutes() {
@@ -41,6 +40,15 @@ export function AppRoutes() {
           <Route path="/" element={<Navigate to="/profile" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
 
+          {/* module_permission_required('workers') — routes/workers/routes.py */}
+          <Route element={<ProtectedRoute requireModule="workers" />}>
+            <Route path="/workers" element={<WorkersListPage />} />
+            <Route path="/workers/create" element={<WorkerCreatePage />} />
+            <Route path="/workers/:id" element={<WorkerViewPage />} />
+            <Route path="/workers/:id/edit" element={<WorkerEditPage />} />
+            <Route path="/workers/:id/subordinates" element={<WorkerHierarchyPage />} />
+          </Route>
+
           {/* module_permission_required('jobs') — routes/jobs/routes.py */}
           <Route element={<ProtectedRoute requireModule="jobs" />}>
             <Route path="/jobs" element={<JobsListPage />} />
@@ -54,22 +62,6 @@ export function AppRoutes() {
             <Route path="/skills" element={<SkillsListPage />} />
             <Route path="/skills/create" element={<SkillCreatePage />} />
             <Route path="/skills/:id/edit" element={<SkillEditPage />} />
-          </Route>
-
-          {/* Salon-era employees pages, kept mounted but dormant — no role
-              grants the 'employees' module in the Staamp RBAC rebuild
-              (IMPLEMENTATION_PLAN.md §5.1/§5.5), so this route group is
-              unreachable for everyone until Phase 1/2 replace it with the
-              real workers/jobs pages under a live module. Uses `guard`
-              (not `requireModule`) because 'employees' isn't part of the
-              typed ModuleName union any more — see permissions.ts. */}
-          <Route element={<ProtectedRoute guard={({ hasModuleAccess }) => hasModuleAccess('employees')} />}>
-            <Route path="/employees" element={<EmployeesListPage />} />
-            <Route path="/employees/create" element={<EmployeeCreatePage />} />
-            <Route path="/employees/formy-zatrudnienia" element={<FormaZatrudnieniaPage />} />
-            <Route path="/employees/hierarchy" element={<EmployeeHierarchyPage />} />
-            <Route path="/employees/:id" element={<EmployeeViewPage />} />
-            <Route path="/employees/:id/edit" element={<EmployeeEditPage />} />
           </Route>
 
           {/* role_required('superadmin') — routes/users/routes.py gates every

@@ -29,6 +29,7 @@ export default defineConfig({
       // is proxied (IMPLEMENTATION_PLAN.md Phase 1).
       '/jobs/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       '/skills/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      '/workers/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
     },
   },
 });

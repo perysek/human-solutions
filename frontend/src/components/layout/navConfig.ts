@@ -24,12 +24,8 @@ export interface NavVisibilityCtx {
 // Icon paths (24×24 stroke), Heroicons-style outline set — see DESIGN.md §9
 // for the nav-icon coordinate-space contract (24×24, stroke, not the glyph
 // system's 0 -960 960 960 filled icons).
-const ICON_EMPLOYEES =
+const ICON_WORKERS =
   'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
-const ICON_BADGE =
-  'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2';
-const ICON_HIERARCHY =
-  'M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z';
 const ICON_USERS =
   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z';
 const ICON_ROLES =
@@ -40,17 +36,17 @@ const ICON_JOBS =
 const ICON_SKILLS =
   'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z';
 
-// 'Kadry' (HR) section — 'Pracownicy'/'Formy zatrudnienia'/'Hierarchia
-// pracowników' still point at the salon-era /employees/* pages, kept mounted
-// but dormant (IMPLEMENTATION_PLAN.md §5.5): hasModuleAccess('employees')
-// returns false for every Staamp role now that 'employees' isn't in the
-// module list (§5.1), so this section is invisible to everyone until
-// Phase 1/2 swap it for the real workers/jobs pages under a live module.
 export const NAV_SECTIONS: NavSectionConfig[] = [
   {
     id: 'kadry',
     title: 'Kadry',
     links: [
+      {
+        label: 'Pracownicy',
+        to: '/workers',
+        iconPath: ICON_WORKERS,
+        visible: (ctx) => ctx.hasModuleAccess('workers'),
+      },
       {
         label: 'Stanowiska',
         to: '/jobs',
@@ -62,32 +58,6 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         to: '/skills',
         iconPath: ICON_SKILLS,
         visible: (ctx) => ctx.hasModuleAccess('skills'),
-      },
-    ],
-  },
-  {
-    id: 'zarzadzanie',
-    title: 'Zarządzanie',
-    links: [
-      {
-        label: 'Pracownicy',
-        to: '/employees',
-        iconPath: ICON_EMPLOYEES,
-        visible: (ctx) => ctx.hasModuleAccess('employees'),
-      },
-      {
-        label: 'Formy zatrudnienia',
-        to: '/employees/formy-zatrudnienia',
-        iconPath: ICON_BADGE,
-        mobileHide: true,
-        visible: (ctx) => ctx.hasModuleAccess('employees'),
-      },
-      {
-        label: 'Hierarchia pracowników',
-        to: '/employees/hierarchy',
-        iconPath: ICON_HIERARCHY,
-        mobileHide: true,
-        visible: (ctx) => ctx.hasModuleAccess('employees'),
       },
     ],
   },

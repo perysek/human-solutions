@@ -5,8 +5,19 @@ import { Icon } from '@/lib/icons/Icon';
 const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+interface ServerSideConfig {
+  /** Current page (1-based) — owned by the caller's fetch state, not this component. */
+  page: number;
+  /** Total matching rows across ALL pages, from the backend's count — not `rows.length` (that's just this page). */
+  totalItems: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+}
+
 interface PaginatedTableProps<T> {
-  /** The full, already filtered/sorted row set — this component windows it client-side. */
+  /** Client-side mode: the full, already filtered/sorted row set (this
+   * component windows it). Server-side mode (`serverSide` set): just the
+   * current page's rows, already sliced by the backend. */
   rows: T[];
   pageSize?: number;
   pageSizeOptions?: number[];
@@ -14,82 +25,100 @@ interface PaginatedTableProps<T> {
    * keeps column layout/SortableTh headers fully caller-controlled, this
    * component only owns pagination state and the scroll/footer chrome. */
   children: (pageRows: T[]) => ReactNode;
+  /** Switches the component from owning its own `page` state (and slicing
+   * `rows` itself) to a controlled component driven by these props — for a
+   * dataset large enough that fetching it whole client-side doesn't make
+   * sense (Workers: 236 rows, Trainings: 4652). The caller's fetch already
+   * did the LIMIT/OFFSET; this component just renders the footer controls
+   * and calls back into `onPageChange`/`onPageSizeChange` instead of
+   * mutating local state. */
+  serverSide?: ServerSideConfig;
 }
 
 /**
- * First real pagination component in this app (IMPLEMENTATION_PLAN.md §6,
- * cross-cutting decision #7) — every list page before this rendered its full
- * (dev-seed-sized) row set with only client-side sort/filter via
- * useTableSort. Built here against Jobs' small dataset (~52 rows) before
- * reuse on Workers (236), Trainings (4652) and the audit log.
- *
- * Client-side windowing only: slices an already-fetched `rows` array. A
- * dataset large enough to need server-side paging (Trainings' 4652 rows)
- * needs a different data-fetching shape — the backend accepting `page`/
- * `page_size` and returning just that slice — at which point the caller
- * passes that page's rows straight through here with `pageSize` matching the
- * server's page size and drives `page` from its own fetch instead of this
- * component's internal state. That reshaping is out of scope for Phase 1;
- * this component's public contract (a footer + a windowed render-prop) is
- * designed to still fit either shape when that day comes.
+ * First pagination component in this app (IMPLEMENTATION_PLAN.md §6,
+ * cross-cutting decision #7). Built client-side-only against Jobs' small
+ * dataset in Phase 1; Phase 2 (Workers, 236 rows, real search/sort/page
+ * query params on the backend) added the `serverSide` mode below rather
+ * than building a second component — the footer/controls markup and a11y
+ * contract stay identical either way, only where `page`/`totalPages` state
+ * lives differs.
  */
 export function PaginatedTable<T>({
   rows,
   pageSize: initialPageSize = DEFAULT_PAGE_SIZE,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   children,
+  serverSide,
 }: PaginatedTableProps<T>) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [localPage, setLocalPage] = useState(1);
+  const [localPageSize, setLocalPageSize] = useState(initialPageSize);
 
-  // A new search/filter/sort can shrink the row count out from under the
-  // current page (e.g. viewing page 3 of 4, then a search narrows to 1 page)
-  // — reset to page 1 whenever the underlying set size changes, rather than
-  // stranding the user on a page that no longer has any rows.
+  // Client mode only: a new search/filter/sort can shrink the row count out
+  // from under the current page (e.g. viewing page 3 of 4, then a search
+  // narrows to 1 page) — reset to page 1 rather than stranding the user on
+  // a page that no longer has any rows. Server mode's caller owns resetting
+  // `page` itself (it already has to reset on search/sort change to refetch).
   useEffect(() => {
-    setPage(1);
-  }, [rows.length]);
+    if (!serverSide) setLocalPage(1);
+  }, [rows.length, serverSide]);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
+  const pageSize = serverSide ? initialPageSize : localPageSize;
+  const totalItems = serverSide ? serverSide.totalItems : rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = serverSide ? Math.min(serverSide.page, totalPages) : Math.min(localPage, totalPages);
   const start = (currentPage - 1) * pageSize;
-  const pageRows = rows.slice(start, start + pageSize);
+  const pageRows = serverSide ? rows : rows.slice(start, start + pageSize);
+
+  function goToPage(next: number) {
+    const clamped = Math.max(1, Math.min(totalPages, next));
+    if (serverSide) serverSide.onPageChange(clamped);
+    else setLocalPage(clamped);
+  }
+
+  function changePageSize(size: number) {
+    if (serverSide) {
+      serverSide.onPageSizeChange?.(size);
+    } else {
+      setLocalPageSize(size);
+      setLocalPage(1);
+    }
+  }
 
   return (
     <>
       <div className="table-scroll-body">{children(pageRows)}</div>
       <div className="table-footer">
         <span>
-          {rows.length === 0
+          {totalItems === 0
             ? '0 wyników'
-            : `${start + 1}–${Math.min(start + pageSize, rows.length)} z ${rows.length}`}
+            : `${start + 1}–${Math.min(start + pageSize, totalItems)} z ${totalItems}`}
         </span>
-        {rows.length > pageSizeOptions[0] && (
+        {totalItems > pageSizeOptions[0] && (
           <div className="flex items-center gap-3" style={{ marginLeft: 'auto' }}>
-            <label className="flex items-center gap-1.5" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
-              Na stronie
-              <select
-                className="refined-select"
-                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                aria-label="Liczba wyników na stronie"
-              >
-                {pageSizeOptions.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {(!serverSide || serverSide.onPageSizeChange) && (
+              <label className="flex items-center gap-1.5" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+                Na stronie
+                <select
+                  className="refined-select"
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  value={pageSize}
+                  onChange={(e) => changePageSize(Number(e.target.value))}
+                  aria-label="Liczba wyników na stronie"
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="flex items-center gap-1.5">
               <Button
                 variant="ghost"
                 small
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 aria-label="Poprzednia strona"
               >
@@ -101,7 +130,7 @@ export function PaginatedTable<T>({
               <Button
                 variant="ghost"
                 small
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 aria-label="Następna strona"
               >
