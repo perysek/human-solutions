@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { SkillGap } from './workers';
 
 export interface JobListItem {
   id: string;
@@ -12,6 +13,25 @@ export interface JobPayload {
   description?: string | null;
 }
 
+export interface JobSkillRequirement {
+  skill_id: string;
+  skill_description: string;
+  required_rating: number;
+}
+
+export interface JobWorker {
+  id: string;
+  full_name: string;
+  is_active: boolean;
+}
+
+export interface JobGapWorker {
+  worker_id: string;
+  full_name: string;
+  is_active: boolean;
+  gaps: SkillGap[];
+}
+
 const BASE = '/jobs/api';
 
 export const jobsApi = {
@@ -22,4 +42,11 @@ export const jobsApi = {
   update: (id: string, description: string | null) =>
     api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, { description }),
   remove: (id: string) => api.del<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`),
+
+  // Competency matrix (JOB_2/4/5/6, Phase 3)
+  getSkills: (id: string) => api.get<{ skills: JobSkillRequirement[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/skills`),
+  setSkills: (id: string, skills: { skill_id: string; required_rating: number }[]) =>
+    api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills`, { skills }),
+  getWorkers: (id: string) => api.get<{ workers: JobWorker[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/workers`),
+  getGapAnalysis: (id: string) => api.get<{ workers: JobGapWorker[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/gap-analysis`),
 };

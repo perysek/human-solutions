@@ -59,6 +59,28 @@ export interface ExpiringForeignerDoc {
   document_validity: string | null;
 }
 
+export interface WorkerSkillItem {
+  id: number;
+  skill_id: string;
+  skill_description: string;
+  current_rating: number | null;
+  last_update: string | null;
+}
+
+export interface SkillGap {
+  skill_id: string;
+  skill_description: string;
+  required_rating: number;
+  current_rating: number | null;
+  gap: number;
+}
+
+export interface SkillRemark {
+  id: number;
+  remarks: string;
+  created_at: string | null;
+}
+
 const BASE = '/workers/api';
 
 function buildQuery(params: WorkersListParams): string {
@@ -83,4 +105,25 @@ export const workersApi = {
   subordinates: (id: string) => api.get<{ subordinates: WorkerListItem[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/subordinates`),
   expiringForeignerDocs: (days = 30) =>
     api.get<{ workers: ExpiringForeignerDoc[]; count: number }>(`${BASE}/expiring-foreigner-docs?days=${days}`),
+
+  // Competency matrix (SKL_2/3/4, Phase 3)
+  getSkills: (id: string) => api.get<{ skills: WorkerSkillItem[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/skills`),
+  setSkill: (id: string, skillId: string, currentRating: number | null, lastUpdate?: string | null) =>
+    api.post<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills`, {
+      skill_id: skillId,
+      current_rating: currentRating,
+      last_update: lastUpdate,
+    }),
+  updateSkill: (id: string, skillId: string, currentRating: number | null, lastUpdate?: string | null) =>
+    api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}`, {
+      current_rating: currentRating,
+      last_update: lastUpdate,
+    }),
+  removeSkill: (id: string, skillId: string) =>
+    api.del<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}`),
+  getRemarks: (id: string, skillId: string) =>
+    api.get<{ remarks: SkillRemark[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/remarks`),
+  addRemark: (id: string, skillId: string, remarks: string) =>
+    api.post<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/remarks`, { remarks }),
+  getGapAnalysis: (id: string) => api.get<{ gaps: SkillGap[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/gap-analysis`),
 };

@@ -6,6 +6,8 @@ import { useApiData } from '@/lib/api/useApiData';
 import { jobsApi } from '@/lib/api/jobs';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
+import { JobSkillsSection } from './JobSkillsSection';
+import { JobWorkersSection } from './JobWorkersSection';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -19,7 +21,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export function JobViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isModuleReadOnly } = useAuth();
+  const { isModuleReadOnly, hasModuleAccess } = useAuth();
   const canWrite = !isModuleReadOnly('jobs');
   const { data: job, loading, error } = useApiData(() => jobsApi.get(id as string), [id]);
   useEscapeAction(() => navigate('/jobs'));
@@ -48,15 +50,24 @@ export function JobViewPage() {
       ) : error || !job ? (
         <EmptyState icon="error" title="Nie znaleziono stanowiska" message={error ?? undefined} />
       ) : (
-        <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Kod" value={job.id} />
-            <Field label="Opis" value={job.description ?? '—'} />
-            <Field label="Utworzono" value={job.created_at ? new Date(job.created_at).toLocaleString('pl-PL') : '—'} />
-            <Field label="Zaktualizowano" value={job.updated_at ? new Date(job.updated_at).toLocaleString('pl-PL') : '—'} />
+        <div className="space-y-4">
+          <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Kod" value={job.id} />
+              <Field label="Opis" value={job.description ?? '—'} />
+              <Field label="Utworzono" value={job.created_at ? new Date(job.created_at).toLocaleString('pl-PL') : '—'} />
+              <Field label="Zaktualizowano" value={job.updated_at ? new Date(job.updated_at).toLocaleString('pl-PL') : '—'} />
+            </div>
           </div>
-          {/* Phase 3 (IMPLEMENTATION_PLAN.md §8) adds a "Wymagane umiejętności"
-              section here — the job's required-skills matrix (job_skills). */}
+
+          <JobSkillsSection jobId={job.id} canWrite={canWrite} />
+
+          {/* GET /jobs/api/<id>/workers gates on the 'workers' module, not
+              'jobs' (RODO — see routes/jobs/routes.py's comment), so this
+              section only renders for roles that actually have that grant —
+              today the same superadmin/hr_manager set as 'jobs', but not
+              guaranteed to always be. */}
+          {hasModuleAccess('workers') && <JobWorkersSection jobId={job.id} />}
         </div>
       )}
     </div>

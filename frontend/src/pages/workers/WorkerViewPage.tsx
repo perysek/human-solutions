@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { WorkerCompetencySection } from './WorkerCompetencySection';
 
 const GENDER_LABELS: Record<string, string> = {
   Male: 'Mężczyzna',
@@ -39,6 +41,8 @@ export function WorkerViewPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const toast = useToast();
+  const { isModuleReadOnly } = useAuth();
+  const canWrite = !isModuleReadOnly('workers');
   const { data: worker, loading, error, reload } = useApiData(() => workersApi.get(id as string), [id]);
   useEscapeAction(() => navigate('/workers'));
 
@@ -163,6 +167,8 @@ export function WorkerViewPage() {
               </div>
             )}
           </Section>
+
+          <WorkerCompetencySection workerId={worker.id} canWrite={canWrite} />
         </div>
       )}
     </div>

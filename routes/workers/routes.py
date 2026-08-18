@@ -19,6 +19,9 @@ from flask_login import login_required
 from config.auth_config import module_permission_required
 from exceptions import AppError, NotFoundError, ValidationError
 from repositories.workers.worker_repository import WorkerRepository
+from repositories.workers.worker_skill_repository import WorkerSkillRepository
+from repositories.workers.worker_skill_remark_repository import WorkerSkillRemarkRepository
+import services.competency_service as competency_service
 import services.worker_service as worker_service
 from services.alert_service import get_expiring_foreigner_docs
 
@@ -211,4 +214,208 @@ def api_subordinates(worker_id):
         raise
     except Exception:
         logging.exception('Unexpected error in api_subordinates (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+# ─── Competency matrix (Faza 3, IMPLEMENTATION_PLAN.md §8) ────────────────────
+
+def _worker_skill_json(row) -> dict:
+    return {
+        'id': row['id'],
+        'skill_id': row['skill_id'],
+        'skill_description': row['skill_description'],
+        'current_rating': row['current_rating'],
+        'last_update': row['last_update'].isoformat() if row['last_update'] else None,
+    }
+
+
+@workers_bp.route('/api/<worker_id>/skills', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_get_skills(worker_id):
+    """GET /workers/api/<id>/skills — oceny umiejętności pracownika (SKL_2)."""
+    if not WorkerRepository().get_by_id(worker_id):
+        raise NotFoundError('Pracownik nie znaleziony')
+    try:
+        rows = WorkerSkillRepository().get_by_worker(worker_id)
+        skills = [_worker_skill_json(r) for r in rows]
+        return jsonify({'skills': skills, 'count': len(skills)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_skills (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/skills', methods=['POST'])
+@login_required
+@module_permission_required('workers')
+def api_add_skill(worker_id):
+    """POST /workers/api/<id>/skills — dodaj/ustaw ocenę umiejętności (SKL_2)."""
+    if not WorkerRepository().get_by_id(worker_id):
+        raise NotFoundError('Pracownik nie znaleziony')
+
+    data = request.get_json() or {}
+    skill_id = (data.get('skill_id') or '').strip()
+    rating = data.get('current_rating')
+    last_update = data.get('last_update') or None
+
+    if not skill_id:
+        raise ValidationError('Identyfikator umiejętności jest wymagany')
+    if rating is not None and not (1 <= int(rating) <= 3):
+        raise ValidationError('Ocena musi być liczbą od 1 do 3')
+
+    try:
+        WorkerSkillRepository().set_rating(worker_id, skill_id, rating, last_update)
+        return jsonify({'success': True}), 201
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_add_skill (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/skills/<skill_id>', methods=['PUT'])
+@login_required
+@module_permission_required('workers')
+def api_update_skill(worker_id, skill_id):
+    """PUT /workers/api/<id>/skills/<skill_id> — zaktualizuj ocenę (SKL_2).
+    Stara/nowa wartość trafia do audit_log wewnątrz set_rating (SKL_5)."""
+    if not WorkerRepository().get_by_id(worker_id):
+        raise NotFoundError('Pracownik nie znaleziony')
+
+    data = request.get_json() or {}
+    rating = data.get('current_rating')
+    last_update = data.get('last_update') or None
+    if rating is not None and not (1 <= int(rating) <= 3):
+        raise ValidationError('Ocena musi być liczbą od 1 do 3')
+
+    try:
+        WorkerSkillRepository().set_rating(worker_id, skill_id, rating, last_update)
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_update_skill (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/skills/<skill_id>', methods=['DELETE'])
+@login_required
+@module_permission_required('workers')
+def api_remove_skill(worker_id, skill_id):
+    """DELETE /workers/api/<id>/skills/<skill_id> — usuń ocenę umiejętności."""
+    if not WorkerRepository().get_by_id(worker_id):
+        raise NotFoundError('Pracownik nie znaleziony')
+    try:
+        deleted = WorkerSkillRepository().remove_rating(worker_id, skill_id)
+        if not deleted:
+            raise NotFoundError('Ocena nie znaleziona')
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_remove_skill (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/skills/<skill_id>/remarks', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_get_remarks(worker_id, skill_id):
+    """GET /workers/api/<id>/skills/<skill_id>/remarks — historia uwag (SKL_3)."""
+    worker_skill = WorkerSkillRepository().get_one(worker_id, skill_id)
+    if not worker_skill:
+        raise NotFoundError('Ocena umiejętności nie znaleziona')
+    try:
+        rows = WorkerSkillRemarkRepository().get_by_worker_skill(worker_skill['id'])
+        remarks = [
+            {'id': r['id'], 'remarks': r['remarks'], 'created_at': r['created_at'].isoformat() if r['created_at'] else None}
+            for r in rows
+        ]
+        return jsonify({'remarks': remarks, 'count': len(remarks)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_remarks (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/skills/<skill_id>/remarks', methods=['POST'])
+@login_required
+@module_permission_required('workers')
+def api_add_remark(worker_id, skill_id):
+    """POST /workers/api/<id>/skills/<skill_id>/remarks — dodaj uwagę (SKL_3).
+    Wymaga istniejącej oceny (worker_skills) — uwaga bez oceny nie ma się
+    do czego odnosić."""
+    worker_skill = WorkerSkillRepository().get_one(worker_id, skill_id)
+    if not worker_skill:
+        raise NotFoundError('Ocena umiejętności nie znaleziona — najpierw ustaw ocenę')
+
+    data = request.get_json() or {}
+    remarks = (data.get('remarks') or '').strip()
+    if not remarks:
+        raise ValidationError('Treść uwagi jest wymagana')
+
+    try:
+        WorkerSkillRemarkRepository().create(worker_skill['id'], worker_id, remarks)
+        return jsonify({'success': True}), 201
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_add_remark (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/gap-analysis', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_gap_analysis(worker_id):
+    """GET /workers/api/<id>/gap-analysis — luki między wymaganiami
+    stanowiska a ocenami pracownika (SKL_4). Nie jest to dosłowna ścieżka z
+    IMPLEMENTATION_PLAN.md §10's tabeli endpointów (tam gap-analysis wisi
+    pod /jobs/api/<job_id>/gap-analysis dla widoku zbiorczego, JOB_6) — ale
+    services/competency_service.get_gap_analysis() jawnie przyjmuje
+    worker_id, więc wystawienie go też tutaj to prosty, jednowierszowy
+    wrapper, a profil pracownika (WorkerViewPage) potrzebuje tego widoku
+    bez sklejania dwóch osobnych wywołań po stronie frontendu."""
+    try:
+        gaps = competency_service.get_gap_analysis(worker_id)
+        return jsonify({'gaps': gaps, 'count': len(gaps)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_gap_analysis (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/skill-gaps', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_skill_gaps():
+    """GET /workers/api/skill-gaps?skill_id=&min_gap= — pracownicy z luką
+    kompetencyjną (SKL_6)."""
+    try:
+        skill_id = request.args.get('skill_id') or None
+        min_gap = int(request.args.get('min_gap', 1))
+        rows = competency_service.filter_workers_by_skill_gap(skill_id=skill_id, min_gap=min_gap)
+        results = [
+            {
+                'worker_id': r['worker_id'],
+                'full_name': f"{r['firstname']} {r['surname']}",
+                'skill_id': r['skill_id'],
+                'skill_description': r['skill_description'],
+                'required_rating': r['required_rating'],
+                'current_rating': r['current_rating'],
+                'gap': r['gap'],
+            }
+            for r in rows
+        ]
+        return jsonify({'results': results, 'count': len(results)})
+    except AppError:
+        raise
+    except (TypeError, ValueError):
+        raise ValidationError('Nieprawidłowy parametr min_gap')
+    except Exception:
+        logging.exception('Unexpected error in api_skill_gaps (workers)')
         raise AppError('Wystąpił błąd serwera')

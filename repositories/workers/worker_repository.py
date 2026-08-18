@@ -150,3 +150,8 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         by any worker (RESTRICT FK) can't be hard-deleted."""
         row = self._fetch_one("SELECT COUNT(*) AS total FROM workers WHERE job_id = %s", (job_id,))
         return row['total']
+
+    def get_by_job(self, job_id: str) -> List[Any]:
+        """Active+inactive workers holding this job (JOB_5)."""
+        query = _SELECT_BASE + " WHERE w.job_id = %s ORDER BY w.surname, w.firstname"
+        return self._fetch_all(query, (job_id,))

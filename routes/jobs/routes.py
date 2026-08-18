@@ -13,6 +13,8 @@ from flask_login import login_required
 from config.auth_config import module_permission_required
 from exceptions import AppError, ValidationError, NotFoundError, ConflictError
 from repositories.jobs.job_repository import JobRepository
+from repositories.jobs.job_skill_repository import JobSkillRepository
+import services.competency_service as competency_service
 
 jobs_bp = Blueprint('jobs', __name__, url_prefix='/jobs')
 
@@ -130,4 +132,107 @@ def api_delete(job_id):
         raise
     except Exception:
         logging.exception('Unexpected error in api_delete (jobs)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+# ─── Competency matrix (Faza 3, IMPLEMENTATION_PLAN.md §8) ────────────────────
+
+def _job_skill_json(row) -> dict:
+    return {
+        'skill_id': row['skill_id'],
+        'skill_description': row['skill_description'],
+        'required_rating': row['required_rating'],
+    }
+
+
+@jobs_bp.route('/api/<job_id>/skills', methods=['GET'])
+@login_required
+@module_permission_required('jobs')
+def api_get_skills(job_id):
+    """GET /jobs/api/<id>/skills — wymagane umiejętności stanowiska (JOB_2)."""
+    if not _repo().get_by_id(job_id):
+        raise NotFoundError('Stanowisko nie znalezione')
+    try:
+        rows = JobSkillRepository().get_by_job(job_id)
+        skills = [_job_skill_json(r) for r in rows]
+        return jsonify({'skills': skills, 'count': len(skills)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_skills (jobs)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@jobs_bp.route('/api/<job_id>/skills', methods=['PUT'])
+@login_required
+@module_permission_required('jobs')
+def api_set_skills(job_id):
+    """PUT /jobs/api/<id>/skills — zastąp cały zestaw wymaganych
+    umiejętności stanowiska (JOB_4). Body: {skills: [{skill_id, required_rating}]}."""
+    if not _repo().get_by_id(job_id):
+        raise NotFoundError('Stanowisko nie znalezione')
+
+    data = request.get_json() or {}
+    requirements = data.get('skills') or []
+    for req in requirements:
+        rating = req.get('required_rating')
+        if rating is None or not (1 <= int(rating) <= 3):
+            raise ValidationError('Wymagana ocena musi być liczbą od 1 do 3')
+
+    try:
+        JobSkillRepository().replace_requirements(job_id, requirements)
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_set_skills (jobs)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@jobs_bp.route('/api/<job_id>/workers', methods=['GET'])
+@login_required
+# 'workers', not 'jobs' — this surfaces worker names (RODO-scoped personal
+# data), so it must gate on real worker-data access, not job-dictionary
+# access, even though today both modules happen to have identical grants.
+@module_permission_required('workers')
+def api_get_workers(job_id):
+    """GET /jobs/api/<id>/workers — pracownicy na tym stanowisku (JOB_5)."""
+    if not _repo().get_by_id(job_id):
+        raise NotFoundError('Stanowisko nie znalezione')
+    try:
+        from repositories.workers.worker_repository import WorkerRepository
+        rows = WorkerRepository().get_by_job(job_id)
+        workers = [
+            {
+                'id': r['id'],
+                'full_name': f"{r['firstname']} {r['surname']}",
+                'is_active': r['fire_date'] is None,
+            }
+            for r in rows
+        ]
+        return jsonify({'workers': workers, 'count': len(workers)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_workers (jobs)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@jobs_bp.route('/api/<job_id>/gap-analysis', methods=['GET'])
+@login_required
+# Same reasoning as api_get_workers — this is worker performance data, gate
+# on 'workers', not 'jobs'.
+@module_permission_required('workers')
+def api_gap_analysis(job_id):
+    """GET /jobs/api/<id>/gap-analysis — dla każdego pracownika na tym
+    stanowisku: luki między wymaganiami a posiadanymi ocenami (JOB_6)."""
+    if not _repo().get_by_id(job_id):
+        raise NotFoundError('Stanowisko nie znalezione')
+    try:
+        result = competency_service.get_job_gap_analysis(job_id)
+        return jsonify({'workers': result, 'count': len(result)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_gap_analysis (jobs)')
         raise AppError('Wystąpił błąd serwera')
