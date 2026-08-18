@@ -4,9 +4,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 export function NotFoundPage() {
   return (
     <div style={{ padding: '3rem 1.5rem' }}>
-      <div className="flex justify-center" style={{ marginBottom: '1rem' }}>
-        <img src="/logo-inline.webp" alt="" className="h-6 w-auto object-contain opacity-40" aria-hidden="true" />
-      </div>
       <EmptyState
         icon="search"
         title="404 — nie znaleziono strony"

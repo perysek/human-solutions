@@ -11,6 +11,11 @@ interface AuthContextValue {
   login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   hasModuleAccess: (moduleName: ModuleName | string) => boolean;
+  /** True when the user's only grant to this module is read_only — mutating
+   * actions (create/edit/delete) must hide/disable, not just rely on the
+   * backend's 403 (module_permission_required already blocks the request;
+   * this is for not showing a button that would just fail). */
+  isModuleReadOnly: (moduleName: ModuleName | string) => boolean;
   hasRole: (...roles: Role[]) => boolean;
 }
 
@@ -95,6 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [permissions],
   );
 
+  const isModuleReadOnly = useCallback(
+    (moduleName: ModuleName | string) => permissions[moduleName]?.readOnly ?? false,
+    [permissions],
+  );
+
   const hasRole = useCallback((...roles: Role[]) => (user ? roles.includes(user.role) : false), [user]);
 
   const value = useMemo<AuthContextValue>(
@@ -105,9 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       hasModuleAccess,
+      isModuleReadOnly,
       hasRole,
     }),
-    [user, isLoading, login, logout, hasModuleAccess, hasRole],
+    [user, isLoading, login, logout, hasModuleAccess, isModuleReadOnly, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

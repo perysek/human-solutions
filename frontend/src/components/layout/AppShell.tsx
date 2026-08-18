@@ -7,6 +7,8 @@ const PAGE_TITLES: [prefix: string, title: string][] = [
   ['/employees/formy-zatrudnienia', 'Formy zatrudnienia'],
   ['/employees/hierarchy', 'Hierarchia pracowników'],
   ['/employees', 'Pracownicy'],
+  ['/jobs', 'Stanowiska'],
+  ['/skills', 'Umiejętności'],
   ['/users', 'Użytkownicy'],
   ['/roles', 'Role'],
   ['/profile', 'Profil'],
@@ -64,10 +66,10 @@ export function AppShell() {
             </svg>
           </button>
           <div className="lg:hidden flex items-center gap-2 min-w-0">
-            {/* logo-inline.webp is a purpose-built small export (494x143),
-                not the 3290x956 hero master downscaled 40x — the previous
-                aliasing culprit at this size. */}
-            <img src="/logo-inline.webp" alt="" className="h-7 w-auto object-contain" aria-hidden="true" />
+            {/* logo-inline.webp was MyWay Beauty Salon's wordmark (same issue
+                as Sidebar.tsx's brand header — see its comment) — no
+                replacement asset exists yet, so the condensed mobile header
+                is text-only for now. */}
             <span className="truncate text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               {pageTitleFor(location.pathname)}
             </span>

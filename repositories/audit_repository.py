@@ -2,7 +2,7 @@
 Repository dla historii zmian (audit log)
 """
 import logging
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from repositories.base_repository import BaseRepository
 
@@ -19,7 +19,11 @@ class AuditRepository(BaseRepository):
         self,
         entity_type: str,
         action: str,
-        entity_id: Optional[int] = None,
+        # int for surrogate-key entities (invoices, users, ...), str for the
+        # Staamp domain's natural TEXT keys (jobs, skills, workers, ...) —
+        # audit_log.entity_id is TEXT (widened by
+        # e4f5a6b7c8d9_widen_audit_log_entity_id_to_text) precisely to hold both.
+        entity_id: Optional[Union[int, str]] = None,
         entity_label: Optional[str] = None,
         field_name: Optional[str] = None,
         old_value: Optional[str] = None,

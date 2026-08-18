@@ -80,15 +80,19 @@ def create_app() -> Flask:
 
     # --- Blueprints ---
     # employees_bp (salon domain) retired here — IMPLEMENTATION_PLAN.md §5.4.
-    # workers_bp/jobs_bp (Staamp HR domain) land in Phase 1/2.
+    # workers_bp (Staamp HR domain) lands in Phase 2.
     from routes.auth.routes import auth_bp
     from routes.users.routes import users_bp
     from routes.roles.routes import roles_bp
+    from routes.jobs.routes import jobs_bp
+    from routes.skills.routes import skills_bp
     from routes.main.routes import main_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)
+    app.register_blueprint(jobs_bp)
+    app.register_blueprint(skills_bp)
     app.register_blueprint(main_bp)
 
     # Singleton some routes reach via current_app.audit_repo (routes/users, routes/roles).

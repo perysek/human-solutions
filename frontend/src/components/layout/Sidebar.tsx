@@ -77,20 +77,19 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
         style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)', boxShadow: 'var(--shadow-sidebar)' }}
       >
         <div
-          className="px-4 py-2 flex flex-col items-center gap-1"
+          className="px-4 py-3 flex flex-col items-center gap-1"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}
         >
-          {/* Deliberate clear space: a fixed width instead of w-full stretch,
-              so the mark doesn't crowd the sidebar's edges. */}
-          <img
-            src="/logo.webp"
-            alt=""
-            aria-hidden="true"
-            className="w-[200px] max-w-full h-auto object-contain py-1"
-            style={{ filter: 'var(--sidebar-logo-filter)' }}
-          />
-          <p className="text-[13px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
+          {/* /logo.webp was MyWay Beauty Salon's wordmark baked into the
+              image pixels (alt="" alone doesn't fix a logo whose branding
+              IS the graphic, not just its alt text) — no replacement asset
+              exists yet, so the text caption is the whole brand mark for
+              now. Re-add an <img> here once a real logo exists. */}
+          <p className="text-lg font-semibold tracking-tight text-center" style={{ color: 'var(--sidebar-text-active)' }}>
             System Kadrowy
+          </p>
+          <p className="text-[11px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
+            Zarządzanie kadrami
           </p>
         </div>
 

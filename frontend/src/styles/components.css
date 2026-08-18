@@ -370,7 +370,10 @@
 .table-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  /* space-between so PaginatedTable's page controls (2nd child) align right
+     while the row-count label (1st child) stays left; a lone label (every
+     list page before PaginatedTable) still sits flush left with one child. */
+  justify-content: space-between;
   padding: 0.625rem 1rem;
   font-size: 0.6875rem;
   font-weight: 500;

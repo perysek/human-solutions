@@ -13,6 +13,13 @@ import { RolesListPage } from '@/pages/roles/RolesListPage';
 import { RoleCreatePage } from '@/pages/roles/RoleCreatePage';
 import { RoleViewPage } from '@/pages/roles/RoleViewPage';
 import { RoleEditPage } from '@/pages/roles/RoleEditPage';
+import { JobsListPage } from '@/pages/jobs/JobsListPage';
+import { JobCreatePage } from '@/pages/jobs/JobCreatePage';
+import { JobViewPage } from '@/pages/jobs/JobViewPage';
+import { JobEditPage } from '@/pages/jobs/JobEditPage';
+import { SkillsListPage } from '@/pages/skills/SkillsListPage';
+import { SkillCreatePage } from '@/pages/skills/SkillCreatePage';
+import { SkillEditPage } from '@/pages/skills/SkillEditPage';
 import { EmployeesListPage } from '@/pages/employees/EmployeesListPage';
 import { EmployeeCreatePage } from '@/pages/employees/EmployeeCreatePage';
 import { EmployeeViewPage } from '@/pages/employees/EmployeeViewPage';
@@ -33,6 +40,21 @@ export function AppRoutes() {
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate to="/profile" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
+
+          {/* module_permission_required('jobs') — routes/jobs/routes.py */}
+          <Route element={<ProtectedRoute requireModule="jobs" />}>
+            <Route path="/jobs" element={<JobsListPage />} />
+            <Route path="/jobs/create" element={<JobCreatePage />} />
+            <Route path="/jobs/:id" element={<JobViewPage />} />
+            <Route path="/jobs/:id/edit" element={<JobEditPage />} />
+          </Route>
+
+          {/* module_permission_required('skills') — routes/skills/routes.py */}
+          <Route element={<ProtectedRoute requireModule="skills" />}>
+            <Route path="/skills" element={<SkillsListPage />} />
+            <Route path="/skills/create" element={<SkillCreatePage />} />
+            <Route path="/skills/:id/edit" element={<SkillEditPage />} />
+          </Route>
 
           {/* Salon-era employees pages, kept mounted but dormant — no role
               grants the 'employees' module in the Staamp RBAC rebuild
