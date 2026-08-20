@@ -11,6 +11,7 @@ import { useToast } from '@/lib/feedback/ToastProvider';
 import { WorkerCompetencySection } from './WorkerCompetencySection';
 import { WorkerMedicalSection } from './WorkerMedicalSection';
 import { WorkerBhpSection } from './WorkerBhpSection';
+import { WorkerTrainingHistorySection } from './WorkerTrainingHistorySection';
 
 const GENDER_LABELS: Record<string, string> = {
   Male: 'Mężczyzna',
@@ -179,6 +180,8 @@ export function WorkerViewPage() {
           {hasModuleAccess('bhp') && (
             <WorkerBhpSection workerId={worker.id} canWrite={!isModuleReadOnly('bhp')} />
           )}
+
+          <WorkerTrainingHistorySection workerId={worker.id} />
         </div>
       )}
     </div>

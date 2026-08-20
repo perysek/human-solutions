@@ -15,7 +15,7 @@ class UserRepository(BaseRepository):
     """Repository dla operacji na użytkownikach"""
 
     _columns = ('id, email, password_hash, full_name, role, is_active, last_login, '
-                'failed_logins, locked_until, created_at, updated_at')
+                'failed_logins, locked_until, worker_id, created_at, updated_at')
 
     def __init__(self):
         super().__init__("users")
@@ -117,6 +117,16 @@ class UserRepository(BaseRepository):
         """
         query = "UPDATE users SET role = %s, updated_at = %s WHERE id = %s"
         self._execute(query, (new_role, datetime.now(), user_id))
+
+    def set_worker_id(self, user_id: int, worker_id: Optional[str]):
+        """Link (or unlink, when ``worker_id`` is None) this login account to
+        a `workers` row — the read side of Faza 5's own_data_worker_id()
+        (config/auth_config.py). No admin UI calls this yet (not required by
+        any TRN_* requirement); today's only caller is scripts/seed_dev_data.py,
+        linking the dev `trainer@dev.local` account so TRN_7's ownership gate
+        is exercisable locally without hand-written SQL."""
+        query = "UPDATE users SET worker_id = %s, updated_at = %s WHERE id = %s"
+        self._execute(query, (worker_id, datetime.now(), user_id))
 
     def deactivate(self, user_id: int):
         """
@@ -254,6 +264,7 @@ class UserRepository(BaseRepository):
             last_login=parse_dt(row["last_login"]),
             failed_logins=row["failed_logins"] if "failed_logins" in row.keys() else 0,
             locked_until=parse_dt(row["locked_until"]) if "locked_until" in row.keys() else None,
+            worker_id=row["worker_id"] if "worker_id" in row.keys() else None,
             created_at=parse_dt(row["created_at"]),
             updated_at=parse_dt(row["updated_at"])
         )

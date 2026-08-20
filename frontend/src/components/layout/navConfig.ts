@@ -40,6 +40,9 @@ const ICON_MEDICAL =
   'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z';
 const ICON_BHP =
   'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z';
+// Faza 5 (IMPLEMENTATION_PLAN.md §10) — internal trainings catalog.
+const ICON_TRAININGS =
+  'M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5';
 
 export const NAV_SECTIONS: NavSectionConfig[] = [
   {
@@ -75,6 +78,12 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         to: '/bhp/expiring',
         iconPath: ICON_BHP,
         visible: (ctx) => ctx.hasModuleAccess('bhp'),
+      },
+      {
+        label: 'Szkolenia wewnętrzne',
+        to: '/trainings',
+        iconPath: ICON_TRAININGS,
+        visible: (ctx) => ctx.hasModuleAccess('trainings'),
       },
     ],
   },

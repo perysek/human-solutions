@@ -29,6 +29,7 @@ function toAuthUser(raw: NonNullable<MeResponse['user']>): AuthUser {
     role: raw.role as Role,
     isActive: raw.is_active,
     lastLogin: raw.last_login,
+    workerId: raw.worker_id,
   };
 }
 

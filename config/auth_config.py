@@ -3,6 +3,8 @@ Konfiguracja autentykacji i autoryzacji
 Role-based access control (RBAC) configuration
 """
 from functools import wraps
+from typing import Optional
+
 from flask import request, jsonify
 from flask_login import current_user
 from config.ui_messages import msg
@@ -192,6 +194,25 @@ def get_user_module_permissions(role_name: str) -> dict:
             module: role_name in allowed_roles
             for module, allowed_roles in MODULE_PERMISSIONS.items()
         }
+
+
+def own_data_worker_id(user, module_name: str) -> Optional[str]:
+    """Faza 5 (cross-cutting decision #6): resolve the worker-scoping the
+    caller must apply for ``module_name``.
+
+    Returns ``None`` when the role has no own_data restriction for this
+    module (full access — the caller applies no filter at all). Returns a
+    ``workers.id`` string otherwise — read directly off ``users.worker_id``,
+    no join needed (PRD puts the FK on ``users``, not the reverse). A
+    ``trainer`` account with no linked worker row degrades safely to the
+    sentinel ``'-1'`` (a value no real worker id can ever equal, since
+    WorkerRepository._next_id() only ever generates positive integers) —
+    "sees nothing" rather than raising or, worse, silently matching every
+    NULL-trainer row.
+    """
+    if not is_own_data_only(user.role, module_name):
+        return None
+    return user.worker_id if user.worker_id else '-1'
 
 
 def get_all_permission_flags(role_name: str) -> dict:

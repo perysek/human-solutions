@@ -14,6 +14,12 @@ export interface AuthUser {
   role: Role;
   isActive: boolean;
   lastLogin: string | null;
+  /** Faza 5 — links this account to a `workers` row (null for most
+   * superadmin/hr_manager accounts). Lets the UI compare against a
+   * training's `trainer_id` to decide whether a `trainer` owns it, without
+   * a round trip — the real enforcement is server-side
+   * (own_data_worker_id/assert_trainer_can_edit). */
+  workerId: string | null;
 }
 
 export interface ModulePermission {
@@ -34,6 +40,7 @@ export interface MeResponse {
     role: string;
     is_active: boolean;
     last_login: string | null;
+    worker_id: string | null;
   };
   permissions?: RawPermissions;
 }

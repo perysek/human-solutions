@@ -27,6 +27,10 @@ import { WorkerEditPage } from '@/pages/workers/WorkerEditPage';
 import { WorkerHierarchyPage } from '@/pages/workers/WorkerHierarchyPage';
 import { MedicalExpiringReportPage } from '@/pages/medical/MedicalExpiringReportPage';
 import { BhpExpiringReportPage } from '@/pages/bhp/BhpExpiringReportPage';
+import { TrainingsListPage } from '@/pages/trainings/TrainingsListPage';
+import { TrainingCreatePage } from '@/pages/trainings/TrainingCreatePage';
+import { TrainingViewPage } from '@/pages/trainings/TrainingViewPage';
+import { TrainingEditPage } from '@/pages/trainings/TrainingEditPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function AppRoutes() {
@@ -74,6 +78,25 @@ export function AppRoutes() {
           {/* module_permission_required('bhp') — routes/bhp/routes.py */}
           <Route element={<ProtectedRoute requireModule="bhp" />}>
             <Route path="/bhp/expiring" element={<BhpExpiringReportPage />} />
+          </Route>
+
+          {/* module_permission_required('trainings') — routes/trainings/routes.py.
+              Every role with `trainings` access (superadmin/hr_manager/trainer/
+              viewer, Faza 0's macierz) reaches the list/view/edit pages; the
+              page bodies themselves further gate write actions (TrainingViewPage's
+              Edit button, ParticipantsTable's add/edit controls) to match the
+              backend's finer-grained own_data/role checks. */}
+          <Route element={<ProtectedRoute requireModule="trainings" />}>
+            <Route path="/trainings" element={<TrainingsListPage />} />
+            <Route path="/trainings/:id" element={<TrainingViewPage />} />
+            <Route path="/trainings/:id/edit" element={<TrainingEditPage />} />
+          </Route>
+
+          {/* POST /trainings/api is role_required('superadmin', 'hr_manager')
+              only — `trainer`/`viewer` never get to create a training, unlike
+              the broader module access above. */}
+          <Route element={<ProtectedRoute guard={({ user }) => user.role === 'superadmin' || user.role === 'hr_manager'} />}>
+            <Route path="/trainings/create" element={<TrainingCreatePage />} />
           </Route>
 
           {/* role_required('superadmin') — routes/users/routes.py gates every

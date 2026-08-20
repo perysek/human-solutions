@@ -35,6 +35,11 @@ export default defineConfig({
       // reports below), so only the JSON API suffix is proxied.
       '/medical/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       '/bhp/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      // Faza 5 (IMPLEMENTATION_PLAN.md §10) — same '/trainings' collision as
+      // above ('/trainings' is also a React Router page), so only the JSON
+      // API suffix is proxied. CSV export (TRN_11) rides this same proxy
+      // entry as a plain browser navigation, not a fetch() call.
+      '/trainings/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
     },
   },
 });

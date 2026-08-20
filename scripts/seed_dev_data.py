@@ -30,6 +30,7 @@ if os.environ.get('FLASK_ENV') == 'production':
 
 from app import create_app
 from repositories.users.user_repository import UserRepository
+from repositories.workers.worker_repository import WorkerRepository
 
 DEV_PASSWORD = 'DevPass123!'
 
@@ -56,6 +57,18 @@ def main():
                 full_name=u['full_name'], role=u['role'],
             )
             print(f"  created {u['email']} ({u['role']})")
+
+        # Faza 5 (IMPLEMENTATION_PLAN.md §10, OQ_6): a `trainer` account
+        # should be linked to a `workers` row, or TRN_7's "edit only my own
+        # trainings" gate has nothing to test locally without hand-written
+        # SQL. Best-effort — a worker row only exists once Faza 2's data has
+        # been seeded/migrated; harmless no-op otherwise.
+        trainer = user_repo.get_by_email('trainer@dev.local')
+        if trainer and not trainer.worker_id:
+            workers, _ = WorkerRepository().get_all(status='active', page=1, page_size=1)
+            if workers:
+                user_repo.set_worker_id(trainer.id, workers[0]['id'])
+                print(f"  linked trainer@dev.local -> worker {workers[0]['id']}")
 
         print('\nDone. Dev login password for every seeded user:', DEV_PASSWORD)
 

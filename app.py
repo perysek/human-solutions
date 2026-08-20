@@ -88,6 +88,7 @@ def create_app() -> Flask:
     from routes.workers.routes import workers_bp
     from routes.medical.routes import medical_bp
     from routes.bhp.routes import bhp_bp
+    from routes.trainings.routes import trainings_bp
     from routes.main.routes import main_bp
 
     app.register_blueprint(auth_bp)
@@ -98,6 +99,7 @@ def create_app() -> Flask:
     app.register_blueprint(workers_bp)
     app.register_blueprint(medical_bp)
     app.register_blueprint(bhp_bp)
+    app.register_blueprint(trainings_bp)
     app.register_blueprint(main_bp)
 
     # Singleton some routes reach via current_app.audit_repo (routes/users, routes/roles).

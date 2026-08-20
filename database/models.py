@@ -18,6 +18,7 @@ class User(UserMixin):
     last_login: Optional[datetime] = None
     failed_logins: int = 0
     locked_until: Optional[datetime] = None
+    worker_id: Optional[str] = None
     created_at: Optional[datetime] = field(default_factory=datetime.now)
     updated_at: Optional[datetime] = field(default_factory=datetime.now)
 

@@ -1,0 +1,126 @@
+import { useNavigate, useParams } from 'react-router-dom';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { useApiData } from '@/lib/api/useApiData';
+import { trainingsApi } from '@/lib/api/trainings';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
+import { useConfirm } from '@/lib/feedback/ConfirmProvider';
+import { useToast } from '@/lib/feedback/ToastProvider';
+import { TrainingJobsSection } from './TrainingJobsSection';
+import { TrainingSkillsSection } from './TrainingSkillsSection';
+import { ParticipantsTable } from './ParticipantsTable';
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <label className="stat-label block mb-1">{label}</label>
+      <p style={{ color: 'var(--color-ink)', fontSize: '0.9375rem' }}>{value}</p>
+    </div>
+  );
+}
+
+export function TrainingViewPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  const toast = useToast();
+  const { user, hasRole } = useAuth();
+  const trainingId = Number(id);
+  useEscapeAction(() => navigate('/trainings'));
+
+  const { data: training, loading, error } = useApiData(() => trainingsApi.get(trainingId), [trainingId]);
+  const { data: participantsData, loading: participantsLoading, reload: reloadParticipants } = useApiData(
+    () => trainingsApi.getParticipants(trainingId),
+    [trainingId],
+  );
+  const participants = participantsData?.participants ?? [];
+
+  const fullAccess = hasRole('superadmin', 'hr_manager');
+  // TRN_7: `trainer` may edit only a training they already run — mirrors
+  // services/training_service.assert_trainer_can_edit exactly (see
+  // ParticipantsTable's docstring for the bootstrapping nuance this implies).
+  const isOwnerTrainer = user?.role === 'trainer' && participants.some((p) => p.trainer_id === user.workerId);
+  const canEdit = fullAccess || isOwnerTrainer;
+
+  async function handleDelete() {
+    if (!training) return;
+    const ok = await confirm({
+      title: 'Usunąć szkolenie?',
+      message: `Szkolenie "${training.description}" oraz wszystkie zapisy uczestników zostaną trwale usunięte.`,
+      confirmText: 'Usuń',
+      type: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await trainingsApi.remove(training.id);
+      toast.success('Szkolenie usunięte.');
+      navigate('/trainings');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć szkolenia.');
+    }
+  }
+
+  return (
+    <div className="refined-page">
+      <PageHeader
+        title="Szkolenie"
+        subtitle={training?.description}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => navigate('/trainings')}>
+              Wróć do listy
+            </Button>
+            {training && fullAccess && (
+              <Button variant="danger" onClick={handleDelete}>
+                Usuń
+              </Button>
+            )}
+            {training && canEdit && (
+              <Button variant="primary" onClick={() => navigate(`/trainings/${training.id}/edit`)}>
+                Edytuj
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {loading ? (
+        <p className="page-subtitle">Ładowanie…</p>
+      ) : error || !training ? (
+        <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
+      ) : (
+        <div className="space-y-4">
+          <div className="form-card animate-fade-up" style={{ maxWidth: '48rem' }}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Nazwa" value={training.description} />
+              <Field label="Data szkolenia" value={training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'} />
+              <Field label="Stopień ukończenia" value={training.completion !== null ? `${training.completion}%` : '—'} />
+              <Field label="Uwagi" value={training.remarks ?? '—'} />
+              <div className="form-field-full">
+                <Field label="Szczegóły szkolenia" value={training.training_details ?? '—'} />
+              </div>
+              <div className="form-field-full">
+                <Field label="Dokumenty referencyjne" value={training.related_docs ?? '—'} />
+              </div>
+            </div>
+          </div>
+
+          {/* TRN_3/4 — job-links/skill-links routes gate on role_required('superadmin', 'hr_manager'),
+              not module access — `trainer`/`viewer` never reach these endpoints. */}
+          {fullAccess && <TrainingJobsSection trainingId={training.id} />}
+          {fullAccess && <TrainingSkillsSection trainingId={training.id} />}
+
+          <ParticipantsTable
+            trainingId={training.id}
+            participants={participants}
+            loading={participantsLoading}
+            reload={reloadParticipants}
+            canManage={canEdit}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
