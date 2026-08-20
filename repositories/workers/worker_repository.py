@@ -145,6 +145,13 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         query = _SELECT_BASE + " WHERE w.boss_id = %s ORDER BY w.surname, w.firstname"
         return self._fetch_all(query, (boss_id,))
 
+    def count_active(self) -> int:
+        """DSH_1 — liczba aktywnych pracowników (fire_date IS NULL) dla
+        podsumowania na pulpicie. Ta sama definicja „aktywny" co WRK_11's
+        `status=active` filtr w get_all."""
+        row = self._fetch_one("SELECT COUNT(*) AS total FROM workers WHERE fire_date IS NULL")
+        return row['total']
+
     def count_by_job(self, job_id: str) -> int:
         """Used by JobRepository.count_blocking_references — a job in use
         by any worker (RESTRICT FK) can't be hard-deleted."""

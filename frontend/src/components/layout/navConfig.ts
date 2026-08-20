@@ -31,6 +31,12 @@ const ICON_USERS =
 const ICON_ROLES =
   'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z';
 const ICON_PROFILE = 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z';
+// Faza 6 (IMPLEMENTATION_PLAN.md §11) — pulpit landing page (route "/").
+const ICON_DASHBOARD =
+  'M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25';
+// Faza 6 — DSH_5 threshold editor (superadmin only).
+const ICON_ALERT_THRESHOLDS =
+  'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75';
 const ICON_JOBS =
   'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z';
 const ICON_SKILLS =
@@ -49,6 +55,15 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     id: 'kadry',
     title: 'Kadry',
     links: [
+      {
+        label: 'Pulpit',
+        to: '/',
+        iconPath: ICON_DASHBOARD,
+        // module_permission_required('dashboard') — routes/dashboard/routes.py.
+        // `viewer` has no dashboard grant (RBAC seed), so this link (and the
+        // route itself) is invisible to it, matching PRD §5.1's ❌.
+        visible: (ctx) => ctx.hasModuleAccess('dashboard'),
+      },
       {
         label: 'Pracownicy',
         to: '/workers',
@@ -107,6 +122,16 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         iconPath: ICON_ROLES,
         mobileHide: true,
         // routes/roles/routes.py: same literal role_required('superadmin').
+        visible: (ctx) => ctx.user.role === 'superadmin',
+      },
+      {
+        label: 'Progi alertów',
+        to: '/alert-thresholds',
+        iconPath: ICON_ALERT_THRESHOLDS,
+        mobileHide: true,
+        // role_required('superadmin') — routes/dashboard/routes.py's
+        // alert-thresholds endpoints (DSH_5), same literal-role gate as
+        // Użytkownicy/Role above.
         visible: (ctx) => ctx.user.role === 'superadmin',
       },
       {

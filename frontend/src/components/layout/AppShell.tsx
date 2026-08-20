@@ -9,7 +9,11 @@ const PAGE_TITLES: [prefix: string, title: string][] = [
   ['/skills', 'Umiejętności'],
   ['/users', 'Użytkownicy'],
   ['/roles', 'Role'],
+  ['/alert-thresholds', 'Progi alertów'],
   ['/profile', 'Profil'],
+  // Catch-all — must stay last: every pathname starts with "/", so an
+  // earlier position would shadow every more specific prefix above.
+  ['/', 'Pulpit'],
 ];
 
 function pageTitleFor(pathname: string): string {

@@ -98,6 +98,15 @@ class TrainingRepository(AuditableMixin, BaseRepository):
             self._audit('DELETE', training_id, label=existing['description'])
         return deleted
 
+    def count_current_month(self) -> int:
+        """DSH_1 — liczba szkoleń, których `training_date` przypada na
+        bieżący miesiąc kalendarzowy, dla podsumowania na pulpicie."""
+        row = self._fetch_one(
+            "SELECT COUNT(*) AS total FROM trainings "
+            "WHERE date_trunc('month', training_date) = date_trunc('month', CURRENT_DATE)"
+        )
+        return row['total']
+
     def is_trainer_of(self, training_id: int, worker_id: str) -> bool:
         """TRN_7's ownership check: does ``worker_id`` appear as the trainer
         on any participant row of this training? A training can have several

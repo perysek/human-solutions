@@ -26,7 +26,7 @@ export function LoginPage() {
 
   if (!isLoading && isAuthenticated) {
     const next = (location.state as { next?: string } | null)?.next;
-    return <Navigate to={next ?? '/profile'} replace />;
+    return <Navigate to={next ?? '/'} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -39,7 +39,7 @@ export function LoginPage() {
       return;
     }
     const next = (location.state as { next?: string } | null)?.next;
-    navigate(next ?? '/profile', { replace: true });
+    navigate(next ?? '/', { replace: true });
   }
 
   return (

@@ -1,10 +1,12 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/lib/auth/ProtectedRoute';
 import { AppShell } from '@/components/layout/AppShell';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { AlertThresholdsPage } from '@/pages/dashboard/AlertThresholdsPage';
 import { UsersListPage } from '@/pages/users/UsersListPage';
 import { UserCreatePage } from '@/pages/users/UserCreatePage';
 import { UserViewPage } from '@/pages/users/UserViewPage';
@@ -43,8 +45,20 @@ export function AppRoutes() {
       {/* Everything below requires a logged-in user (mirrors @login_required). */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/profile" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
+
+          {/* module_permission_required('dashboard') — routes/dashboard/routes.py.
+              `viewer` has no dashboard grant (RBAC seed) so ProtectedRoute
+              bounces it to /profile instead of a dead end. */}
+          <Route element={<ProtectedRoute requireModule="dashboard" />}>
+            <Route path="/" element={<DashboardPage />} />
+          </Route>
+
+          {/* role_required('superadmin') — routes/dashboard/routes.py's
+              alert-thresholds endpoints (DSH_5). */}
+          <Route element={<ProtectedRoute guard={({ user }) => user.role === 'superadmin'} />}>
+            <Route path="/alert-thresholds" element={<AlertThresholdsPage />} />
+          </Route>
 
           {/* module_permission_required('workers') — routes/workers/routes.py */}
           <Route element={<ProtectedRoute requireModule="workers" />}>

@@ -1,0 +1,140 @@
+import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { AlertPanel, type AlertPanelRow } from '@/components/dashboard/AlertPanel';
+import { useApiData } from '@/lib/api/useApiData';
+import { dashboardApi, isOwnTrainingsAlerts } from '@/lib/api/dashboard';
+import { useAuth } from '@/lib/auth/AuthContext';
+
+const MEDICAL_KIND_LABELS: Record<string, string> = { Preliminary: 'Wstępne', Periodic: 'Okresowe' };
+const BHP_KIND_LABELS: Record<string, string> = { Initial: 'Wstępne', Periodic: 'Okresowe', Control: 'Kontrolne' };
+
+/** DSH_1-4 (IMPLEMENTATION_PLAN.md §11) — the pulpit landing page (route
+ * "/"), replacing the old bare redirect to /profile. Role-aware body: full
+ * access sees the three employee alert panels; `trainer` sees only their
+ * own upcoming trainings (see dashboardApi.alerts' DashboardAlerts union
+ * and services/dashboard_service.py's get_alerts docstring for why). */
+export function DashboardPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { data: summary, loading: summaryLoading, error: summaryError } = useApiData(() => dashboardApi.summary(), []);
+  const { data: alerts, loading: alertsLoading, error: alertsError } = useApiData(() => dashboardApi.alerts(), []);
+
+  const medicalRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.medical.map((r) => ({
+          key: `m-${r.id}`,
+          workerId: r.worker_id,
+          fullName: r.full_name,
+          detail: MEDICAL_KIND_LABELS[r.kind] ?? r.kind,
+          date: r.valid_until,
+          bucket: r.bucket,
+        }))
+      : [];
+
+  const bhpRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.bhp.map((r) => ({
+          key: `b-${r.id}`,
+          workerId: r.worker_id,
+          fullName: r.full_name,
+          detail: BHP_KIND_LABELS[r.kind] ?? r.kind,
+          date: r.valid_until,
+          bucket: r.bucket,
+        }))
+      : [];
+
+  const foreignerDocRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.foreigner_docs.map((r, i) => ({
+          key: `f-${r.worker_id}-${i}`,
+          workerId: r.worker_id,
+          fullName: r.full_name,
+          detail: r.document_kind ?? 'Dokument',
+          date: r.document_validity,
+          bucket: r.bucket,
+        }))
+      : [];
+
+  return (
+    <div className="refined-page">
+      <PageHeader
+        title="Pulpit"
+        subtitle="Podsumowanie i alerty wygasających terminów"
+        actions={
+          user?.role === 'superadmin' ? (
+            <button type="button" className="refined-btn-secondary" onClick={() => navigate('/alert-thresholds')}>
+              Progi alertów
+            </button>
+          ) : undefined
+        }
+      />
+
+      {summaryError ? (
+        <EmptyState icon="error" title="Nie udało się wczytać podsumowania" message={summaryError} />
+      ) : (
+        <div className="stats-grid">
+          <StatCard label="Aktywni pracownicy" value={summaryLoading ? '…' : (summary?.active_workers ?? 0)} icon="people" color="blue" />
+          <StatCard
+            label="Szkolenia w tym miesiącu"
+            value={summaryLoading ? '…' : (summary?.trainings_this_month ?? 0)}
+            icon="event"
+            color="green"
+          />
+        </div>
+      )}
+
+      {alertsLoading ? (
+        <p className="page-subtitle">Ładowanie alertów…</p>
+      ) : alertsError ? (
+        <EmptyState icon="error" title="Nie udało się wczytać alertów" message={alertsError} />
+      ) : alerts && isOwnTrainingsAlerts(alerts) ? (
+        <div className="refined-card" style={{ padding: '1.25rem' }}>
+          <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
+            Moje szkolenia
+          </h2>
+          {alerts.own_trainings.length === 0 ? (
+            <EmptyState icon="event" title="Brak szkoleń" message="Nie figurujesz jako trener na żadnym szkoleniu." />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {alerts.own_trainings.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => navigate(`/trainings/${t.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') navigate(`/trainings/${t.id}`);
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.625rem 0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--color-border)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span className="text-sm" style={{ color: 'var(--color-ink)' }}>
+                    {t.description}
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--color-ink-subtle)' }}>
+                    {t.training_date ? new Date(t.training_date).toLocaleDateString('pl-PL') : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: '1rem' }}>
+          <AlertPanel title="Badania lekarskie" rows={medicalRows} emptyMessage="Żadne badanie nie wygasa wkrótce." />
+          <AlertPanel title="Szkolenia BHP" rows={bhpRows} emptyMessage="Żadne szkolenie BHP nie wygasa wkrótce." />
+          <AlertPanel title="Dokumenty cudzoziemców" rows={foreignerDocRows} emptyMessage="Żaden dokument nie wygasa wkrótce." />
+        </div>
+      )}
+    </div>
+  );
+}
