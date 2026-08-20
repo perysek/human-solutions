@@ -25,6 +25,8 @@ import { WorkerCreatePage } from '@/pages/workers/WorkerCreatePage';
 import { WorkerViewPage } from '@/pages/workers/WorkerViewPage';
 import { WorkerEditPage } from '@/pages/workers/WorkerEditPage';
 import { WorkerHierarchyPage } from '@/pages/workers/WorkerHierarchyPage';
+import { MedicalExpiringReportPage } from '@/pages/medical/MedicalExpiringReportPage';
+import { BhpExpiringReportPage } from '@/pages/bhp/BhpExpiringReportPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function AppRoutes() {
@@ -62,6 +64,16 @@ export function AppRoutes() {
             <Route path="/skills" element={<SkillsListPage />} />
             <Route path="/skills/create" element={<SkillCreatePage />} />
             <Route path="/skills/:id/edit" element={<SkillEditPage />} />
+          </Route>
+
+          {/* module_permission_required('medical') — routes/medical/routes.py */}
+          <Route element={<ProtectedRoute requireModule="medical" />}>
+            <Route path="/medical/expiring" element={<MedicalExpiringReportPage />} />
+          </Route>
+
+          {/* module_permission_required('bhp') — routes/bhp/routes.py */}
+          <Route element={<ProtectedRoute requireModule="bhp" />}>
+            <Route path="/bhp/expiring" element={<BhpExpiringReportPage />} />
           </Route>
 
           {/* role_required('superadmin') — routes/users/routes.py gates every

@@ -9,6 +9,8 @@ import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { WorkerCompetencySection } from './WorkerCompetencySection';
+import { WorkerMedicalSection } from './WorkerMedicalSection';
+import { WorkerBhpSection } from './WorkerBhpSection';
 
 const GENDER_LABELS: Record<string, string> = {
   Male: 'Mężczyzna',
@@ -41,7 +43,7 @@ export function WorkerViewPage() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const toast = useToast();
-  const { isModuleReadOnly } = useAuth();
+  const { hasModuleAccess, isModuleReadOnly } = useAuth();
   const canWrite = !isModuleReadOnly('workers');
   const { data: worker, loading, error, reload } = useApiData(() => workersApi.get(id as string), [id]);
   useEscapeAction(() => navigate('/workers'));
@@ -169,6 +171,14 @@ export function WorkerViewPage() {
           </Section>
 
           <WorkerCompetencySection workerId={worker.id} canWrite={canWrite} />
+
+          {hasModuleAccess('medical') && (
+            <WorkerMedicalSection workerId={worker.id} canWrite={!isModuleReadOnly('medical')} />
+          )}
+
+          {hasModuleAccess('bhp') && (
+            <WorkerBhpSection workerId={worker.id} canWrite={!isModuleReadOnly('bhp')} />
+          )}
         </div>
       )}
     </div>
