@@ -2,15 +2,35 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
-import { trainingsApi } from '@/lib/api/trainings';
+import { trainingsApi, type TrainingJobLink } from '@/lib/api/trainings';
 import { jobsApi } from '@/lib/api/jobs';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
+interface TrainingJobsSectionProps {
+  trainingId: number;
+  /** Owned by TrainingViewPage (not fetched here) so the sibling
+   * TrainingSkillsSection sees the same, always-current job-link set —
+   * see TrainingViewPage's comment on why this is lifted. */
+  jobLinks: TrainingJobLink[];
+  loading: boolean;
+  reload: () => void;
+  /** Called after a job's auto-added participants are persisted, so the
+   * sibling ParticipantsTable (fed from TrainingViewPage's own
+   * getParticipants fetch) picks up the new rows. */
+  onParticipantsChanged: () => void;
+}
+
 /** TRN_3 — which jobs this training is relevant for. Same replace-the-whole-set
- * shape as JobSkillsSection (Faza 3) — PUT sends the full linked-job list. */
-export function TrainingJobsSection({ trainingId }: { trainingId: number }) {
-  const { data, loading, reload } = useApiData(() => trainingsApi.getJobLinks(trainingId), [trainingId]);
+ * shape as JobSkillsSection (Faza 3) — PUT sends the full linked-job list.
+ *
+ * Also auto-enrolls participants: adding a job here registers every active
+ * worker currently holding that job as a training participant (manual
+ * "Dodaj uczestnika" in ParticipantsTable is untouched and still allows
+ * enrolling workers whose job isn't linked here at all). Removing a job link
+ * deliberately does NOT remove the participants it added — that would
+ * silently delete attendance/remarks a user may have already filled in. */
+export function TrainingJobsSection({ trainingId, jobLinks: links, loading, reload, onParticipantsChanged }: TrainingJobsSectionProps) {
   const { data: jobsData } = useApiData(() => jobsApi.list());
   const toast = useToast();
   const confirm = useConfirm();
@@ -18,29 +38,70 @@ export function TrainingJobsSection({ trainingId }: { trainingId: number }) {
   const [newJobId, setNewJobId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const links = useMemo(() => data?.jobs ?? [], [data]);
   const availableJobs = useMemo(
     () => (jobsData?.jobs ?? []).filter((j) => !links.some((l) => l.job_id === j.id)),
     [jobsData, links],
   );
 
+  /** Caller owns the `saving` toggle (not this function) so handleAdd can
+   * keep the "Dodaj" button disabled across both the link save AND the
+   * auto-enroll pass that follows it — otherwise the button would briefly
+   * re-enable between the two awaited steps, letting a fast second click
+   * start a concurrent auto-enroll that races the first on the same
+   * duplicate-check (see autoEnrollWorkersFromJob's docstring for why that
+   * matters here specifically). */
   async function persist(next: string[]) {
-    setSaving(true);
     try {
       await trainingsApi.setJobLinks(trainingId, next);
       toast.success('Powiązania zaktualizowane.');
       reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się zapisać.');
-    } finally {
-      setSaving(false);
+      throw err;
+    }
+  }
+
+  /** Registers every active worker holding `jobId` who isn't already a
+   * participant. Re-fetches the current roster right before adding (rather
+   * than trusting a prop that could be stale) since there is no participant
+   * DELETE endpoint in this app — a duplicate row created here can't be
+   * cleaned up from the UI afterward, so this check has to be correct at
+   * call time, not just at render time. */
+  async function autoEnrollWorkersFromJob(jobId: string, jobLabel: string) {
+    try {
+      const [{ workers }, { participants }] = await Promise.all([
+        jobsApi.getWorkers(jobId),
+        trainingsApi.getParticipants(trainingId),
+      ]);
+      const alreadyEnrolled = new Set(participants.map((p) => p.worker_id));
+      const toEnroll = workers.filter((w) => w.is_active && !alreadyEnrolled.has(w.id));
+      if (toEnroll.length === 0) return;
+
+      for (const worker of toEnroll) {
+        await trainingsApi.addParticipant(trainingId, { worker_id: worker.id });
+      }
+      toast.success(`Dodano ${toEnroll.length} uczestników ze stanowiska „${jobLabel}”.`);
+      onParticipantsChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się automatycznie dodać uczestników ze stanowiska.');
     }
   }
 
   async function handleAdd() {
     if (!newJobId) return;
-    await persist([...links.map((l) => l.job_id), newJobId]);
-    setNewJobId('');
+    const jobId = newJobId;
+    const jobLabel = availableJobs.find((j) => j.id === jobId)?.description ?? jobId;
+    setSaving(true);
+    try {
+      await persist([...links.map((l) => l.job_id), jobId]);
+      setNewJobId('');
+      await autoEnrollWorkersFromJob(jobId, jobLabel);
+    } catch {
+      // persist() already toasted the failure — nothing further to do,
+      // and skipping auto-enroll here is correct: the job link never saved.
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleRemove(jobId: string, label: string) {
@@ -51,11 +112,18 @@ export function TrainingJobsSection({ trainingId }: { trainingId: number }) {
       type: 'danger',
     });
     if (!ok) return;
-    await persist(links.filter((l) => l.job_id !== jobId).map((l) => l.job_id));
+    setSaving(true);
+    try {
+      await persist(links.filter((l) => l.job_id !== jobId).map((l) => l.job_id));
+    } catch {
+      // already toasted by persist()
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
+    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Powiązane stanowiska
       </h2>

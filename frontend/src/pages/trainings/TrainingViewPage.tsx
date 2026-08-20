@@ -37,6 +37,16 @@ export function TrainingViewPage() {
   );
   const participants = participantsData?.participants ?? [];
 
+  // Lifted here (not fetched independently inside each section) so
+  // TrainingSkillsSection's skill dropdown reacts immediately when
+  // TrainingJobsSection adds/removes a job link — two sibling components,
+  // each fetching its own copy, would leave one stale after the other's edit.
+  const { data: jobLinksData, loading: jobLinksLoading, reload: reloadJobLinks } = useApiData(
+    () => trainingsApi.getJobLinks(trainingId),
+    [trainingId],
+  );
+  const jobLinks = jobLinksData?.jobs ?? [];
+
   const fullAccess = hasRole('superadmin', 'hr_manager');
   // TRN_7: `trainer` may edit only a training they already run — mirrors
   // services/training_service.assert_trainer_can_edit exactly (see
@@ -92,7 +102,7 @@ export function TrainingViewPage() {
         <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
       ) : (
         <div className="space-y-4">
-          <div className="form-card animate-fade-up" style={{ maxWidth: '48rem' }}>
+          <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nazwa" value={training.description} />
               <Field label="Data szkolenia" value={training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'} />
@@ -109,8 +119,16 @@ export function TrainingViewPage() {
 
           {/* TRN_3/4 — job-links/skill-links routes gate on role_required('superadmin', 'hr_manager'),
               not module access — `trainer`/`viewer` never reach these endpoints. */}
-          {fullAccess && <TrainingJobsSection trainingId={training.id} />}
-          {fullAccess && <TrainingSkillsSection trainingId={training.id} />}
+          {fullAccess && (
+            <TrainingJobsSection
+              trainingId={training.id}
+              jobLinks={jobLinks}
+              loading={jobLinksLoading}
+              reload={reloadJobLinks}
+              onParticipantsChanged={reloadParticipants}
+            />
+          )}
+          {fullAccess && <TrainingSkillsSection trainingId={training.id} linkedJobIds={jobLinks.map((l) => l.job_id)} />}
 
           <ParticipantsTable
             trainingId={training.id}

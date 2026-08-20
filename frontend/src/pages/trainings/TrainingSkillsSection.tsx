@@ -3,14 +3,41 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi } from '@/lib/api/trainings';
-import { skillsApi } from '@/lib/api/skills';
+import { jobsApi, type JobSkillRequirement } from '@/lib/api/jobs';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
-/** TRN_4 — which skills this training covers. Same shape as TrainingJobsSection. */
-export function TrainingSkillsSection({ trainingId }: { trainingId: number }) {
+/** Union of every skill required by any of `jobIds` (JOB_4's per-job
+ * requirement list), deduped by skill_id. Empty job list -> empty result,
+ * not "all skills" — see TrainingSkillsSection's docstring for why. */
+async function fetchSkillsRequiredByJobs(jobIds: string[]): Promise<JobSkillRequirement[]> {
+  if (jobIds.length === 0) return [];
+  const perJob = await Promise.all(jobIds.map((id) => jobsApi.getSkills(id)));
+  const bySkillId = new Map<string, JobSkillRequirement>();
+  for (const { skills } of perJob) {
+    for (const s of skills) {
+      if (!bySkillId.has(s.skill_id)) bySkillId.set(s.skill_id, s);
+    }
+  }
+  return [...bySkillId.values()];
+}
+
+interface TrainingSkillsSectionProps {
+  trainingId: number;
+  /** Owned by TrainingViewPage, shared with TrainingJobsSection — see that
+   * section's props comment for why this isn't fetched independently here. */
+  linkedJobIds: string[];
+}
+
+/** TRN_4 — which skills this training covers. Same shape as TrainingJobsSection.
+ *
+ * The "Dodaj umiejętność" dropdown is scoped to skills actually required by
+ * this training's linked jobs (job_skills, JOB_4) — not the full skills
+ * dictionary — so a linked skill always traces back to a linked job's
+ * requirements. No jobs linked yet -> nothing to pick from (a helper message
+ * explains why, rather than silently showing an empty select). */
+export function TrainingSkillsSection({ trainingId, linkedJobIds }: TrainingSkillsSectionProps) {
   const { data, loading, reload } = useApiData(() => trainingsApi.getSkillLinks(trainingId), [trainingId]);
-  const { data: skillsData } = useApiData(() => skillsApi.list());
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -18,9 +45,11 @@ export function TrainingSkillsSection({ trainingId }: { trainingId: number }) {
   const [saving, setSaving] = useState(false);
 
   const links = useMemo(() => data?.skills ?? [], [data]);
+  const { data: requiredSkills } = useApiData(() => fetchSkillsRequiredByJobs(linkedJobIds), [linkedJobIds.join(',')]);
+
   const availableSkills = useMemo(
-    () => (skillsData?.skills ?? []).filter((s) => !links.some((l) => l.skill_id === s.id)),
-    [skillsData, links],
+    () => (requiredSkills ?? []).filter((s) => !links.some((l) => l.skill_id === s.skill_id)),
+    [requiredSkills, links],
   );
 
   async function persist(next: string[]) {
@@ -54,7 +83,7 @@ export function TrainingSkillsSection({ trainingId }: { trainingId: number }) {
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
+    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Powiązane umiejętności
       </h2>
@@ -93,23 +122,34 @@ export function TrainingSkillsSection({ trainingId }: { trainingId: number }) {
         </table>
       )}
 
-      <div className="flex items-end gap-2">
-        <div style={{ flex: 1 }}>
-          <label className="form-label">Dodaj umiejętność</label>
-          <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
-            <option value="">Wybierz…</option>
-            {availableSkills.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.id} — {s.description}
-              </option>
-            ))}
-          </select>
+      {linkedJobIds.length === 0 ? (
+        <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>
+          Najpierw dodaj powiązane stanowisko powyżej — lista dostępnych umiejętności pochodzi z wymagań stanowisk
+          powiązanych z tym szkoleniem.
+        </p>
+      ) : availableSkills.length === 0 ? (
+        <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>
+          Wszystkie umiejętności wymagane przez powiązane stanowiska są już dodane.
+        </p>
+      ) : (
+        <div className="flex items-end gap-2">
+          <div style={{ flex: 1 }}>
+            <label className="form-label">Dodaj umiejętność</label>
+            <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
+              <option value="">Wybierz…</option>
+              {availableSkills.map((s) => (
+                <option key={s.skill_id} value={s.skill_id}>
+                  {s.skill_id} — {s.skill_description}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newSkillId || saving}>
+            <Icon name="add" size={16} />
+            Dodaj
+          </Button>
         </div>
-        <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newSkillId || saving}>
-          <Icon name="add" size={16} />
-          Dodaj
-        </Button>
-      </div>
+      )}
     </div>
   );
 }
