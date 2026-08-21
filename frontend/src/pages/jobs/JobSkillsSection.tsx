@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { jobsApi } from '@/lib/api/jobs';
@@ -115,24 +116,28 @@ export function JobSkillsSection({ jobId, canWrite }: { jobId: string; canWrite:
         <div className="flex items-end gap-2">
           <div style={{ flex: 1 }}>
             <label className="form-label">Dodaj umiejętność</label>
-            <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
-              <option value="">Wybierz…</option>
-              {availableSkills.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id} — {s.description}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
+                <option value="">Wybierz…</option>
+                {availableSkills.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} — {s.description}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <div>
             <label className="form-label">Ocena</label>
-            <select className="form-select" value={newRating} onChange={(e) => setNewRating(Number(e.target.value))}>
-              {RATING_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={newRating} onChange={(e) => setNewRating(Number(e.target.value))}>
+                {RATING_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newSkillId || saving}>
             <Icon name="add" size={16} />

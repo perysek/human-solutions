@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { AuthLayout } from '@/components/layout/AuthLayout';
+import { Button } from '@/components/ui/Button';
 
 // Real accounts from scripts/seed_dev_data.py — see BACKEND_SETUP.md.
 const DEV_PASSWORD = 'DevPass123!';
@@ -113,9 +114,9 @@ export function LoginPage() {
             </label>
           </div>
 
-          <button type="submit" className="refined-btn-brand" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
+          <Button type="submit" variant="primary" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
             {submitting ? 'Logowanie…' : 'Zaloguj się'}
-          </button>
+          </Button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>

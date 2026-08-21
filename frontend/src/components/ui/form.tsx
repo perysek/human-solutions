@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { SelectWrap } from './SelectWrap';
 
 /**
  * Form field primitives — the React equivalent of templates/components/
@@ -79,14 +80,16 @@ export function SelectField({
 }: SelectFieldProps) {
   return (
     <FieldWrapper label={label} htmlFor={name} required={required} error={error} helper={helper} fullWidth={fullWidth}>
-      <select id={name} name={name} required={required} className="form-select" {...rest}>
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <SelectWrap>
+        <select id={name} name={name} required={required} className="form-select" {...rest}>
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </SelectWrap>
     </FieldWrapper>
   );
 }

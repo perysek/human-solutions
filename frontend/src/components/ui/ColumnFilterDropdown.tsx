@@ -66,6 +66,7 @@ export function ColumnFilterDropdown({ columnLabel, options, selected, onChange 
         aria-label={`Filtruj kolumnę ${columnLabel}`}
       >
         <Icon name="filter_list" size={13} />
+        <Icon name="expand_more" size={11} className={`dropdown-chevron transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="col-filter-menu" role="menu" aria-label={`Filtr kolumny ${columnLabel}`} onClick={(e) => e.stopPropagation()}>

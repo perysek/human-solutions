@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { useApiData } from '@/lib/api/useApiData';
 import { medicalApi, type ExpiringMedicalExam } from '@/lib/api/medical';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 
 const KIND_LABELS: Record<ExpiringMedicalExam['kind'], string> = {
   Preliminary: 'Wstępne',
@@ -44,13 +45,15 @@ export function MedicalExpiringReportPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <select className="refined-select" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Okno czasowe">
-            {WINDOW_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          <SelectWrap inline>
+            <select className="refined-select" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Okno czasowe">
+              {WINDOW_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </SelectWrap>
         </div>
       </div>
 

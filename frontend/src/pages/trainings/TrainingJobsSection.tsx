@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingJobLink } from '@/lib/api/trainings';
@@ -165,14 +166,16 @@ export function TrainingJobsSection({ trainingId, jobLinks: links, loading, relo
       <div className="flex items-end gap-2">
         <div style={{ flex: 1 }}>
           <label className="form-label">Dodaj stanowisko</label>
-          <select className="form-select" value={newJobId} onChange={(e) => setNewJobId(e.target.value)}>
-            <option value="">Wybierz…</option>
-            {availableJobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.id} — {j.description}
-              </option>
-            ))}
-          </select>
+          <SelectWrap>
+            <select className="form-select" value={newJobId} onChange={(e) => setNewJobId(e.target.value)}>
+              <option value="">Wybierz…</option>
+              {availableJobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.id} — {j.description}
+                </option>
+              ))}
+            </select>
+          </SelectWrap>
         </div>
         <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newJobId || saving}>
           <Icon name="add" size={16} />

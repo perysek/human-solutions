@@ -330,8 +330,9 @@
 .search-clear-btn:hover { color: var(--color-ink); background: var(--color-surface); }
 .search-clear-btn svg { width: 1rem; height: 1rem; }
 
-.search-card .refined-select {
-  padding: 0.625rem 1rem;
+.search-card .refined-select, .table-footer .refined-select {
+  appearance: none;
+  padding: 0.625rem 2rem 0.625rem 1rem;
   font-family: var(--font-body);
   font-size: 0.8125rem;
   font-weight: 300;
@@ -342,7 +343,7 @@
   cursor: pointer;
   min-width: 160px;
 }
-.search-card .refined-select:focus { outline: none; border-color: var(--color-ink-muted); }
+.search-card .refined-select:focus, .table-footer .refined-select:focus { outline: none; border-color: var(--color-ink-muted); }
 
 /* Fixed-header table shell: .table-container is the card frame (flex column,
    clips to its rounded corners); .table-scroll-body is the ONLY thing that
@@ -459,8 +460,8 @@
    popover of checkboxes hung off the sortable header cell. */
 .col-filter-wrap { position: relative; display: inline-flex; align-items: center; gap: 0.25rem; }
 .col-filter-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 1.125rem; height: 1.125rem; padding: 0; border: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.0625rem;
+  width: auto; height: 1.125rem; padding: 0 0.1875rem; border: none;
   background: transparent; color: inherit; opacity: 0.6; cursor: pointer;
   border-radius: var(--radius-sm); transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
@@ -592,6 +593,21 @@
 }
 .form-input:disabled, .form-input[readonly] { background: var(--color-surface); cursor: not-allowed; }
 .form-select { appearance: none; cursor: pointer; padding-right: 2.5rem; }
+
+/* Every native <select> in the app is wrapped in .select-wrap so it can carry
+   a right-aligned expand_more icon — static, not animated. A native <select>
+   never exposes real open/closed state to the DOM, so any rotation tied to
+   it is only ever a heuristic; it looked broken in practice (stuck "open"
+   after picking an option, or after dismissing without changing the value),
+   so this is a plain dropdown affordance instead, unlike the custom popover
+   dropdowns (SidebarSection/ColumnFilterDropdown/ThemeSwitcher) which have a
+   real open/closed state to animate. */
+.select-wrap { position: relative; display: block; width: 100%; }
+.select-wrap.select-wrap-inline { display: inline-block; width: auto; }
+.select-wrap .select-wrap-chevron {
+  position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%);
+  pointer-events: none; color: var(--color-ink-subtle);
+}
 .form-card {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);

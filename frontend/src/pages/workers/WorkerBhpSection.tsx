@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { bhpApi, type BhpTraining } from '@/lib/api/bhp';
@@ -139,19 +140,21 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
               editingId === training.id ? (
                 <tr key={training.id}>
                   <td>
-                    <select
-                      className="form-select"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.kind}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, kind: e.target.value as BhpTraining['kind'] }))}
-                      aria-label="Rodzaj szkolenia"
-                    >
-                      {KIND_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectWrap>
+                      <select
+                        className="form-select"
+                        style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                        value={editDraft.kind}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, kind: e.target.value as BhpTraining['kind'] }))}
+                        aria-label="Rodzaj szkolenia"
+                      >
+                        {KIND_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </SelectWrap>
                   </td>
                   <td>
                     <input
@@ -212,13 +215,15 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
         <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr auto', alignItems: 'end' }}>
           <div>
             <label className="form-label">Rodzaj</label>
-            <select className="form-select" value={draft.kind} onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as BhpTraining['kind'] }))}>
-              {KIND_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={draft.kind} onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as BhpTraining['kind'] }))}>
+                {KIND_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <div>
             <label className="form-label">Data szkolenia</label>

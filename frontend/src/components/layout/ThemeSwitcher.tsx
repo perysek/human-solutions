@@ -75,7 +75,7 @@ export function ThemeSwitcher() {
     <div className="relative shrink-0" ref={containerRef}>
       <button
         type="button"
-        className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--radius-sm)] border border-transparent transition-all duration-200"
+        className="relative flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--radius-sm)] border border-transparent transition-all duration-200"
         style={{ color: 'var(--sidebar-text)' }}
         onMouseEnter={(e) => {
           e.currentTarget.style.color = 'var(--sidebar-text-hover)';
@@ -93,6 +93,11 @@ export function ThemeSwitcher() {
         onClick={() => setOpen((v) => !v)}
       >
         <Icon name="palette" className="w-5 h-5 shrink-0" />
+        <Icon
+          name="expand_more"
+          size={12}
+          className={`dropdown-chevron absolute bottom-0.5 right-0.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       <div id="theme-menu" className={`theme-menu ${open ? '' : 'hidden'}`} role="menu" aria-label="Motyw kolorystyczny">
         {THEMES.map((t) => (

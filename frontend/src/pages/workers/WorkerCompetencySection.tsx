@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
@@ -197,20 +198,22 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                   <td>{r.skill_description}</td>
                   <td>
                     {canWrite ? (
-                      <select
-                        className="form-select"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                        value={r.current_rating ?? ''}
-                        onChange={(e) => handleUpdateRating(r.skill_id, Number(e.target.value))}
-                        disabled={saving}
-                        aria-label={`Ocena — ${r.skill_description}`}
-                      >
-                        {RATING_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
+                      <SelectWrap>
+                        <select
+                          className="form-select"
+                          style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                          value={r.current_rating ?? ''}
+                          onChange={(e) => handleUpdateRating(r.skill_id, Number(e.target.value))}
+                          disabled={saving}
+                          aria-label={`Ocena — ${r.skill_description}`}
+                        >
+                          {RATING_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      </SelectWrap>
                     ) : (
                       (r.current_rating ?? '—')
                     )}
@@ -293,24 +296,28 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
         <div className="flex items-end gap-2">
           <div style={{ flex: 1 }}>
             <label className="form-label">Dodaj ocenę</label>
-            <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
-              <option value="">Wybierz umiejętność…</option>
-              {availableSkills.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id} — {s.description}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
+                <option value="">Wybierz umiejętność…</option>
+                {availableSkills.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} — {s.description}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <div>
             <label className="form-label">Ocena</label>
-            <select className="form-select" value={newRating} onChange={(e) => setNewRating(Number(e.target.value))}>
-              {RATING_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={newRating} onChange={(e) => setNewRating(Number(e.target.value))}>
+                {RATING_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <Button type="button" variant="secondary" onClick={handleAddRating} disabled={!newSkillId || saving}>
             <Icon name="add" size={16} />

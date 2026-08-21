@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingParticipant } from '@/lib/api/trainings';
@@ -155,20 +156,22 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
                     />
                   </td>
                   <td>
-                    <select
-                      className="form-select"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.trainer_id}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, trainer_id: e.target.value }))}
-                      aria-label="Trener"
-                    >
-                      <option value="">—</option>
-                      {workerOptions.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectWrap>
+                      <select
+                        className="form-select"
+                        style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                        value={editDraft.trainer_id}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, trainer_id: e.target.value }))}
+                        aria-label="Trener"
+                      >
+                        <option value="">—</option>
+                        {workerOptions.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </SelectWrap>
                   </td>
                   <td>
                     <input
@@ -227,25 +230,29 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
         <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr auto', alignItems: 'end' }}>
           <div>
             <label className="form-label">Pracownik</label>
-            <select className="form-select" value={draft.worker_id} onChange={(e) => setDraft((d) => ({ ...d, worker_id: e.target.value }))}>
-              <option value="">Wybierz…</option>
-              {workerOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={draft.worker_id} onChange={(e) => setDraft((d) => ({ ...d, worker_id: e.target.value }))}>
+                <option value="">Wybierz…</option>
+                {workerOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <div>
             <label className="form-label">Trener</label>
-            <select className="form-select" value={draft.trainer_id} onChange={(e) => setDraft((d) => ({ ...d, trainer_id: e.target.value }))}>
-              <option value="">—</option>
-              {workerOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={draft.trainer_id} onChange={(e) => setDraft((d) => ({ ...d, trainer_id: e.target.value }))}>
+                <option value="">—</option>
+                {workerOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <div>
             <label className="form-label">Data rozpoczęcia</label>

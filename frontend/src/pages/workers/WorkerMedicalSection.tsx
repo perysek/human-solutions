@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { medicalApi, type MedicalExam } from '@/lib/api/medical';
@@ -142,19 +143,21 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
               editingId === exam.id ? (
                 <tr key={exam.id}>
                   <td>
-                    <select
-                      className="form-select"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.kind}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, kind: e.target.value as MedicalExam['kind'] }))}
-                      aria-label="Rodzaj badania"
-                    >
-                      {KIND_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectWrap>
+                      <select
+                        className="form-select"
+                        style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                        value={editDraft.kind}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, kind: e.target.value as MedicalExam['kind'] }))}
+                        aria-label="Rodzaj badania"
+                      >
+                        {KIND_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </SelectWrap>
                   </td>
                   <td>
                     <input
@@ -226,13 +229,15 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
         <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr auto', alignItems: 'end' }}>
           <div>
             <label className="form-label">Rodzaj</label>
-            <select className="form-select" value={draft.kind} onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as MedicalExam['kind'] }))}>
-              {KIND_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            <SelectWrap>
+              <select className="form-select" value={draft.kind} onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as MedicalExam['kind'] }))}>
+                {KIND_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </SelectWrap>
           </div>
           <div>
             <label className="form-label">Data badania</label>
