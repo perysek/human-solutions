@@ -75,6 +75,19 @@ export interface SkillGap {
   gap: number;
 }
 
+export interface CompetencyGapRow {
+  worker_id: string;
+  full_name: string;
+  job_description: string | null;
+  boss_name: string | null;
+  skill_id: string;
+  skill_description: string;
+  required_rating: number;
+  current_rating: number | null;
+  gap: number;
+  last_update: string | null;
+}
+
 export interface SkillRemark {
   id: number;
   remarks: string;
@@ -126,4 +139,6 @@ export const workersApi = {
   addRemark: (id: string, skillId: string, remarks: string) =>
     api.post<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/remarks`, { remarks }),
   getGapAnalysis: (id: string) => api.get<{ gaps: SkillGap[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/gap-analysis`),
+  skillGaps: (minGap = 1) =>
+    api.get<{ results: CompetencyGapRow[]; count: number }>(`${BASE}/skill-gaps?min_gap=${minGap}`),
 };

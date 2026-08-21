@@ -27,6 +27,7 @@ import { WorkerCreatePage } from '@/pages/workers/WorkerCreatePage';
 import { WorkerViewPage } from '@/pages/workers/WorkerViewPage';
 import { WorkerEditPage } from '@/pages/workers/WorkerEditPage';
 import { WorkerHierarchyPage } from '@/pages/workers/WorkerHierarchyPage';
+import { CompetencyGapsReportPage } from '@/pages/workers/CompetencyGapsReportPage';
 import { MedicalExpiringReportPage } from '@/pages/medical/MedicalExpiringReportPage';
 import { BhpExpiringReportPage } from '@/pages/bhp/BhpExpiringReportPage';
 import { TrainingsListPage } from '@/pages/trainings/TrainingsListPage';
@@ -64,6 +65,11 @@ export function AppRoutes() {
           <Route element={<ProtectedRoute requireModule="workers" />}>
             <Route path="/workers" element={<WorkersListPage />} />
             <Route path="/workers/create" element={<WorkerCreatePage />} />
+            {/* Static segment ranks above the dynamic /workers/:id in React
+                Router v6's route matching, so placement relative to it
+                doesn't matter — kept here for readability, next to the
+                other worker-scoped report/list routes. */}
+            <Route path="/workers/competency-gaps" element={<CompetencyGapsReportPage />} />
             <Route path="/workers/:id" element={<WorkerViewPage />} />
             <Route path="/workers/:id/edit" element={<WorkerEditPage />} />
             <Route path="/workers/:id/subordinates" element={<WorkerHierarchyPage />} />

@@ -82,7 +82,13 @@ class WorkerSkillRepository(AuditableMixin, BaseRepository):
         for one specific skill. One query across workers/job_skills/
         worker_skills rather than looping get_gap_analysis per worker —
         this has to scan every worker's requirements at once, not one
-        worker's."""
+        worker's.
+
+        Ordered by worker first (surname, firstname), then by gap size —
+        the "Luki kompetencyjne" report (LUK_1) groups every gap row under
+        its worker, so rows for the same worker must come back contiguous;
+        gap DESC as the primary sort (as SKL_6 alone once had it) would
+        interleave workers instead."""
         conditions = ['w.fire_date IS NULL', '(js.required_rating - COALESCE(ws.current_rating, 0)) >= %s']
         params: list = [min_gap]
         if skill_id:
@@ -90,14 +96,19 @@ class WorkerSkillRepository(AuditableMixin, BaseRepository):
             params.append(skill_id)
         where = ' AND '.join(conditions)
         query = f"""
-            SELECT w.id AS worker_id, w.firstname, w.surname, js.skill_id,
-                   s.description AS skill_description, js.required_rating, ws.current_rating,
+            SELECT w.id AS worker_id, w.firstname, w.surname,
+                   j.description AS job_description,
+                   b.firstname AS boss_firstname, b.surname AS boss_surname,
+                   js.skill_id, s.description AS skill_description,
+                   js.required_rating, ws.current_rating, ws.last_update,
                    (js.required_rating - COALESCE(ws.current_rating, 0)) AS gap
             FROM workers w
             JOIN job_skills js ON js.job_id = w.job_id
             JOIN skills s ON s.id = js.skill_id
             LEFT JOIN worker_skills ws ON ws.worker_id = w.id AND ws.skill_id = js.skill_id
+            LEFT JOIN jobs j ON j.id = w.job_id
+            LEFT JOIN workers b ON b.id = w.boss_id
             WHERE {where}
-            ORDER BY gap DESC, w.surname, w.firstname
+            ORDER BY w.surname, w.firstname, gap DESC, s.description
         """
         return self._fetch_all(query, tuple(params))

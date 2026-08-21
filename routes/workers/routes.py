@@ -403,11 +403,14 @@ def api_skill_gaps():
             {
                 'worker_id': r['worker_id'],
                 'full_name': f"{r['firstname']} {r['surname']}",
+                'job_description': r['job_description'],
+                'boss_name': f"{r['boss_firstname']} {r['boss_surname']}" if r['boss_firstname'] else None,
                 'skill_id': r['skill_id'],
                 'skill_description': r['skill_description'],
                 'required_rating': r['required_rating'],
                 'current_rating': r['current_rating'],
                 'gap': r['gap'],
+                'last_update': r['last_update'].isoformat() if r['last_update'] else None,
             }
             for r in rows
         ]
