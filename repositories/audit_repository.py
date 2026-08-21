@@ -95,6 +95,7 @@ class AuditRepository(BaseRepository):
         self,
         invoice_id: Optional[int] = None,
         entity_type: Optional[str] = None,
+        entity_id: Optional[Union[int, str]] = None,
     ) -> List[dict]:
         """
         Pobierz historię zmian z opcjonalnym filtrowaniem.
@@ -110,6 +111,15 @@ class AuditRepository(BaseRepository):
         if entity_type:
             conditions.append("a.entity_type = %s")
             params.append(entity_type)
+
+        # entity_id is only meaningful paired with entity_type — audit_log's
+        # entity_id is TEXT and reused across entity types (a worker '1' and
+        # an action_plan '1' are different rows), so this is the first
+        # caller needing a *single instance's* history (action_plans' LUK_1
+        # audit trail) rather than every row for a whole entity_type.
+        if entity_id is not None:
+            conditions.append("a.entity_id = %s")
+            params.append(str(entity_id))
 
         where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 

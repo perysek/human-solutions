@@ -28,6 +28,7 @@ import { WorkerViewPage } from '@/pages/workers/WorkerViewPage';
 import { WorkerEditPage } from '@/pages/workers/WorkerEditPage';
 import { WorkerHierarchyPage } from '@/pages/workers/WorkerHierarchyPage';
 import { CompetencyGapsReportPage } from '@/pages/workers/CompetencyGapsReportPage';
+import { ActionPlansPage } from '@/pages/workers/ActionPlansPage';
 import { MedicalExpiringReportPage } from '@/pages/medical/MedicalExpiringReportPage';
 import { BhpExpiringReportPage } from '@/pages/bhp/BhpExpiringReportPage';
 import { TrainingsListPage } from '@/pages/trainings/TrainingsListPage';
@@ -70,6 +71,7 @@ export function AppRoutes() {
                 doesn't matter — kept here for readability, next to the
                 other worker-scoped report/list routes. */}
             <Route path="/workers/competency-gaps" element={<CompetencyGapsReportPage />} />
+            <Route path="/workers/action-plans" element={<ActionPlansPage />} />
             <Route path="/workers/:id" element={<WorkerViewPage />} />
             <Route path="/workers/:id/edit" element={<WorkerEditPage />} />
             <Route path="/workers/:id/subordinates" element={<WorkerHierarchyPage />} />

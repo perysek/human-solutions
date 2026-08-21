@@ -11,6 +11,7 @@ services/worker_service.py, nie tutaj — trasa zajmuje się wyłącznie
 kształtem żądania/odpowiedzi.
 """
 import logging
+from datetime import date
 
 from flask import Blueprint, request, jsonify
 
@@ -18,12 +19,34 @@ from flask_login import login_required
 
 from config.auth_config import module_permission_required
 from exceptions import AppError, NotFoundError, ValidationError
+from repositories.audit_repository import AuditRepository
+from repositories.skills.skill_repository import SkillRepository
+from repositories.workers.action_plan_repository import ActionPlanRepository
 from repositories.workers.worker_repository import WorkerRepository
 from repositories.workers.worker_skill_repository import WorkerSkillRepository
 from repositories.workers.worker_skill_remark_repository import WorkerSkillRemarkRepository
 import services.competency_service as competency_service
 import services.worker_service as worker_service
 from services.alert_service import get_expiring_foreigner_docs
+
+# LUK_1/LUK_2 — the 4 status values the "plan działania" modal + tracking
+# page allow. Kept as the raw enum strings the frontend already uses (no
+# translation layer) — see ActionPlanModal.tsx's ActionPlanStatus type.
+_ACTION_PLAN_STATUSES = {'defined', 'in_progress', 'completed', 'effective'}
+
+
+def _parse_date(value, *, field_label: str):
+    """'YYYY-MM-DD' -> date, or None. Action plan dates must go in as real
+    `date` objects, not raw strings — ActionPlanRepository.update() diffs
+    the new value against the DB's `date` object to decide what to audit,
+    and `date(...) != '2026-09-15'` is always True regardless of content,
+    which would log a spurious "changed" audit row on every single save."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise ValidationError(f'Nieprawidłowy format daty: {field_label}')
 
 workers_bp = Blueprint('workers', __name__, url_prefix='/workers')
 
@@ -421,4 +444,164 @@ def api_skill_gaps():
         raise ValidationError('Nieprawidłowy parametr min_gap')
     except Exception:
         logging.exception('Unexpected error in api_skill_gaps (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+# ─── Action plans (LUK_1/LUK_2) ────────────────────────────────────────────
+
+def _action_plan_json(row) -> dict:
+    return {
+        'id': row['id'],
+        'worker_id': row['worker_id'],
+        'worker_name': f"{row['worker_firstname']} {row['worker_surname']}",
+        'skill_id': row['skill_id'],
+        'skill_description': row['skill_description'],
+        'description': row['description'],
+        'responsible_id': row['responsible_id'],
+        'responsible_name': f"{row['responsible_firstname']} {row['responsible_surname']}" if row['responsible_firstname'] else None,
+        'planned_date': row['planned_date'].isoformat() if row['planned_date'] else None,
+        'completed_date': row['completed_date'].isoformat() if row['completed_date'] else None,
+        'effectiveness_date': row['effectiveness_date'].isoformat() if row['effectiveness_date'] else None,
+        'status': row['status'],
+        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+        'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
+    }
+
+
+@workers_bp.route('/api/action-plans', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_list_action_plans():
+    """GET /workers/api/action-plans?status=&worker_id= — LUK_2 tracking list."""
+    try:
+        status = request.args.get('status') or None
+        if status and status not in _ACTION_PLAN_STATUSES:
+            raise ValidationError('Nieprawidłowy status')
+        worker_id = request.args.get('worker_id') or None
+        rows = ActionPlanRepository().get_all(status=status, worker_id=worker_id)
+        results = [_action_plan_json(r) for r in rows]
+        return jsonify({'results': results, 'count': len(results)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_list_action_plans (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/action-plans', methods=['POST'])
+@login_required
+@module_permission_required('workers')
+def api_create_action_plan():
+    """POST /workers/api/action-plans — LUK_1: raise a corrective action
+    against one worker's competency gap on one skill."""
+    data = request.get_json() or {}
+    worker_id = (data.get('worker_id') or '').strip()
+    skill_id = (data.get('skill_id') or '').strip()
+    description = (data.get('description') or '').strip()
+    responsible_id = (data.get('responsible_id') or '').strip() or None
+    planned_date = _parse_date(data.get('planned_date'), field_label='Planowana data')
+    status = data.get('status') or 'defined'
+
+    if not worker_id or not skill_id:
+        raise ValidationError('Pracownik i umiejętność są wymagane')
+    if not description:
+        raise ValidationError('Opis działania jest wymagany')
+    if not responsible_id:
+        raise ValidationError('Odpowiedzialny jest wymagany')
+    if not planned_date:
+        raise ValidationError('Planowana data jest wymagana')
+    if status not in _ACTION_PLAN_STATUSES:
+        raise ValidationError('Nieprawidłowy status')
+    if not WorkerRepository().get_by_id(worker_id):
+        raise NotFoundError('Pracownik nie znaleziony')
+    if not SkillRepository().get_by_id(skill_id):
+        raise NotFoundError('Umiejętność nie znaleziona')
+    if not WorkerRepository().get_by_id(responsible_id):
+        raise NotFoundError('Odpowiedzialny pracownik nie znaleziony')
+
+    try:
+        new_id = ActionPlanRepository().create(
+            worker_id=worker_id, skill_id=skill_id, description=description,
+            responsible_id=responsible_id, planned_date=planned_date, status=status,
+        )
+        return jsonify({'success': True, 'id': new_id}), 201
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_create_action_plan (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/action-plans/<int:action_plan_id>', methods=['PUT'])
+@login_required
+@module_permission_required('workers')
+def api_update_action_plan(action_plan_id):
+    """PUT /workers/api/action-plans/<id> — LUK_2: edit description/
+    responsible/dates/status. Per-field old/new goes to audit_log inside
+    ActionPlanRepository.update()."""
+    existing = ActionPlanRepository().get_by_id(action_plan_id)
+    if not existing:
+        raise NotFoundError('Plan działania nie znaleziony')
+
+    data = request.get_json() or {}
+    description = (data.get('description') or '').strip()
+    responsible_id = (data.get('responsible_id') or '').strip() or None
+    planned_date = _parse_date(data.get('planned_date'), field_label='Planowana data')
+    status = data.get('status') or 'defined'
+    completed_date = _parse_date(data.get('completed_date'), field_label='Data zakończenia')
+    effectiveness_date = _parse_date(data.get('effectiveness_date'), field_label='Data oceny skuteczności')
+
+    if not description:
+        raise ValidationError('Opis działania jest wymagany')
+    if not responsible_id:
+        raise ValidationError('Odpowiedzialny jest wymagany')
+    if not planned_date:
+        raise ValidationError('Planowana data jest wymagana')
+    if status not in _ACTION_PLAN_STATUSES:
+        raise ValidationError('Nieprawidłowy status')
+    if not WorkerRepository().get_by_id(responsible_id):
+        raise NotFoundError('Odpowiedzialny pracownik nie znaleziony')
+
+    try:
+        ActionPlanRepository().update(
+            action_plan_id, description=description, responsible_id=responsible_id,
+            planned_date=planned_date, status=status,
+            completed_date=completed_date, effectiveness_date=effectiveness_date,
+        )
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_update_action_plan (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/action-plans/<int:action_plan_id>/history', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_action_plan_history(action_plan_id):
+    """GET /workers/api/action-plans/<id>/history — full per-field audit
+    trail for one action plan (every UPDATE that changed something, plus
+    its CREATE), newest first."""
+    if not ActionPlanRepository().get_by_id(action_plan_id):
+        raise NotFoundError('Plan działania nie znaleziony')
+    try:
+        rows = AuditRepository().get_all(entity_type='action_plan', entity_id=action_plan_id)
+        events = [
+            {
+                'id': r['id'],
+                'action': r['action'],
+                'field_name': r['field_name'],
+                'old_value': r['old_value'],
+                'new_value': r['new_value'],
+                'user_name': r['user_name'],
+                'timestamp': r['timestamp'].isoformat() if r['timestamp'] else None,
+            }
+            for r in rows
+        ]
+        return jsonify({'events': events, 'count': len(events)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_action_plan_history (workers)')
         raise AppError('Wystąpił błąd serwera')

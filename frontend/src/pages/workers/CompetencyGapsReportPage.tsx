@@ -6,7 +6,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
-import { ActionPlanModal, type ActionPlanContext } from '@/components/workers/ActionPlanModal';
+import { ActionPlanModal, type ActionPlanSeed } from '@/components/workers/ActionPlanModal';
 
 // Same 3-bucket severity palette as BhpExpiringReportPage/MedicalExpiringReportPage/
 // AlertPanel (each keeps its own copy — see AlertPanel's comment) but bucketed
@@ -34,7 +34,7 @@ export function CompetencyGapsReportPage() {
   const navigate = useNavigate();
   const { data, loading, error } = useApiData(() => workersApi.skillGaps(1));
   const rows = useMemo(() => data?.results ?? [], [data]);
-  const [actionContext, setActionContext] = useState<ActionPlanContext | null>(null);
+  const [actionSeed, setActionSeed] = useState<ActionPlanSeed | null>(null);
 
   const workerCount = useMemo(() => new Set(rows.map((r) => r.worker_id)).size, [rows]);
 
@@ -108,7 +108,12 @@ export function CompetencyGapsReportPage() {
                           title="Zaplanuj działanie"
                           aria-label={`Zaplanuj działanie — ${row.full_name}, ${row.skill_description}`}
                           onClick={() =>
-                            setActionContext({ workerId: row.worker_id, workerName: row.full_name, skillDescription: row.skill_description })
+                            setActionSeed({
+                              workerId: row.worker_id,
+                              workerName: row.full_name,
+                              skillId: row.skill_id,
+                              skillDescription: row.skill_description,
+                            })
                           }
                         >
                           <Icon name="checklist" />
@@ -123,7 +128,7 @@ export function CompetencyGapsReportPage() {
         )}
       </div>
 
-      {actionContext && <ActionPlanModal context={actionContext} onClose={() => setActionContext(null)} />}
+      {actionSeed && <ActionPlanModal seed={actionSeed} onClose={() => setActionSeed(null)} onSaved={() => {}} />}
     </div>
   );
 }
