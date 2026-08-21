@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/lib/icons/Icon';
 import { Button } from '@/components/ui/Button';
-import { SelectField, TextareaField, TextField } from '@/components/ui/form';
+import { CheckboxField, SelectField, TextareaField, TextField } from '@/components/ui/form';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
+import { trainingsApi } from '@/lib/api/trainings';
 import { actionPlansApi, type ActionPlanStatus } from '@/lib/api/actionPlans';
 import { ACTION_PLAN_STATUS_OPTIONS } from '@/lib/actionPlanStatus';
 import { useFocusTrap } from '@/lib/a11y/useFocusTrap';
 import { useEscapeClaim } from '@/lib/a11y/useEscapeClaim';
 import { useToast } from '@/lib/feedback/ToastProvider';
+
+const EXPECTED_INCREASE_OPTIONS = [1, 2, 3].map((n) => ({ value: String(n), label: String(n) }));
 
 /** Custom (non-native) listbox so each status renders as a colored item —
  * a native <select>'s <option> list can't carry per-item background/color
@@ -105,6 +109,13 @@ export interface ActionPlanSeed {
   status?: ActionPlanStatus;
   completedDate?: string | null;
   effectivenessDate?: string | null;
+  /** Set when editing a plan raised through the "Szkolenie" checkbox — the
+   * edit form shows this as read-only context instead of the checkbox
+   * (which only makes sense at creation, since the training enrollment it
+   * created is a done deal by the time there's an id to edit). */
+  isTraining?: boolean;
+  trainingDescription?: string | null;
+  expectedIncrease?: number | null;
 }
 
 interface ActionPlanModalProps {
@@ -131,6 +142,10 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
   const [status, setStatus] = useState<ActionPlanStatus>(seed.status ?? 'defined');
   const [completedDate, setCompletedDate] = useState(seed.completedDate ?? '');
   const [effectivenessDate, setEffectivenessDate] = useState(seed.effectivenessDate ?? '');
+  const [isTraining, setIsTraining] = useState(false);
+  const [trainingId, setTrainingId] = useState('');
+  const [trainingStartDate, setTrainingStartDate] = useState('');
+  const [expectedIncrease, setExpectedIncrease] = useState(1);
   const [saving, setSaving] = useState(false);
 
   const { data: workersData } = useApiData(() => workersApi.list({ status: 'active', page_size: 500 }), []);
@@ -139,10 +154,42 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
     [workersData],
   );
 
+  // Only fetched for the create-mode "Szkolenie" picker, but cheap enough
+  // (page_size 200 — same ceiling api_list (trainings) enforces) to always
+  // load rather than gate behind isTraining, matching workersData above.
+  // Scoped to seed.skillId — only trainings already linked (training_skills)
+  // to the gap's own skill are offered, so a training-linked plan can't
+  // point at a training unrelated to the gap it's meant to close.
+  const { data: trainingsData } = useApiData(
+    () => trainingsApi.list({ page_size: 200, sort: 'training_date', order: 'desc', skill_id: seed.skillId }),
+    [seed.skillId],
+  );
+  const trainingOptions = useMemo(
+    () =>
+      (trainingsData?.trainings ?? []).map((t) => ({
+        value: String(t.id),
+        label: t.training_date ? `${t.description} — ${new Date(t.training_date).toLocaleDateString('pl-PL')}` : t.description,
+      })),
+    [trainingsData],
+  );
+
+  function handleTrainingSelect(value: string) {
+    setTrainingId(value);
+    // Suggest the training's own date as a starting point — the user can
+    // still override it (e.g. the worker joins a later run of the same
+    // training), so only prefill when nothing's been chosen yet.
+    if (!trainingStartDate) {
+      const picked = trainingsData?.trainings.find((t) => String(t.id) === value);
+      if (picked?.training_date) setTrainingStartDate(picked.training_date);
+    }
+  }
+
   useFocusTrap(true, panelRef);
   useEscapeClaim(true);
 
-  const canSubmit = description.trim().length > 0 && responsibleId.length > 0 && plannedDate.length > 0;
+  const canSubmit = isTraining
+    ? trainingId.length > 0 && trainingStartDate.length > 0
+    : description.trim().length > 0 && responsibleId.length > 0 && plannedDate.length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -159,6 +206,16 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
           effectiveness_date: effectivenessDate || null,
         });
         toast.success('Plan działania zaktualizowany.');
+      } else if (isTraining) {
+        await actionPlansApi.create({
+          worker_id: seed.workerId,
+          skill_id: seed.skillId,
+          is_training: true,
+          training_id: Number(trainingId),
+          expected_increase: expectedIncrease,
+          training_start_date: trainingStartDate,
+        });
+        toast.success('Plan szkoleniowy utworzony — pracownik zapisany na szkolenie.');
       } else {
         await actionPlansApi.create({
           worker_id: seed.workerId,
@@ -209,59 +266,113 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
             <p className="text-sm mb-4" style={{ color: 'var(--color-ink-subtle)' }}>
               {seed.workerName} · {seed.skillDescription}
             </p>
-            <div className="form-grid">
-              <TextareaField
-                label="Opis działania"
-                name="description"
-                required
-                fullWidth
-                rows={3}
-                autoFocus
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <SelectField
-                label="Odpowiedzialny"
-                name="responsible_id"
-                required
-                fullWidth
-                placeholder="Wybierz pracownika…"
-                options={responsibleOptions}
-                value={responsibleId}
-                onChange={(e) => setResponsibleId(e.target.value)}
-              />
-              <TextField
-                label="Planowana data"
-                name="planned_date"
-                type="date"
-                required
-                fullWidth={!isEdit}
-                value={plannedDate}
-                onChange={(e) => setPlannedDate(e.target.value)}
-              />
-              {isEdit && (
-                <>
-                  <TextField
-                    label="Data zakończenia"
-                    name="completed_date"
-                    type="date"
-                    value={completedDate}
-                    onChange={(e) => setCompletedDate(e.target.value)}
-                  />
-                  <TextField
-                    label="Data oceny skuteczności"
-                    name="effectiveness_date"
-                    type="date"
-                    fullWidth
-                    value={effectivenessDate}
-                    onChange={(e) => setEffectivenessDate(e.target.value)}
-                  />
-                </>
-              )}
-              <div className="form-field-full">
-                <StatusSelect value={status} onChange={setStatus} />
+
+            {isEdit && seed.isTraining && (
+              <p className="text-sm mb-4" style={{ color: 'var(--color-ink-subtle)' }}>
+                Plan szkoleniowy — {seed.trainingDescription ?? 'szkolenie usunięte'} · oczekiwany wzrost oceny: {seed.expectedIncrease}
+              </p>
+            )}
+
+            {!isEdit && (
+              <div className="mb-4">
+                <CheckboxField
+                  name="is_training"
+                  label="Szkolenie"
+                  description="Zamiast opisu działania: wybierz szkolenie wewnętrzne — pracownik zostanie automatycznie zapisany jako uczestnik."
+                  checked={isTraining}
+                  onChange={(e) => setIsTraining(e.target.checked)}
+                />
               </div>
-            </div>
+            )}
+
+            {!isEdit && isTraining ? (
+              <div className="form-grid">
+                <div className="form-field-full">
+                  <SearchableSelect
+                    id="action-plan-training"
+                    label="Szkolenie"
+                    required
+                    options={trainingOptions}
+                    value={trainingId}
+                    onChange={handleTrainingSelect}
+                    placeholder="Wybierz szkolenie…"
+                    searchPlaceholder="Szukaj szkolenia…"
+                  />
+                </div>
+                <TextField
+                  label="Planowana data szkolenia"
+                  name="training_start_date"
+                  type="date"
+                  required
+                  fullWidth
+                  value={trainingStartDate}
+                  onChange={(e) => setTrainingStartDate(e.target.value)}
+                  helper="Data rozpoczęcia zapisu pracownika na to szkolenie."
+                />
+                <SelectField
+                  label="Oczekiwany wzrost"
+                  name="expected_increase"
+                  required
+                  options={EXPECTED_INCREASE_OPTIONS}
+                  value={String(expectedIncrease)}
+                  onChange={(e) => setExpectedIncrease(Number(e.target.value))}
+                />
+              </div>
+            ) : (
+              <div className="form-grid">
+                <TextareaField
+                  label="Opis działania"
+                  name="description"
+                  required
+                  fullWidth
+                  rows={3}
+                  autoFocus
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <SelectField
+                  label="Odpowiedzialny"
+                  name="responsible_id"
+                  required
+                  fullWidth
+                  placeholder="Wybierz pracownika…"
+                  options={responsibleOptions}
+                  value={responsibleId}
+                  onChange={(e) => setResponsibleId(e.target.value)}
+                />
+                <TextField
+                  label="Planowana data"
+                  name="planned_date"
+                  type="date"
+                  required
+                  fullWidth={!isEdit}
+                  value={plannedDate}
+                  onChange={(e) => setPlannedDate(e.target.value)}
+                />
+                {isEdit && (
+                  <>
+                    <TextField
+                      label="Data zakończenia"
+                      name="completed_date"
+                      type="date"
+                      value={completedDate}
+                      onChange={(e) => setCompletedDate(e.target.value)}
+                    />
+                    <TextField
+                      label="Data oceny skuteczności"
+                      name="effectiveness_date"
+                      type="date"
+                      fullWidth
+                      value={effectivenessDate}
+                      onChange={(e) => setEffectivenessDate(e.target.value)}
+                    />
+                  </>
+                )}
+                <div className="form-field-full">
+                  <StatusSelect value={status} onChange={setStatus} />
+                </div>
+              </div>
+            )}
           </div>
           <div className="modal-footer">
             <Button type="button" variant="secondary" onClick={onClose}>

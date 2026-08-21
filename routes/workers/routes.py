@@ -25,6 +25,7 @@ from repositories.workers.action_plan_repository import ActionPlanRepository
 from repositories.workers.worker_repository import WorkerRepository
 from repositories.workers.worker_skill_repository import WorkerSkillRepository
 from repositories.workers.worker_skill_remark_repository import WorkerSkillRemarkRepository
+import services.action_plan_service as action_plan_service
 import services.competency_service as competency_service
 import services.worker_service as worker_service
 from services.alert_service import get_expiring_foreigner_docs
@@ -390,6 +391,42 @@ def api_add_remark(worker_id, skill_id):
         raise AppError('Wystąpił błąd serwera')
 
 
+@workers_bp.route('/api/<worker_id>/skills/<skill_id>/rating-history', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_skill_rating_history(worker_id, skill_id):
+    """GET /workers/api/<id>/skills/<skill_id>/rating-history — SKL_5's
+    full history of this one skill's rating changes for this worker,
+    including the automatic bumps LUK_1's "Szkolenie" checkbox applies once
+    a linked training's effectiveness is confirmed
+    (services.action_plan_service.apply_training_effectiveness). Reads the
+    same audit_log rows WorkerSkillRepository.set_rating() writes
+    (entity_type='worker', field_name='current_rating') — no separate
+    history table, per this app's established "audit_log is the history"
+    convention (see ActionPlanRepository's own docstring)."""
+    if not WorkerRepository().get_by_id(worker_id):
+        raise NotFoundError('Pracownik nie znaleziony')
+    try:
+        rows = AuditRepository().get_all(entity_type='worker', entity_id=worker_id, field_name='current_rating', label=skill_id)
+        events = [
+            {
+                'id': r['id'],
+                'action': r['action'],
+                'old_value': r['old_value'],
+                'new_value': r['new_value'],
+                'user_name': r['user_name'],
+                'timestamp': r['timestamp'].isoformat() if r['timestamp'] else None,
+            }
+            for r in rows
+        ]
+        return jsonify({'events': events, 'count': len(events)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_skill_rating_history (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
 @workers_bp.route('/api/<worker_id>/gap-analysis', methods=['GET'])
 @login_required
 @module_permission_required('workers')
@@ -463,6 +500,11 @@ def _action_plan_json(row) -> dict:
         'completed_date': row['completed_date'].isoformat() if row['completed_date'] else None,
         'effectiveness_date': row['effectiveness_date'].isoformat() if row['effectiveness_date'] else None,
         'status': row['status'],
+        'is_training': row['is_training'],
+        'training_id': row['training_id'],
+        'training_description': row['training_description'],
+        'expected_increase': row['expected_increase'],
+        'skill_increase_applied': row['skill_increase_applied'],
         'created_at': row['created_at'].isoformat() if row['created_at'] else None,
         'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
     }
@@ -493,8 +535,24 @@ def api_list_action_plans():
 @module_permission_required('workers')
 def api_create_action_plan():
     """POST /workers/api/action-plans — LUK_1: raise a corrective action
-    against one worker's competency gap on one skill."""
+    against one worker's competency gap on one skill. Two shapes share this
+    endpoint: `is_training: true` (the gap report's "Szkolenie" checkbox —
+    picks an internal training + expected rating increase, auto-enrolls the
+    worker, and is handled by services.action_plan_service so it can share
+    a transaction with the training_participants insert) or the plain
+    free-text corrective action (still validated inline here)."""
     data = request.get_json() or {}
+
+    if data.get('is_training'):
+        try:
+            new_id = action_plan_service.create_action_plan(data)
+            return jsonify({'success': True, 'id': new_id}), 201
+        except AppError:
+            raise
+        except Exception:
+            logging.exception('Unexpected error in api_create_action_plan (workers, training)')
+            raise AppError('Wystąpił błąd serwera')
+
     worker_id = (data.get('worker_id') or '').strip()
     skill_id = (data.get('skill_id') or '').strip()
     description = (data.get('description') or '').strip()
@@ -573,6 +631,27 @@ def api_update_action_plan(action_plan_id):
         raise
     except Exception:
         logging.exception('Unexpected error in api_update_action_plan (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/action-plans/<int:action_plan_id>', methods=['DELETE'])
+@login_required
+@module_permission_required('workers')
+def api_delete_action_plan(action_plan_id):
+    """DELETE /workers/api/action-plans/<id> — soft delete (is_deleted/
+    deleted_at, migration e5f6a7b8c9d0): the "Plany działań" table's
+    row-hover delete icon. Not a hard delete — see ActionPlanRepository's
+    docstring on why a plan (possibly linked to a real training enrollment)
+    keeps its history instead of vanishing."""
+    try:
+        deleted = ActionPlanRepository().delete(action_plan_id)
+        if not deleted:
+            raise NotFoundError('Plan działania nie znaleziony')
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_delete_action_plan (workers)')
         raise AppError('Wystąpił błąd serwera')
 
 

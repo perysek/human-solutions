@@ -12,11 +12,13 @@ export interface TrainingListItem {
   updated_at: string | null;
 }
 
+/** `completion` is deliberately absent — it's auto-derived server-side from
+ * the participant roster (TrainingRepository.recalculate_completion), never
+ * caller-supplied. See TrainingForm.tsx. */
 export interface TrainingPayload {
   description: string;
   remarks?: string | null;
   training_date?: string | null;
-  completion?: number | null;
   related_docs?: string | null;
   training_details?: string | null;
 }
@@ -27,6 +29,9 @@ export interface TrainingsListParams {
   order?: 'asc' | 'desc';
   page?: number;
   page_size?: number;
+  /** Narrows to trainings linked (training_skills) to this skill — the
+   * "Szkolenie" picker in ActionPlanModal. */
+  skill_id?: string;
 }
 
 export interface TrainingJobLink {
@@ -89,6 +94,7 @@ function buildQuery(params: TrainingsListParams): string {
   if (params.order) usp.set('order', params.order);
   if (params.page) usp.set('page', String(params.page));
   if (params.page_size) usp.set('page_size', String(params.page_size));
+  if (params.skill_id) usp.set('skill_id', params.skill_id);
   const qs = usp.toString();
   return qs ? `${BASE}?${qs}` : BASE;
 }

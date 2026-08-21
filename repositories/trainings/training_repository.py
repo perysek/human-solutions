@@ -31,13 +31,19 @@ class TrainingRepository(AuditableMixin, BaseRepository):
 
     def get_all(
         self, *, search: Optional[str] = None, sort: Optional[str] = None,
-        order: str = 'asc', page: int = 1, page_size: int = 25,
+        order: str = 'asc', page: int = 1, page_size: int = 25, skill_id: Optional[str] = None,
     ) -> Tuple[List[Any], int]:
         """Paginated, filtered, sorted training catalog (TRN_1). Search
         matches the training's own description OR (via EXISTS, so a
         multi-skill training doesn't duplicate rows the way a plain JOIN
         would) any linked skill's description — PRD's "nazwa, data,
-        powiązana umiejętność" search scope."""
+        powiązana umiejętność" search scope.
+
+        `skill_id` is a separate, stricter filter (exact link, not text
+        search) — the "Szkolenie" picker in ActionPlanModal uses it to show
+        only trainings already linked to the gap's skill (training_skills),
+        so raising a training-linked action plan can't point at a training
+        that has nothing to do with the skill it's meant to close."""
         conditions = []
         params: list = []
 
@@ -49,6 +55,12 @@ class TrainingRepository(AuditableMixin, BaseRepository):
                 "WHERE tsk.training_id = trainings.id AND sk.description ILIKE %s))"
             )
             params.extend([like, like])
+
+        if skill_id:
+            conditions.append(
+                "EXISTS (SELECT 1 FROM training_skills tsk2 WHERE tsk2.training_id = trainings.id AND tsk2.skill_id = %s)"
+            )
+            params.append(skill_id)
 
         where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ''
 
@@ -68,27 +80,60 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         return rows, total
 
     def create(
-        self, description: str, remarks: Optional[str], training_date, completion: Optional[int],
+        self, description: str, remarks: Optional[str], training_date,
         related_docs: Optional[str], training_details: Optional[str],
     ) -> int:
+        """`completion` isn't a create() parameter — it's never user-supplied
+        (see recalculate_completion): a brand-new training has no
+        participants yet, so it starts NULL ('—' in the UI) rather than any
+        caller-chosen value."""
         new_id = self._execute_insert(
-            "INSERT INTO trainings (description, remarks, training_date, completion, related_docs, training_details) "
-            "VALUES (%s, %s, %s, %s, %s, %s)",
-            (description, remarks, training_date, completion, related_docs, training_details),
+            "INSERT INTO trainings (description, remarks, training_date, related_docs, training_details) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (description, remarks, training_date, related_docs, training_details),
         )
         self._audit('CREATE', new_id, label=description)
         return new_id
 
     def update(
-        self, training_id: int, description: str, remarks: Optional[str], training_date, completion: Optional[int],
+        self, training_id: int, description: str, remarks: Optional[str], training_date,
         related_docs: Optional[str], training_details: Optional[str],
     ) -> None:
+        """Deliberately doesn't touch `completion` — see recalculate_completion."""
         self._execute(
-            "UPDATE trainings SET description = %s, remarks = %s, training_date = %s, completion = %s, "
+            "UPDATE trainings SET description = %s, remarks = %s, training_date = %s, "
             "related_docs = %s, training_details = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-            (description, remarks, training_date, completion, related_docs, training_details, training_id),
+            (description, remarks, training_date, related_docs, training_details, training_id),
         )
         self._audit('UPDATE', training_id, label=description)
+
+    def recalculate_completion(self, training_id: int) -> None:
+        """Auto-derives `completion` from the roster: percentage of this
+        training's participants who are BOTH done (finish_date set) AND
+        confirmed effective (effectiveness_date set) — "ukończone i
+        skuteczne" is the bar, not just attendance. Called after every
+        participant create/update (services/training_service.py) so the
+        field never drifts from the roster it's computed from; NULL (not 0)
+        with zero participants, since "0%" would misleadingly read as "ran
+        and failed everyone" rather than "nobody enrolled yet".
+
+        No self._audit() call — this is a high-frequency, derived value
+        recomputed on every roster edit, exactly the kind of write
+        AuditableMixin's docstring says to skip (the participant-level
+        create/update that triggered it is already audited under the
+        'training' entity)."""
+        self._execute(
+            """
+            UPDATE trainings SET completion = (
+                SELECT CASE WHEN COUNT(*) = 0 THEN NULL
+                            ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE finish_date IS NOT NULL AND effectiveness_date IS NOT NULL) / COUNT(*))
+                       END
+                FROM training_participants WHERE training_id = %s
+            ), updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            (training_id, training_id),
+        )
 
     def delete(self, training_id: int) -> bool:
         existing = self.get_by_id(training_id)

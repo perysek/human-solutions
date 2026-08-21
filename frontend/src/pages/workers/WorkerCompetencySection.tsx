@@ -39,6 +39,9 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
   const [remarksBySkill, setRemarksBySkill] = useState<Record<string, { id: number; remarks: string; created_at: string | null }[]>>({});
   const [remarksLoading, setRemarksLoading] = useState(false);
   const [newRemark, setNewRemark] = useState('');
+  const [ratingHistoryBySkill, setRatingHistoryBySkill] = useState<
+    Record<string, { id: number; action: string; old_value: string | null; new_value: string | null; user_name: string | null; timestamp: string | null }[]>
+  >({});
 
   const availableSkills = useMemo(
     () => (allSkillsData?.skills ?? []).filter((s) => !ratings.some((r) => r.skill_id === s.id)),
@@ -111,6 +114,14 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
         toast.error(err instanceof Error ? err.message : 'Nie udało się wczytać uwag.');
       } finally {
         setRemarksLoading(false);
+      }
+    }
+    if (!ratingHistoryBySkill[skillId]) {
+      try {
+        const result = await workersApi.getRatingHistory(workerId, skillId);
+        setRatingHistoryBySkill((cur) => ({ ...cur, [skillId]: result.events }));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Nie udało się wczytać historii oceny.');
       }
     }
   }
@@ -224,8 +235,8 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                       <button
                         type="button"
                         className="action-icon-btn"
-                        title="Uwagi"
-                        aria-label={`Uwagi — ${r.skill_description}`}
+                        title="Uwagi i historia oceny"
+                        aria-label={`Uwagi i historia oceny — ${r.skill_description}`}
                         aria-expanded={expandedSkillId === r.skill_id}
                         onClick={() => toggleRemarks(r.skill_id)}
                       >
@@ -250,6 +261,26 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                   <tr>
                     <td colSpan={4} style={{ background: 'var(--color-surface)' }}>
                       <div style={{ padding: '0.75rem 0' }}>
+                        <h4 className="text-xs font-semibold mb-1.5" style={{ color: 'var(--color-ink-muted)' }}>
+                          Historia oceny
+                        </h4>
+                        {(ratingHistoryBySkill[r.skill_id]?.length ?? 0) === 0 ? (
+                          <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem', marginBottom: '0.75rem' }}>Brak historii zmian oceny.</p>
+                        ) : (
+                          <ul className="space-y-1.5 mb-3">
+                            {ratingHistoryBySkill[r.skill_id].map((ev) => (
+                              <li key={ev.id} style={{ fontSize: '0.8125rem', color: 'var(--color-ink)' }}>
+                                <span style={{ color: 'var(--color-ink-subtle)' }}>
+                                  {ev.timestamp ? new Date(ev.timestamp).toLocaleString('pl-PL') : ''} — {ev.user_name ?? 'System'}:
+                                </span>{' '}
+                                {ev.old_value ?? '—'} → {ev.new_value ?? '—'}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <h4 className="text-xs font-semibold mb-1.5" style={{ color: 'var(--color-ink-muted)' }}>
+                          Uwagi
+                        </h4>
                         {remarksLoading ? (
                           <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>Ładowanie uwag…</p>
                         ) : (remarksBySkill[r.skill_id]?.length ?? 0) === 0 ? (

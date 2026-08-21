@@ -9,6 +9,7 @@ import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useTableSort } from '@/lib/useTableSort';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { actionPlansApi, type ActionPlan, type ActionPlanHistoryEvent } from '@/lib/api/actionPlans';
 import { ACTION_PLAN_STATUS_OPTIONS } from '@/lib/actionPlanStatus';
@@ -49,6 +50,7 @@ const FIELD_LABELS: Record<string, string> = {
   status: 'Status',
   completed_date: 'Data zakończenia',
   effectiveness_date: 'Data oceny skuteczności',
+  skill_increase_applied: 'Wzrost oceny zastosowany',
 };
 
 const DATE_FIELDS = new Set(['planned_date', 'completed_date', 'effectiveness_date']);
@@ -66,6 +68,7 @@ function statusBadge(status: string) {
 function formatHistoryValue(fieldName: string | null, value: string | null): string {
   if (value === null || value === '') return '—';
   if (fieldName === 'status') return ACTION_PLAN_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? value;
+  if (fieldName === 'skill_increase_applied') return value === 'True' ? 'Tak' : 'Nie';
   if (fieldName && DATE_FIELDS.has(fieldName) && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return new Date(value).toLocaleDateString('pl-PL');
   }
@@ -85,6 +88,9 @@ function seedFromPlan(plan: ActionPlan): ActionPlanSeed {
     status: plan.status,
     completedDate: plan.completed_date,
     effectivenessDate: plan.effectiveness_date,
+    isTraining: plan.is_training,
+    trainingDescription: plan.training_description,
+    expectedIncrease: plan.expected_increase,
   };
 }
 
@@ -97,6 +103,7 @@ function seedFromPlan(plan: ActionPlan): ActionPlanSeed {
 export function ActionPlansPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const { isModuleReadOnly } = useAuth();
   const canWrite = !isModuleReadOnly('workers');
 
@@ -161,6 +168,25 @@ export function ActionPlansPage() {
         delete next[planId];
         return next;
       });
+  }
+
+  async function handleDelete(e: React.MouseEvent, plan: ActionPlan) {
+    e.stopPropagation();
+    const ok = await confirm({
+      title: 'Usunąć plan działania?',
+      message: `Plan działania "${plan.description}" (${plan.worker_name}) zostanie usunięty.`,
+      confirmText: 'Usuń',
+      type: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await actionPlansApi.remove(plan.id);
+      toast.success('Plan działania usunięty.');
+      if (expandedId === plan.id) setExpandedId(null);
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć planu działania.');
+    }
   }
 
   return (
@@ -263,6 +289,17 @@ export function ActionPlansPage() {
                                 onClick={() => setEditSeed(seedFromPlan(plan))}
                               >
                                 <Icon name="edit" />
+                              </button>
+                            )}
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="action-icon-btn danger-reveal"
+                                title="Usuń"
+                                aria-label={`Usuń plan działania — ${plan.worker_name}, ${plan.skill_description}`}
+                                onClick={(e) => handleDelete(e, plan)}
+                              >
+                                <Icon name="delete" />
                               </button>
                             )}
                           </div>

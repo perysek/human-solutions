@@ -96,6 +96,8 @@ class AuditRepository(BaseRepository):
         invoice_id: Optional[int] = None,
         entity_type: Optional[str] = None,
         entity_id: Optional[Union[int, str]] = None,
+        field_name: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> List[dict]:
         """
         Pobierz historię zmian z opcjonalnym filtrowaniem.
@@ -120,6 +122,19 @@ class AuditRepository(BaseRepository):
         if entity_id is not None:
             conditions.append("a.entity_id = %s")
             params.append(str(entity_id))
+
+        # field_name/label: worker_skills' rating history (SKL_5) is audited
+        # under entity_type='worker', entity_id=worker_id (see
+        # WorkerSkillRepository.set_rating) — a worker can have several
+        # skills, so isolating *one skill's* rating changes needs both the
+        # field ('current_rating') and the label (set_rating's
+        # label=skill_id) narrowed, not just the worker.
+        if field_name:
+            conditions.append("a.field_name = %s")
+            params.append(field_name)
+        if label:
+            conditions.append("a.entity_label = %s")
+            params.append(label)
 
         where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 

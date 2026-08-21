@@ -12,6 +12,7 @@ from typing import List, Optional
 
 from config.auth_config import own_data_worker_id
 from exceptions import NotFoundError, PermissionDeniedError, ValidationError
+import services.action_plan_service as action_plan_service
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
 from repositories.workers.worker_repository import WorkerRepository
@@ -28,24 +29,25 @@ def _parse_date(value) -> Optional[date]:
         raise ValidationError(f'Nieprawidłowy format daty: {value!r} (oczekiwano RRRR-MM-DD)')
 
 
-def _validate_training(description: str, completion: Optional[int]) -> None:
+def _validate_training(description: str, training_details: Optional[str], related_docs: Optional[str]) -> None:
     if not description:
         raise ValidationError('Opis szkolenia jest wymagany')
-    if completion is not None and not (0 <= int(completion) <= 100):
-        raise ValidationError('Stopień ukończenia musi być liczbą od 0 do 100')
+    if not training_details:
+        raise ValidationError('Szczegóły szkolenia są wymagane')
+    if not related_docs:
+        raise ValidationError('Dokumenty referencyjne są wymagane')
 
 
 def create_training(payload: dict) -> int:
     description = (payload.get('description') or '').strip()
     remarks = (payload.get('remarks') or '').strip() or None
     training_date = _parse_date(payload.get('training_date'))
-    completion = payload.get('completion')
     related_docs = (payload.get('related_docs') or '').strip() or None
     training_details = (payload.get('training_details') or '').strip() or None
-    _validate_training(description, completion)
+    _validate_training(description, training_details, related_docs)
 
     return TrainingRepository().create(
-        description, remarks, training_date, completion, related_docs, training_details,
+        description, remarks, training_date, related_docs, training_details,
     )
 
 
@@ -60,13 +62,12 @@ def update_training(training_id: int, payload: dict, user) -> None:
     description = (payload.get('description') or '').strip()
     remarks = (payload.get('remarks') or '').strip() or None
     training_date = _parse_date(payload.get('training_date'))
-    completion = payload.get('completion')
     related_docs = (payload.get('related_docs') or '').strip() or None
     training_details = (payload.get('training_details') or '').strip() or None
-    _validate_training(description, completion)
+    _validate_training(description, training_details, related_docs)
 
     TrainingRepository().update(
-        training_id, description, remarks, training_date, completion, related_docs, training_details,
+        training_id, description, remarks, training_date, related_docs, training_details,
     )
 
 
@@ -114,13 +115,23 @@ def register_participant(training_id: int, payload: dict, user) -> int:
     _validate_participant_dates(start_date, finish_date)
     remarks = (payload.get('remarks') or '').strip() or None
 
-    return TrainingParticipantRepository().create(training_id, worker_id, start_date, finish_date, remarks, trainer_id)
+    new_id = TrainingParticipantRepository().create(training_id, worker_id, start_date, finish_date, remarks, trainer_id)
+    TrainingRepository().recalculate_completion(training_id)
+    return new_id
 
 
 def update_participant(participant_id: int, payload: dict, user) -> None:
     """TRN_8/9 — one endpoint updates start/finish/remarks/trainer AND
     effectiveness_date; see TrainingParticipantRepository.update's docstring
-    for why this isn't split into two functions."""
+    for why this isn't split into two functions.
+
+    Also the completion trigger for LUK_1's training-linked action plans:
+    apply_training_effectiveness no-ops unless this save leaves both
+    finish_date and effectiveness_date set, so it's safe to call
+    unconditionally on every participant save rather than only when those
+    two fields change. Same reasoning for recalculate_completion — it's a
+    plain re-derivation from the current roster, safe to call on every
+    save regardless of which fields actually changed."""
     repo = TrainingParticipantRepository()
     existing = repo.get_by_id(participant_id)
     if not existing:
@@ -138,6 +149,8 @@ def update_participant(participant_id: int, payload: dict, user) -> None:
     remarks = (payload.get('remarks') or '').strip() or None
 
     repo.update(participant_id, start_date, finish_date, remarks, trainer_id, effectiveness_date)
+    TrainingRepository().recalculate_completion(existing['training_id'])
+    action_plan_service.apply_training_effectiveness(participant_id)
 
 
 def list_worker_history(worker_id: str) -> List[dict]:

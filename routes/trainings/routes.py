@@ -84,15 +84,19 @@ def _redact_participant_for_viewer(p: dict) -> dict:
 @login_required
 @module_permission_required('trainings')
 def api_list():
-    """GET /trainings/api?search=&sort=&order=&page=&page_size= — TRN_1."""
+    """GET /trainings/api?search=&sort=&order=&page=&page_size=&skill_id= — TRN_1.
+    `skill_id` (ActionPlanModal's "Szkolenie" picker) narrows to trainings
+    actually linked to that skill via training_skills — see
+    TrainingRepository.get_all's docstring."""
     try:
         search = request.args.get('search') or None
         sort = request.args.get('sort') or None
         order = request.args.get('order') or 'asc'
         page = max(int(request.args.get('page', 1)), 1)
         page_size = min(max(int(request.args.get('page_size', 25)), 1), 200)
+        skill_id = request.args.get('skill_id') or None
 
-        rows, total = TrainingRepository().get_all(search=search, sort=sort, order=order, page=page, page_size=page_size)
+        rows, total = TrainingRepository().get_all(search=search, sort=sort, order=order, page=page, page_size=page_size, skill_id=skill_id)
         return jsonify({
             'trainings': [_training_json(r) for r in rows],
             'count': total,

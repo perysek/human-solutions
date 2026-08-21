@@ -94,6 +94,19 @@ export interface SkillRemark {
   created_at: string | null;
 }
 
+/** SKL_5 — one worker_skills.current_rating change (manual edit, or the
+ * automatic bump LUK_1's "Szkolenie" plans apply once a linked training's
+ * effectiveness is confirmed). Read from audit_log — see
+ * routes/workers/routes.py's api_skill_rating_history. */
+export interface SkillRatingHistoryEvent {
+  id: number;
+  action: string;
+  old_value: string | null;
+  new_value: string | null;
+  user_name: string | null;
+  timestamp: string | null;
+}
+
 const BASE = '/workers/api';
 
 function buildQuery(params: WorkersListParams): string {
@@ -138,6 +151,10 @@ export const workersApi = {
     api.get<{ remarks: SkillRemark[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/remarks`),
   addRemark: (id: string, skillId: string, remarks: string) =>
     api.post<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/remarks`, { remarks }),
+  getRatingHistory: (id: string, skillId: string) =>
+    api.get<{ events: SkillRatingHistoryEvent[]; count: number }>(
+      `${BASE}/${encodeURIComponent(id)}/skills/${encodeURIComponent(skillId)}/rating-history`,
+    ),
   getGapAnalysis: (id: string) => api.get<{ gaps: SkillGap[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/gap-analysis`),
   skillGaps: (minGap = 1) =>
     api.get<{ results: CompetencyGapRow[]; count: number }>(`${BASE}/skill-gaps?min_gap=${minGap}`),
