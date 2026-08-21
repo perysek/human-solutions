@@ -7,7 +7,11 @@ import { SortableTh } from '@/components/ui/SortableTh';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useTableSort } from '@/lib/useTableSort';
+import { useToast } from '@/lib/feedback/ToastProvider';
+import { useConfirm } from '@/lib/feedback/ConfirmProvider';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { workersApi, type CompetencyGapRow } from '@/lib/api/workers';
+import { actionPlansApi } from '@/lib/api/actionPlans';
 import { ActionPlanModal, type ActionPlanSeed } from '@/components/workers/ActionPlanModal';
 
 // Same 3-bucket severity palette as BhpExpiringReportPage/MedicalExpiringReportPage/
@@ -27,6 +31,14 @@ const GAP_BUCKET_STYLE: Record<'critical' | 'warning' | 'notice', React.CSSPrope
     background: 'rgba(107, 114, 128, 0.08)',
     color: 'var(--color-ink-muted)',
   },
+};
+
+// Bolder tint than GAP_BUCKET_STYLE's "notice" bucket — this marks the
+// "Zaplanuj działanie" button itself as already-actioned, not a severity.
+const ACTION_PLAN_BTN_STYLE: React.CSSProperties = {
+  color: 'var(--color-success)',
+  background: 'rgba(45, 106, 79, 0.12)',
+  fontWeight: 700,
 };
 
 function gapBucket(gap: number): 'critical' | 'warning' | 'notice' {
@@ -67,10 +79,32 @@ function getSortValue(row: CompetencyGapRow, key: string): string | number | nul
  * sorting flattens the grouping, see the sortKey check in isFirstOfGroup). */
 export function CompetencyGapsReportPage() {
   const navigate = useNavigate();
-  const { data, loading, error } = useApiData(() => workersApi.skillGaps(1));
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { isModuleReadOnly } = useAuth();
+  const canWrite = !isModuleReadOnly('workers');
+  const { data, loading, error, reload } = useApiData(() => workersApi.skillGaps(1));
   const allRows = useMemo(() => data?.results ?? [], [data]);
   const [actionSeed, setActionSeed] = useState<ActionPlanSeed | null>(null);
   const [search, setSearch] = useState('');
+
+  async function handleDeletePlan(row: CompetencyGapRow) {
+    if (!row.action_plan_id) return;
+    const ok = await confirm({
+      title: 'Usunąć plan działania?',
+      message: `Plan działania dla „${row.full_name}" (${row.skill_description}) zostanie usunięty.`,
+      confirmText: 'Usuń',
+      type: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await actionPlansApi.remove(row.action_plan_id);
+      toast.success('Plan działania usunięty.');
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć planu działania.');
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -174,10 +208,22 @@ export function CompetencyGapsReportPage() {
                         <td>{row.last_update ? new Date(row.last_update).toLocaleDateString('pl-PL') : '—'}</td>
                         <td className="text-right">
                           <div className="action-icons">
+                            {row.action_plan_id && canWrite && (
+                              <button
+                                type="button"
+                                className="action-icon-btn danger-reveal"
+                                title="Usuń plan działania"
+                                aria-label={`Usuń plan działania — ${row.full_name}, ${row.skill_description}`}
+                                onClick={() => handleDeletePlan(row)}
+                              >
+                                <Icon name="delete" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="action-icon-btn"
-                              title="Zaplanuj działanie"
+                              style={row.action_plan_id ? ACTION_PLAN_BTN_STYLE : undefined}
+                              title={row.action_plan_id ? 'Zaplanuj działanie (plan już zdefiniowany)' : 'Zaplanuj działanie'}
                               aria-label={`Zaplanuj działanie — ${row.full_name}, ${row.skill_description}`}
                               onClick={() =>
                                 setActionSeed({
@@ -207,7 +253,7 @@ export function CompetencyGapsReportPage() {
         )}
       </div>
 
-      {actionSeed && <ActionPlanModal seed={actionSeed} onClose={() => setActionSeed(null)} onSaved={() => {}} />}
+      {actionSeed && <ActionPlanModal seed={actionSeed} onClose={() => setActionSeed(null)} onSaved={reload} />}
     </div>
   );
 }

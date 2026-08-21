@@ -471,6 +471,7 @@ def api_skill_gaps():
                 'current_rating': r['current_rating'],
                 'gap': r['gap'],
                 'last_update': r['last_update'].isoformat() if r['last_update'] else None,
+                'action_plan_id': r['action_plan_id'],
             }
             for r in rows
         ]

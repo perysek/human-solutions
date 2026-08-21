@@ -101,7 +101,13 @@ class WorkerSkillRepository(AuditableMixin, BaseRepository):
                    b.firstname AS boss_firstname, b.surname AS boss_surname,
                    js.skill_id, s.description AS skill_description,
                    js.required_rating, ws.current_rating, ws.last_update,
-                   (js.required_rating - COALESCE(ws.current_rating, 0)) AS gap
+                   (js.required_rating - COALESCE(ws.current_rating, 0)) AS gap,
+                   (
+                       SELECT ap.id FROM action_plans ap
+                       WHERE ap.worker_id = w.id AND ap.skill_id = js.skill_id AND NOT ap.is_deleted
+                       ORDER BY ap.created_at DESC, ap.id DESC
+                       LIMIT 1
+                   ) AS action_plan_id
             FROM workers w
             JOIN job_skills js ON js.job_id = w.job_id
             JOIN skills s ON s.id = js.skill_id

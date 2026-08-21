@@ -86,6 +86,7 @@ export interface CompetencyGapRow {
   current_rating: number | null;
   gap: number;
   last_update: string | null;
+  action_plan_id: number | null;
 }
 
 export interface SkillRemark {
