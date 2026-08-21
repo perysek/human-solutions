@@ -4,16 +4,43 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
-import { ColumnFilterDropdown } from '@/components/ui/ColumnFilterDropdown';
+import { SortableTh } from '@/components/ui/SortableTh';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useTableSort } from '@/lib/useTableSort';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { actionPlansApi, type ActionPlan, type ActionPlanHistoryEvent } from '@/lib/api/actionPlans';
 import { ACTION_PLAN_STATUS_OPTIONS } from '@/lib/actionPlanStatus';
 import { ActionPlanModal, type ActionPlanSeed } from '@/components/workers/ActionPlanModal';
 
-const STATUS_FILTER_OPTIONS = ACTION_PLAN_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+const STATUS_FILTER_OPTIONS = ACTION_PLAN_STATUS_OPTIONS.map((o) => ({
+  value: o.value,
+  label: o.label,
+}));
+
+function getSortValue(row: ActionPlan, key: string): string | number | null {
+  switch (key) {
+    case 'worker_name':
+      return row.worker_name;
+    case 'skill_description':
+      return row.skill_description;
+    case 'description':
+      return row.description;
+    case 'responsible_name':
+      return row.responsible_name;
+    case 'planned_date':
+      return row.planned_date;
+    case 'completed_date':
+      return row.completed_date;
+    case 'effectiveness_date':
+      return row.effectiveness_date;
+    case 'status':
+      return row.status;
+    default:
+      return null;
+  }
+}
 
 const FIELD_LABELS: Record<string, string> = {
   description: 'Opis działania',
@@ -97,6 +124,8 @@ export function ActionPlansPage() {
     });
   }, [rows, search, statusFilter]);
 
+  const { sorted, sortKey, sortOrder, onSort } = useTableSort(filteredRows, getSortValue);
+
   async function loadHistory(planId: number) {
     setHistoryLoading(true);
     try {
@@ -159,27 +188,39 @@ export function ActionPlansPage() {
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : rows.length === 0 ? (
           <EmptyState icon="checklist" title="Brak planów działań" message="Plany działań tworzy się z poziomu wykazu luk kompetencyjnych." />
-        ) : filteredRows.length === 0 ? (
+        ) : sorted.length === 0 ? (
           <EmptyState icon="search" title="Brak wyników" message="Żaden plan działania nie pasuje do filtrów." />
         ) : (
-          <PaginatedTable rows={filteredRows} pageSize={25}>
+          <PaginatedTable rows={sorted} pageSize={25}>
             {(pageRows) => (
               <table className="refined-table">
                 <thead>
                   <tr>
-                    <th>Pracownik</th>
-                    <th>Umiejętność</th>
-                    <th>Opis działania</th>
-                    <th>Odpowiedzialny</th>
-                    <th>Planowana data</th>
-                    <th>Data zakończenia</th>
-                    <th>Data oceny skuteczności</th>
-                    <th>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-                        Status
-                        <ColumnFilterDropdown columnLabel="Status" options={STATUS_FILTER_OPTIONS} selected={statusFilter} onChange={setStatusFilter} />
-                      </span>
-                    </th>
+                    <SortableTh label="Pracownik" sortKey="worker_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Umiejętność" sortKey="skill_description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Opis działania" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Odpowiedzialny" sortKey="responsible_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Planowana data" sortKey="planned_date" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Data zakończenia" sortKey="completed_date" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh
+                      label="Data oceny skuteczności"
+                      sortKey="effectiveness_date"
+                      currentSort={sortKey}
+                      currentOrder={sortOrder}
+                      onSort={onSort}
+                    />
+                    <SortableTh
+                      label="Status"
+                      sortKey="status"
+                      currentSort={sortKey}
+                      currentOrder={sortOrder}
+                      onSort={onSort}
+                      filter={{
+                        options: STATUS_FILTER_OPTIONS,
+                        selected: statusFilter,
+                        onChange: setStatusFilter,
+                      }}
+                    />
                     <th className="text-right">Akcje</th>
                   </tr>
                 </thead>
@@ -232,14 +273,38 @@ export function ActionPlansPage() {
                           <td colSpan={9} style={{ background: 'var(--color-surface)' }}>
                             <div style={{ padding: '0.75rem 0' }}>
                               {historyLoading && !historyById[plan.id] ? (
-                                <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>Ładowanie historii…</p>
+                                <p
+                                  style={{
+                                    color: 'var(--color-ink-subtle)',
+                                    fontSize: '0.8125rem',
+                                  }}
+                                >
+                                  Ładowanie historii…
+                                </p>
                               ) : (historyById[plan.id]?.length ?? 0) === 0 ? (
-                                <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>Brak historii zmian.</p>
+                                <p
+                                  style={{
+                                    color: 'var(--color-ink-subtle)',
+                                    fontSize: '0.8125rem',
+                                  }}
+                                >
+                                  Brak historii zmian.
+                                </p>
                               ) : (
                                 <ul className="space-y-1.5">
                                   {historyById[plan.id].map((ev) => (
-                                    <li key={ev.id} style={{ fontSize: '0.8125rem', color: 'var(--color-ink)' }}>
-                                      <span style={{ color: 'var(--color-ink-subtle)' }}>
+                                    <li
+                                      key={ev.id}
+                                      style={{
+                                        fontSize: '0.8125rem',
+                                        color: 'var(--color-ink)',
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          color: 'var(--color-ink-subtle)',
+                                        }}
+                                      >
                                         {ev.timestamp ? new Date(ev.timestamp).toLocaleString('pl-PL') : ''} — {ev.user_name ?? 'System'}:
                                       </span>{' '}
                                       {ev.field_name ? (

@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { SortableTh } from '@/components/ui/SortableTh';
 import { useApiData } from '@/lib/api/useApiData';
+import { useTableSort } from '@/lib/useTableSort';
 import { bhpApi, type ExpiringBhpTraining } from '@/lib/api/bhp';
 import { SelectWrap } from '@/components/ui/SelectWrap';
 
@@ -20,9 +22,18 @@ const WINDOW_OPTIONS = [
 ];
 
 const BUCKET_STYLE: Record<ExpiringBhpTraining['bucket'], React.CSSProperties> = {
-  critical: { background: 'rgba(155, 44, 44, 0.08)', color: 'var(--color-error)' },
-  warning: { background: 'var(--color-orange-bg)', color: 'var(--color-orange)' },
-  notice: { background: 'rgba(107, 114, 128, 0.08)', color: 'var(--color-ink-muted)' },
+  critical: {
+    background: 'rgba(155, 44, 44, 0.08)',
+    color: 'var(--color-error)',
+  },
+  warning: {
+    background: 'var(--color-orange-bg)',
+    color: 'var(--color-orange)',
+  },
+  notice: {
+    background: 'rgba(107, 114, 128, 0.08)',
+    color: 'var(--color-ink-muted)',
+  },
 };
 
 const BUCKET_LABELS: Record<ExpiringBhpTraining['bucket'], string> = {
@@ -34,11 +45,37 @@ const BUCKET_LABELS: Record<ExpiringBhpTraining['bucket'], string> = {
 /** BHP_5 (IMPLEMENTATION_PLAN.md §9) — global report of soon-expiring/
  * already-expired BHP trainings across active workers, same shape as
  * MedicalExpiringReportPage (see its comment on the shared bucketing). */
+function getSortValue(row: ExpiringBhpTraining, key: string): string | number | null {
+  switch (key) {
+    case 'full_name':
+      return row.full_name;
+    case 'kind':
+      return KIND_LABELS[row.kind];
+    case 'training_date':
+      return row.training_date;
+    case 'valid_until':
+      return row.valid_until;
+    case 'bucket':
+      return BUCKET_LABELS[row.bucket];
+    default:
+      return null;
+  }
+}
+
 export function BhpExpiringReportPage() {
   const navigate = useNavigate();
   const [days, setDays] = useState(90);
+  const [search, setSearch] = useState('');
   const { data, loading, error } = useApiData(() => bhpApi.expiring(days), [days]);
-  const trainings = data?.trainings ?? [];
+
+  const filtered = useMemo(() => {
+    const trainings = data?.trainings ?? [];
+    const q = search.trim().toLowerCase();
+    if (!q) return trainings;
+    return trainings.filter((t) => t.full_name.toLowerCase().includes(q));
+  }, [data, search]);
+
+  const { sorted, sortKey, sortOrder, onSort } = useTableSort(filtered, getSortValue);
 
   return (
     <div className="refined-page">
@@ -46,6 +83,15 @@ export function BhpExpiringReportPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
+          <div className="search-input-wrap">
+            <input
+              type="text"
+              className="refined-input"
+              placeholder="Szukaj po pracowniku…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <SelectWrap inline>
             <select className="refined-select" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Okno czasowe">
               {WINDOW_OPTIONS.map((opt) => (
@@ -63,44 +109,60 @@ export function BhpExpiringReportPage() {
           <TableSkeleton cols={4} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
-        ) : trainings.length === 0 ? (
-          <EmptyState icon="info" title="Brak wygasających szkoleń" message="Żadne szkolenie nie wygasa w wybranym oknie czasowym." />
+        ) : sorted.length === 0 ? (
+          <EmptyState
+            icon="info"
+            title="Brak wygasających szkoleń"
+            message={search ? 'Żaden pracownik nie pasuje do wyszukiwania.' : 'Żadne szkolenie nie wygasa w wybranym oknie czasowym.'}
+          />
         ) : (
-          <table className="refined-table">
-            <thead>
-              <tr>
-                <th>Pracownik</th>
-                <th>Rodzaj</th>
-                <th>Data szkolenia</th>
-                <th>Ważne do</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trainings.map((training) => (
-                <tr
-                  key={training.id}
-                  onClick={() => navigate(`/workers/${encodeURIComponent(training.worker_id)}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') navigate(`/workers/${encodeURIComponent(training.worker_id)}`);
-                  }}
-                  tabIndex={0}
-                  style={{ cursor: 'pointer' }}
-                  aria-label={`Zobacz pracownika ${training.full_name}`}
-                >
-                  <td>{training.full_name}</td>
-                  <td>{KIND_LABELS[training.kind]}</td>
-                  <td>{training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'}</td>
-                  <td>{training.valid_until ? new Date(training.valid_until).toLocaleDateString('pl-PL') : '—'}</td>
-                  <td>
-                    <span className="refined-badge" style={BUCKET_STYLE[training.bucket]}>
-                      {BUCKET_LABELS[training.bucket]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="table-scroll-body">
+              <table className="refined-table">
+                <thead>
+                  <tr>
+                    <SortableTh label="Pracownik" sortKey="full_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Rodzaj" sortKey="kind" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Data szkolenia" sortKey="training_date" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Ważne do" sortKey="valid_until" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Status" sortKey="bucket" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((training, i) => (
+                    <tr
+                      key={training.id}
+                      onClick={() => navigate(`/workers/${encodeURIComponent(training.worker_id)}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') navigate(`/workers/${encodeURIComponent(training.worker_id)}`);
+                      }}
+                      tabIndex={0}
+                      style={{
+                        cursor: 'pointer',
+                        animationDelay: `${Math.min(i, 7) * 30}ms`,
+                      }}
+                      aria-label={`Zobacz pracownika ${training.full_name}`}
+                    >
+                      <td>{training.full_name}</td>
+                      <td>{KIND_LABELS[training.kind]}</td>
+                      <td>{training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'}</td>
+                      <td>{training.valid_until ? new Date(training.valid_until).toLocaleDateString('pl-PL') : '—'}</td>
+                      <td>
+                        <span className="refined-badge" style={BUCKET_STYLE[training.bucket]}>
+                          {BUCKET_LABELS[training.bucket]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="table-footer">
+              <span>
+                {sorted.length} {sorted.length === 1 ? 'wynik' : 'wyników'}
+              </span>
+            </div>
+          </>
         )}
       </div>
     </div>
