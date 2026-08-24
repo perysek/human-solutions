@@ -7,6 +7,7 @@ services/alert_service.py, cross-cutting decision #4).
 """
 from config.auth_config import own_data_worker_id
 import services.alert_service as alert_service
+from repositories.jobs.job_repository import JobRepository
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.workers.worker_repository import WorkerRepository
 
@@ -48,4 +49,10 @@ def get_alerts(user) -> dict:
         'medical': alert_service.get_expiring_medical(),
         'bhp': alert_service.get_expiring_bhp(),
         'foreigner_docs': alert_service.get_expiring_foreigner_docs_with_bucket(),
+        # Task 2 — not an expiry alert (no bucket/date of its own), but the
+        # same full-access audience: a job-position with no department is a
+        # data-completeness gap, not personal data, so it rides the same
+        # branch rather than needing its own RODO carve-out like the three
+        # employee-facing panels above.
+        'orphan_jobs': JobRepository().get_orphan_jobs(),
     }

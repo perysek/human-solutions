@@ -28,6 +28,9 @@ export default defineConfig({
       // '/skills' are also React Router pages, so only the JSON API suffix
       // is proxied (IMPLEMENTATION_PLAN.md Phase 1).
       '/jobs/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      // task1 — '/departments' is also a React Router page (Działy firmy),
+      // same '/prefix/api' scoping as '/jobs' above.
+      '/departments/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       '/skills/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       '/workers/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       // Same '/prefix/api' scoping (Faza 4, IMPLEMENTATION_PLAN.md §9) —

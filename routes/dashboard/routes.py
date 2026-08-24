@@ -64,6 +64,13 @@ def _foreigner_doc_alert_json(row) -> dict:
     }
 
 
+def _orphan_job_json(row) -> dict:
+    return {
+        'id': row['id'],
+        'description': row['description'],
+    }
+
+
 def _own_training_json(row) -> dict:
     return {
         'id': row['id'],
@@ -103,6 +110,7 @@ def api_alerts():
             'medical': [_medical_alert_json(r) for r in alerts['medical']],
             'bhp': [_bhp_alert_json(r) for r in alerts['bhp']],
             'foreigner_docs': [_foreigner_doc_alert_json(r) for r in alerts['foreigner_docs']],
+            'orphan_jobs': [_orphan_job_json(r) for r in alerts['orphan_jobs']],
         })
     except AppError:
         raise

@@ -37,6 +37,14 @@ export interface ForeignerDocAlert {
   bucket: Exclude<AlertBucket, 'notice'>;
 }
 
+/** Task 2 — a job-position with no department assigned (jobs.department_id
+ * IS NULL). No `bucket`/date of its own (not an expiry alert) — AlertPanel
+ * gives every orphan-jobs row a fixed 'notice' bucket, see DashboardPage. */
+export interface OrphanJobAlert {
+  id: string;
+  description: string | null;
+}
+
 export interface OwnTraining {
   id: number;
   description: string;
@@ -50,6 +58,7 @@ export interface FullAlerts {
   medical: MedicalAlert[];
   bhp: BhpAlert[];
   foreigner_docs: ForeignerDocAlert[];
+  orphan_jobs: OrphanJobAlert[];
 }
 
 /** `trainer` shape (own_data=TRUE on `dashboard`): RODO_2 blocks all three

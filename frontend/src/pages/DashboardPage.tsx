@@ -25,7 +25,7 @@ export function DashboardPage() {
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.medical.map((r) => ({
           key: `m-${r.id}`,
-          workerId: r.worker_id,
+          id: r.worker_id,
           fullName: r.full_name,
           detail: MEDICAL_KIND_LABELS[r.kind] ?? r.kind,
           date: r.valid_until,
@@ -37,7 +37,7 @@ export function DashboardPage() {
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.bhp.map((r) => ({
           key: `b-${r.id}`,
-          workerId: r.worker_id,
+          id: r.worker_id,
           fullName: r.full_name,
           detail: BHP_KIND_LABELS[r.kind] ?? r.kind,
           date: r.valid_until,
@@ -49,11 +49,26 @@ export function DashboardPage() {
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.foreigner_docs.map((r, i) => ({
           key: `f-${r.worker_id}-${i}`,
-          workerId: r.worker_id,
+          id: r.worker_id,
           fullName: r.full_name,
           detail: r.document_kind ?? 'Dokument',
           date: r.document_validity,
           bucket: r.bucket,
+        }))
+      : [];
+
+  // Task 2 — orphan job-positions (jobs.department_id IS NULL). Fixed
+  // 'notice' bucket: not an expiry alert (no date of its own), just flagged
+  // as a data-completeness gap worth a look, not urgent.
+  const orphanJobRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.orphan_jobs.map((r) => ({
+          key: `j-${r.id}`,
+          id: r.id,
+          fullName: r.description || r.id,
+          detail: 'Stanowisko bez przypisanego działu',
+          date: null,
+          bucket: 'notice' as const,
         }))
       : [];
 
@@ -130,10 +145,20 @@ export function DashboardPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: '1rem' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4" style={{ gap: '1rem' }}>
           <AlertPanel title="Badania lekarskie" rows={medicalRows} emptyMessage="Żadne badanie nie wygasa wkrótce." />
           <AlertPanel title="Szkolenia BHP" rows={bhpRows} emptyMessage="Żadne szkolenie BHP nie wygasa wkrótce." />
           <AlertPanel title="Dokumenty cudzoziemców" rows={foreignerDocRows} emptyMessage="Żaden dokument nie wygasa wkrótce." />
+          <AlertPanel
+            title="Stanowiska bez działu"
+            rows={orphanJobRows}
+            emptyMessage="Każde stanowisko ma przypisany dział."
+            // task2 — opens the job's edit page with the "Dział" select
+            // pre-expanded/focused (JobEditPage reads this same state shape)
+            // and, once saved there, auto-navigates back here instead of to
+            // the job's own view page.
+            onRowClick={(row) => navigate(`/jobs/${encodeURIComponent(row.id)}/edit`, { state: { focusDepartment: true, returnTo: '/' } })}
+          />
         </div>
       )}
     </div>

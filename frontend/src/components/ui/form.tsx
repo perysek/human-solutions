@@ -65,7 +65,13 @@ interface SelectOption {
 }
 
 type SelectFieldProps = Omit<FieldWrapperProps, 'htmlFor' | 'children'> &
-  Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> & { name: string; options: SelectOption[]; placeholder?: string };
+  Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> & {
+    name: string;
+    options: SelectOption[];
+    placeholder?: string;
+    /** Forwarded to SearchableSelect — see its own docstring. */
+    autoOpen?: boolean;
+  };
 
 export function SelectField({
   label,
@@ -79,6 +85,7 @@ export function SelectField({
   value,
   onChange,
   disabled,
+  autoOpen,
 }: SelectFieldProps) {
   return (
     <FieldWrapper label={label} htmlFor={name} required={required} error={error} helper={helper} fullWidth={fullWidth}>
@@ -89,6 +96,7 @@ export function SelectField({
         onChange={(v) => onChange?.({ target: { name, value: v } } as unknown as ChangeEvent<HTMLSelectElement>)}
         placeholder={placeholder}
         disabled={disabled}
+        autoOpen={autoOpen}
       />
     </FieldWrapper>
   );

@@ -1,13 +1,26 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useApiData } from '@/lib/api/useApiData';
 import { jobsApi } from '@/lib/api/jobs';
 import { JobForm } from './JobForm';
 
+/** Task 2 — state shape the Pulpit's "Stanowiska bez działu" alert
+ * navigates here with (DashboardPage.tsx's onRowClick): `focusDepartment`
+ * expands the "Dział" select on mount (JobForm's autoFocusDepartment),
+ * `returnTo` overrides where a successful save lands — the dashboard, not
+ * this job's own view page — since coming back here is the whole point of
+ * having followed the alert in the first place. */
+interface JobEditLocationState {
+  focusDepartment?: boolean;
+  returnTo?: string;
+}
+
 export function JobEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { focusDepartment, returnTo } = (location.state as JobEditLocationState | null) ?? {};
   const { data: job, loading, error } = useApiData(() => jobsApi.get(id as string), [id]);
 
   return (
@@ -22,8 +35,9 @@ export function JobEditPage() {
           <JobForm
             mode="edit"
             initial={job}
-            onSaved={(savedId) => navigate(`/jobs/${encodeURIComponent(savedId)}`)}
-            onCancel={() => navigate('/jobs')}
+            autoFocusDepartment={focusDepartment}
+            onSaved={(savedId) => navigate(returnTo ?? `/jobs/${encodeURIComponent(savedId)}`)}
+            onCancel={() => navigate(returnTo ?? '/jobs')}
           />
         )}
       </div>

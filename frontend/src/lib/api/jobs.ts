@@ -4,6 +4,9 @@ import type { SkillGap } from './workers';
 export interface JobListItem {
   id: string;
   description: string | null;
+  department_id: number | null;
+  department_name: string | null;
+  is_managerial: boolean;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -11,6 +14,8 @@ export interface JobListItem {
 export interface JobPayload {
   id: string;
   description?: string | null;
+  department_id?: number | null;
+  is_managerial?: boolean;
 }
 
 export interface JobSkillRequirement {
@@ -39,8 +44,8 @@ export const jobsApi = {
     api.get<{ jobs: JobListItem[]; count: number }>(search ? `${BASE}?search=${encodeURIComponent(search)}` : BASE),
   get: (id: string) => api.get<JobListItem>(`${BASE}/${encodeURIComponent(id)}`),
   create: (payload: JobPayload) => api.post<{ success: boolean; id: string }>(BASE, payload),
-  update: (id: string, description: string | null) =>
-    api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, { description }),
+  update: (id: string, payload: Omit<JobPayload, 'id'>) =>
+    api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, payload),
   remove: (id: string) => api.del<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`),
 
   // Competency matrix (JOB_2/4/5/6, Phase 3)

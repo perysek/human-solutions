@@ -41,6 +41,13 @@ interface SearchableSelectProps {
   /** Extra inline style merged onto the trigger button — e.g. the smaller
    * padding/font-size table-cell selects use. */
   triggerStyle?: React.CSSProperties;
+  /** Task 2 (Pulpit's orphan-jobs alert -> JobForm's "Dział" field) — opens
+   * the popover (and focuses its search box, via the same effect the
+   * trigger's own onClick already runs) once, on mount, without the user
+   * needing to click the trigger first. A one-shot flag: toggling it back
+   * to false does not close an already-open popover — same asymmetry as
+   * `autoFocus` on a plain <input>. */
+  autoOpen?: boolean;
 }
 
 /** Single-select combobox with a type-to-filter search box in the popover —
@@ -72,6 +79,7 @@ export function SearchableSelect({
   fullWidth = true,
   triggerClassName = 'form-select',
   triggerStyle,
+  autoOpen,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -82,6 +90,10 @@ export function SearchableSelect({
   const searchRef = useRef<HTMLInputElement>(null);
   const labelId = `${id}-label`;
   useEscapeClaim(open);
+
+  useEffect(() => {
+    if (autoOpen) setOpen(true);
+  }, [autoOpen]);
 
   const current = options.find((o) => o.value === value);
 

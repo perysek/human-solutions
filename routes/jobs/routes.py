@@ -6,6 +6,7 @@ nigdy nie woła current_app.audit_repo bezpośrednio, w przeciwieństwie do
 routes/users/routes.py, którego UserRepository nie ma mixina.
 """
 import logging
+from typing import Optional
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required
@@ -27,6 +28,9 @@ def _job_json(row) -> dict:
     return {
         'id': row['id'],
         'description': row['description'],
+        'department_id': row.get('department_id'),
+        'department_name': row.get('department_name'),
+        'is_managerial': bool(row.get('is_managerial')),
         'created_at': row['created_at'].isoformat() if row['created_at'] else None,
         'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
     }
@@ -66,6 +70,22 @@ def api_get(job_id):
         raise AppError('Wystąpił błąd serwera')
 
 
+def _parse_department_id(data: dict) -> Optional[int]:
+    """department_id comes in as a number, numeric string, or '' / None for
+    "brak" — the only shapes JobForm's SearchableSelect value can produce."""
+    raw = data.get('department_id')
+    if raw in (None, ''):
+        return None
+    try:
+        department_id = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError('Nieprawidłowy identyfikator działu')
+    from repositories.departments.department_repository import DepartmentRepository
+    if not DepartmentRepository().get_by_id(department_id):
+        raise ValidationError('Wybrany dział nie istnieje')
+    return department_id
+
+
 @jobs_bp.route('/api', methods=['POST'])
 @login_required
 @module_permission_required('jobs')
@@ -74,6 +94,8 @@ def api_create():
     data = request.get_json() or {}
     job_id = (data.get('id') or '').strip()
     description = (data.get('description') or '').strip() or None
+    department_id = _parse_department_id(data)
+    is_managerial = bool(data.get('is_managerial'))
 
     if not job_id:
         raise ValidationError('Identyfikator stanowiska jest wymagany')
@@ -83,7 +105,7 @@ def api_create():
         raise ConflictError(f'Stanowisko o identyfikatorze "{job_id}" już istnieje')
 
     try:
-        repo.create(job_id, description)
+        repo.create(job_id, description, department_id, is_managerial)
         return jsonify({'success': True, 'id': job_id}), 201
     except AppError:
         raise
@@ -96,16 +118,18 @@ def api_create():
 @login_required
 @module_permission_required('jobs')
 def api_update(job_id):
-    """PUT /jobs/api/<id> — zaktualizuj opis stanowiska."""
+    """PUT /jobs/api/<id> — zaktualizuj stanowisko."""
     repo = _repo()
     if not repo.get_by_id(job_id):
         raise NotFoundError('Stanowisko nie znalezione')
 
     data = request.get_json() or {}
     description = (data.get('description') or '').strip() or None
+    department_id = _parse_department_id(data)
+    is_managerial = bool(data.get('is_managerial'))
 
     try:
-        repo.update(job_id, description)
+        repo.update(job_id, description, department_id, is_managerial)
         return jsonify({'success': True})
     except AppError:
         raise

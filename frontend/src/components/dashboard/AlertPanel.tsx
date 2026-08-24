@@ -4,7 +4,11 @@ import type { AlertBucket } from '@/lib/api/dashboard';
 
 export interface AlertPanelRow {
   key: string;
-  workerId: string;
+  /** Generic subject id — a worker id for the three original panels, a job
+   * id for task 2's orphan-jobs panel. Only meaningful via `onRowClick`
+   * (or the default worker-navigate fallback below) — the panel itself
+   * never inspects it otherwise. */
+  id: string;
   fullName: string;
   detail: string;
   date: string | null;
@@ -16,6 +20,10 @@ interface AlertPanelProps {
   rows: AlertPanelRow[];
   emptyMessage: string;
   dateLabel?: string;
+  /** Defaults to navigating to /workers/:id (the original three panels'
+   * only behaviour). Task 2's orphan-jobs panel passes its own to land on
+   * /jobs/:id/edit instead. */
+  onRowClick?: (row: AlertPanelRow) => void;
 }
 
 /** Same bucket palette as MedicalExpiringReportPage/BhpExpiringReportPage
@@ -40,8 +48,9 @@ const BUCKET_LABELS: Record<AlertBucket, string> = {
  * API shape (medical/bhp/foreigner_docs each have different field names)
  * into this one AlertPanelRow shape before rendering, so this component
  * only ever needs to know about buckets, not domain fields. */
-export function AlertPanel({ title, rows, emptyMessage, dateLabel = 'Ważne do' }: AlertPanelProps) {
+export function AlertPanel({ title, rows, emptyMessage, dateLabel = 'Ważne do', onRowClick }: AlertPanelProps) {
   const navigate = useNavigate();
+  const handleClick = onRowClick ?? ((row: AlertPanelRow) => navigate(`/workers/${encodeURIComponent(row.id)}`));
 
   return (
     <div className="refined-card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -59,13 +68,13 @@ export function AlertPanel({ title, rows, emptyMessage, dateLabel = 'Ważne do' 
           {rows.map((row) => (
             <div
               key={row.key}
-              onClick={() => navigate(`/workers/${encodeURIComponent(row.workerId)}`)}
+              onClick={() => handleClick(row)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') navigate(`/workers/${encodeURIComponent(row.workerId)}`);
+                if (e.key === 'Enter') handleClick(row);
               }}
               tabIndex={0}
               role="button"
-              aria-label={`Zobacz pracownika ${row.fullName}`}
+              aria-label={`Otwórz szczegóły — ${row.fullName}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -82,7 +91,7 @@ export function AlertPanel({ title, rows, emptyMessage, dateLabel = 'Ważne do' 
                   {row.fullName}
                 </p>
                 <p className="text-xs truncate" style={{ color: 'var(--color-ink-subtle)' }}>
-                  {row.detail} · {dateLabel}: {row.date ? new Date(row.date).toLocaleDateString('pl-PL') : '—'}
+                  {row.date ? `${row.detail} · ${dateLabel}: ${new Date(row.date).toLocaleDateString('pl-PL')}` : row.detail}
                 </p>
               </div>
               <span className="refined-badge" style={{ ...BUCKET_STYLE[row.bucket], flexShrink: 0 }}>

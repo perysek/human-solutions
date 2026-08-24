@@ -20,6 +20,9 @@ import { JobsListPage } from '@/pages/jobs/JobsListPage';
 import { JobCreatePage } from '@/pages/jobs/JobCreatePage';
 import { JobViewPage } from '@/pages/jobs/JobViewPage';
 import { JobEditPage } from '@/pages/jobs/JobEditPage';
+import { DepartmentsListPage } from '@/pages/departments/DepartmentsListPage';
+import { DepartmentCreatePage } from '@/pages/departments/DepartmentCreatePage';
+import { DepartmentEditPage } from '@/pages/departments/DepartmentEditPage';
 import { SkillsListPage } from '@/pages/skills/SkillsListPage';
 import { SkillCreatePage } from '@/pages/skills/SkillCreatePage';
 import { SkillEditPage } from '@/pages/skills/SkillEditPage';
@@ -89,6 +92,11 @@ export function AppRoutes() {
             <Route path="/jobs/create" element={<JobCreatePage />} />
             <Route path="/jobs/:id" element={<JobViewPage />} />
             <Route path="/jobs/:id/edit" element={<JobEditPage />} />
+            {/* Działy firmy — piggybacks on the 'jobs' module grant, see
+                routes/departments/routes.py's docstring. */}
+            <Route path="/departments" element={<DepartmentsListPage />} />
+            <Route path="/departments/create" element={<DepartmentCreatePage />} />
+            <Route path="/departments/:id/edit" element={<DepartmentEditPage />} />
           </Route>
 
           {/* module_permission_required('skills') — routes/skills/routes.py */}
