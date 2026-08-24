@@ -39,7 +39,7 @@ def assert_single_worker(workers, web_concurrency) -> None:
 
     if workers != 1 or (requested is not None and requested != 1):
         raise RuntimeError(
-            "MyWay Beauty Salon must run with exactly ONE worker process "
+            "This app must run with exactly ONE worker process "
             f"(got workers={workers}, WEB_CONCURRENCY={web_concurrency!r}). "
             "The data-import SSE progress stream uses an in-memory per-process "
             "queue, so a second worker would serve import progress from a "
