@@ -11,7 +11,8 @@ from datetime import date
 from typing import List, Optional
 
 from config.auth_config import own_data_worker_id
-from exceptions import NotFoundError, PermissionDeniedError, ValidationError
+from config.database import managed_transaction
+from exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 import services.action_plan_service as action_plan_service
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
@@ -95,7 +96,13 @@ def _validate_participant_dates(start_date: Optional[date], finish_date: Optiona
 
 
 def register_participant(training_id: int, payload: dict, user) -> int:
-    """TRN_8."""
+    """TRN_8. Duplicate-safe: rejects a worker already enrolled (non-deleted)
+    in this training before writing anything, and wraps the create +
+    completion recalculation in one transaction so a failure partway (e.g.
+    the idx_training_participants_training_worker_active constraint firing
+    on a race between two concurrent requests that both passed the
+    pre-check) leaves no partial row behind — either both writes land or
+    neither does."""
     if not TrainingRepository().get_by_id(training_id):
         raise NotFoundError('Szkolenie nie znalezione')
     assert_trainer_can_edit(training_id, user)
@@ -105,6 +112,8 @@ def register_participant(training_id: int, payload: dict, user) -> int:
         raise ValidationError('Identyfikator pracownika jest wymagany')
     if not WorkerRepository().get_by_id(worker_id):
         raise NotFoundError('Pracownik nie znaleziony')
+    if TrainingParticipantRepository().exists_active(training_id, worker_id):
+        raise ConflictError('Ten pracownik jest już zapisany na to szkolenie')
 
     trainer_id = (payload.get('trainer_id') or '').strip() or None
     if trainer_id and not WorkerRepository().get_by_id(trainer_id):
@@ -115,8 +124,9 @@ def register_participant(training_id: int, payload: dict, user) -> int:
     _validate_participant_dates(start_date, finish_date)
     remarks = (payload.get('remarks') or '').strip() or None
 
-    new_id = TrainingParticipantRepository().create(training_id, worker_id, start_date, finish_date, remarks, trainer_id)
-    TrainingRepository().recalculate_completion(training_id)
+    with managed_transaction():
+        new_id = TrainingParticipantRepository().create(training_id, worker_id, start_date, finish_date, remarks, trainer_id)
+        TrainingRepository().recalculate_completion(training_id)
     return new_id
 
 
@@ -151,6 +161,22 @@ def update_participant(participant_id: int, payload: dict, user) -> None:
     repo.update(participant_id, start_date, finish_date, remarks, trainer_id, effectiveness_date)
     TrainingRepository().recalculate_completion(existing['training_id'])
     action_plan_service.apply_training_effectiveness(participant_id)
+
+
+def remove_participant(participant_id: int, user) -> None:
+    """Uczestnicy — soft delete (row-hover delete icon on ParticipantsTable,
+    before the edit icon). Same ownership gate as register/update_participant;
+    recalculates `completion` afterward since the roster it's derived from
+    just shrank."""
+    repo = TrainingParticipantRepository()
+    existing = repo.get_by_id(participant_id)
+    if not existing:
+        raise NotFoundError('Uczestnik nie znaleziony')
+    assert_trainer_can_edit(existing['training_id'], user)
+
+    deleted = repo.delete(participant_id)
+    if deleted:
+        TrainingRepository().recalculate_completion(existing['training_id'])
 
 
 def list_worker_history(worker_id: str) -> List[dict]:

@@ -305,6 +305,24 @@ def api_update_participant(participant_id):
         raise AppError('Wystąpił błąd serwera')
 
 
+@trainings_bp.route('/api/participants/<int:participant_id>', methods=['DELETE'])
+@login_required
+@module_permission_required('trainings')
+def api_remove_participant(participant_id):
+    """DELETE /trainings/api/participants/<id> — soft delete (is_deleted/
+    deleted_at, migration f6a7b8c9d0e1): the "Uczestnicy" table's row delete
+    icon. Pełny dostęp + trener-właściciel (training_service.remove_participant
+    woła assert_trainer_can_edit)."""
+    try:
+        training_service.remove_participant(participant_id, current_user)
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_remove_participant (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
 @trainings_bp.route('/api/<int:training_id>/participants/export', methods=['GET'])
 @login_required
 @module_permission_required('trainings')

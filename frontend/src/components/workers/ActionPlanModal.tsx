@@ -14,6 +14,13 @@ import { useToast } from '@/lib/feedback/ToastProvider';
 
 const EXPECTED_INCREASE_OPTIONS = [1, 2, 3].map((n) => ({ value: String(n), label: String(n) }));
 
+/** Local (not UTC) today as 'YYYY-MM-DD' — matches what a `<input type="date">`
+ * stores, so it can be compared/assigned directly against form state. */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** Custom (non-native) listbox so each status renders as a colored item —
  * a native <select>'s <option> list can't carry per-item background/color
  * in any browser, which the "colored status-items" requirement needs. */
@@ -109,6 +116,9 @@ export interface ActionPlanSeed {
   status?: ActionPlanStatus;
   completedDate?: string | null;
   effectivenessDate?: string | null;
+  /** ISO date-time the plan was first created — only set in edit mode, used
+   * to validate "Data zakończenia" can't predate the plan's own creation. */
+  createdAt?: string | null;
   /** Set when editing a plan raised through the "Szkolenie" checkbox — the
    * edit form shows this as read-only context instead of the checkbox
    * (which only makes sense at creation, since the training enrollment it
@@ -187,13 +197,74 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
   useFocusTrap(true, panelRef);
   useEscapeClaim(true);
 
+  // Status <-> date auto-sync (edit mode only — completed/effectiveness
+  // dates only exist in that form). Forward-only: setting the status bumps
+  // the matching date to today if blank, and filling a date bumps the
+  // status forward if it hasn't reached that stage yet. Neither direction
+  // ever reverts a value the user already set.
+  function handleStatusChange(next: ActionPlanStatus) {
+    setStatus(next);
+    if (next === 'completed' && !completedDate) setCompletedDate(todayStr());
+    if (next === 'effective' && !effectivenessDate) setEffectivenessDate(todayStr());
+  }
+
+  function handleCompletedDateChange(value: string) {
+    setCompletedDate(value);
+    if (value && (status === 'defined' || status === 'in_progress')) setStatus('completed');
+  }
+
+  function handleEffectivenessDateChange(value: string) {
+    setEffectivenessDate(value);
+    if (value && status !== 'effective') setStatus('effective');
+  }
+
   const canSubmit = isTraining
     ? trainingId.length > 0 && trainingStartDate.length > 0
     : description.trim().length > 0 && responsibleId.length > 0 && plannedDate.length > 0;
 
+  /** Business-rule date checks (server re-validates the same rules — this
+   * is just fast feedback). Returns an error message, or null if valid. */
+  function validateDates(): string | null {
+    if (isTraining && !isEdit) {
+      if (trainingStartDate && trainingStartDate < todayStr()) {
+        return 'Planowana data szkolenia nie może być wcześniejsza niż dzisiaj';
+      }
+      return null;
+    }
+    // Training-linked plan, edit mode: dates/status aren't rendered (owned
+    // by the training's own record — see the form-grid branch above), so
+    // there's nothing here for the user to have gotten wrong.
+    if (isEdit && seed.isTraining) return null;
+
+    // Only enforced when the value differs from what the plan already had —
+    // an existing plan may legitimately already be planned in the past
+    // (still "w trakcie" from last week); editing an unrelated field on it
+    // shouldn't be blocked by a date nobody touched.
+    if (plannedDate && plannedDate !== (seed.plannedDate ?? '') && plannedDate < todayStr()) {
+      return 'Planowana data nie może być wcześniejsza niż dzisiaj';
+    }
+    if (isEdit) {
+      if (completedDate && completedDate > todayStr()) {
+        return 'Data zakończenia nie może być późniejsza niż dzisiaj';
+      }
+      if (completedDate && seed.createdAt && completedDate < seed.createdAt.slice(0, 10)) {
+        return 'Data zakończenia nie może być wcześniejsza niż data utworzenia planu';
+      }
+      if (effectivenessDate && completedDate && effectivenessDate < completedDate) {
+        return 'Data oceny skuteczności nie może być wcześniejsza niż data zakończenia';
+      }
+    }
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit || saving) return;
+    const dateError = validateDates();
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
     setSaving(true);
     try {
       if (isEdit && seed.id != null) {
@@ -318,6 +389,25 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
                   onChange={(e) => setExpectedIncrease(Number(e.target.value))}
                 />
               </div>
+            ) : isEdit && seed.isTraining ? (
+              // Training-linked plan, edit mode: the training itself (dates,
+              // description, completion) is owned by "Szkolenia wewnętrzne"
+              // (TrainingViewPage/ParticipantsTable) — editing it here too
+              // would be a second, divergent source of truth for the same
+              // enrollment. Only "Odpowiedzialny" has no home over there, so
+              // it's the one field this form still lets you change.
+              <div className="form-grid">
+                <SelectField
+                  label="Odpowiedzialny"
+                  name="responsible_id"
+                  required
+                  fullWidth
+                  placeholder="Wybierz pracownika…"
+                  options={responsibleOptions}
+                  value={responsibleId}
+                  onChange={(e) => setResponsibleId(e.target.value)}
+                />
+              </div>
             ) : (
               <div className="form-grid">
                 <TextareaField
@@ -356,7 +446,7 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
                       name="completed_date"
                       type="date"
                       value={completedDate}
-                      onChange={(e) => setCompletedDate(e.target.value)}
+                      onChange={(e) => handleCompletedDateChange(e.target.value)}
                     />
                     <TextField
                       label="Data oceny skuteczności"
@@ -364,12 +454,12 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
                       type="date"
                       fullWidth
                       value={effectivenessDate}
-                      onChange={(e) => setEffectivenessDate(e.target.value)}
+                      onChange={(e) => handleEffectivenessDateChange(e.target.value)}
                     />
                   </>
                 )}
                 <div className="form-field-full">
-                  <StatusSelect value={status} onChange={setStatus} />
+                  <StatusSelect value={status} onChange={handleStatusChange} />
                 </div>
               </div>
             )}

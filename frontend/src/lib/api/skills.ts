@@ -12,6 +12,12 @@ export interface SkillPayload {
   description: string;
 }
 
+export interface SkillJobRequirement {
+  job_id: string;
+  job_description: string | null;
+  required_rating: number;
+}
+
 const BASE = '/skills/api';
 
 export const skillsApi = {
@@ -22,4 +28,6 @@ export const skillsApi = {
   update: (id: string, description: string) =>
     api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, { description }),
   remove: (id: string) => api.del<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`),
+  // Reverse of jobsApi.getSkills — jobs requiring this skill (job_skills).
+  getJobs: (id: string) => api.get<{ jobs: SkillJobRequirement[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/jobs`),
 };

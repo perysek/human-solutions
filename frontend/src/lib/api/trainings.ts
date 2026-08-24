@@ -119,6 +119,8 @@ export const trainingsApi = {
     api.post<{ success: boolean; id: number }>(`${BASE}/${id}/participants`, payload),
   updateParticipant: (participantId: number, payload: ParticipantUpdatePayload) =>
     api.put<{ success: boolean }>(`${BASE}/participants/${participantId}`, payload),
+  /** Soft delete (is_deleted/deleted_at) — see TrainingParticipantRepository.delete's docstring. */
+  removeParticipant: (participantId: number) => api.del<{ success: boolean }>(`${BASE}/participants/${participantId}`),
   /** Not fetched via `api` — this is a same-origin navigation URL (an `<a
    * href>`), so the browser's own download flow handles the
    * Content-Disposition response; the session cookie rides along because

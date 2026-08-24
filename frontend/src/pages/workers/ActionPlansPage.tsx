@@ -88,6 +88,7 @@ function seedFromPlan(plan: ActionPlan): ActionPlanSeed {
     status: plan.status,
     completedDate: plan.completed_date,
     effectivenessDate: plan.effectiveness_date,
+    createdAt: plan.created_at,
     isTraining: plan.is_training,
     trainingDescription: plan.training_description,
     expectedIncrease: plan.expected_increase,

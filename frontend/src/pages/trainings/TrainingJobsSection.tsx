@@ -4,9 +4,26 @@ import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingJobLink } from '@/lib/api/trainings';
-import { jobsApi } from '@/lib/api/jobs';
+import { jobsApi, type JobListItem } from '@/lib/api/jobs';
+import { skillsApi } from '@/lib/api/skills';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
+
+/** Union of every job that requires any of `skillIds` (reverse of
+ * TrainingSkillsSection's fetchSkillsRequiredByJobs), deduped by job_id.
+ * Empty skill list -> empty result, not "all jobs" — mirrors that
+ * function's own docstring for the same reason. */
+async function fetchJobsRequiredBySkills(skillIds: string[]): Promise<JobListItem[]> {
+  if (skillIds.length === 0) return [];
+  const perSkill = await Promise.all(skillIds.map((id) => skillsApi.getJobs(id)));
+  const byJobId = new Map<string, JobListItem>();
+  for (const { jobs } of perSkill) {
+    for (const j of jobs) {
+      if (!byJobId.has(j.job_id)) byJobId.set(j.job_id, { id: j.job_id, description: j.job_description, created_at: null, updated_at: null });
+    }
+  }
+  return [...byJobId.values()];
+}
 
 interface TrainingJobsSectionProps {
   trainingId: number;
@@ -20,6 +37,10 @@ interface TrainingJobsSectionProps {
    * sibling ParticipantsTable (fed from TrainingViewPage's own
    * getParticipants fetch) picks up the new rows. */
   onParticipantsChanged: () => void;
+  /** Also lifted from TrainingViewPage (see jobLinks) — once a skill is
+   * linked, "Dodaj stanowisko" narrows to jobs that actually require it,
+   * the same way linkedJobIds narrows TrainingSkillsSection's own dropdown. */
+  linkedSkillIds: string[];
 }
 
 /** TRN_3 — which jobs this training is relevant for. Same replace-the-whole-set
@@ -31,18 +52,30 @@ interface TrainingJobsSectionProps {
  * enrolling workers whose job isn't linked here at all). Removing a job link
  * deliberately does NOT remove the participants it added — that would
  * silently delete attendance/remarks a user may have already filled in. */
-export function TrainingJobsSection({ trainingId, jobLinks: links, loading, reload, onParticipantsChanged }: TrainingJobsSectionProps) {
+export function TrainingJobsSection({
+  trainingId,
+  jobLinks: links,
+  loading,
+  reload,
+  onParticipantsChanged,
+  linkedSkillIds,
+}: TrainingJobsSectionProps) {
+  // No skill linked yet -> every job is a candidate (unfiltered dictionary);
+  // once at least one skill is linked, narrow to jobs that actually require
+  // one of them — same no-skills/has-skills split TrainingSkillsSection
+  // uses for its own dropdown, just mirrored.
   const { data: jobsData } = useApiData(() => jobsApi.list());
+  const { data: requiredJobs } = useApiData(() => fetchJobsRequiredBySkills(linkedSkillIds), [linkedSkillIds.join(',')]);
   const toast = useToast();
   const confirm = useConfirm();
 
   const [newJobId, setNewJobId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const availableJobs = useMemo(
-    () => (jobsData?.jobs ?? []).filter((j) => !links.some((l) => l.job_id === j.id)),
-    [jobsData, links],
-  );
+  const availableJobs = useMemo(() => {
+    const candidateJobs = linkedSkillIds.length === 0 ? (jobsData?.jobs ?? []) : (requiredJobs ?? []);
+    return candidateJobs.filter((j) => !links.some((l) => l.job_id === j.id));
+  }, [linkedSkillIds.length, jobsData, requiredJobs, links]);
 
   /** Caller owns the `saving` toggle (not this function) so handleAdd can
    * keep the "Dodaj" button disabled across both the link save AND the
@@ -64,10 +97,10 @@ export function TrainingJobsSection({ trainingId, jobLinks: links, loading, relo
 
   /** Registers every active worker holding `jobId` who isn't already a
    * participant. Re-fetches the current roster right before adding (rather
-   * than trusting a prop that could be stale) since there is no participant
-   * DELETE endpoint in this app — a duplicate row created here can't be
-   * cleaned up from the UI afterward, so this check has to be correct at
-   * call time, not just at render time. */
+   * than trusting a prop that could be stale) so this dedup check is
+   * correct at call time, not just at render time — getParticipants only
+   * returns non-deleted rows, so a worker whose enrollment was soft-deleted
+   * is treated as not-yet-enrolled and can be re-added here. */
   async function autoEnrollWorkersFromJob(jobId: string, jobLabel: string) {
     try {
       const [{ workers }, { participants }] = await Promise.all([
@@ -163,6 +196,11 @@ export function TrainingJobsSection({ trainingId, jobLinks: links, loading, relo
         </table>
       )}
 
+      {linkedSkillIds.length > 0 && availableJobs.length === 0 ? (
+        <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>
+          Wszystkie stanowiska wymagające powiązanych umiejętności są już dodane.
+        </p>
+      ) : (
       <div className="flex items-end gap-2">
         <div style={{ flex: 1 }}>
           <label className="form-label">Dodaj stanowisko</label>
@@ -182,6 +220,7 @@ export function TrainingJobsSection({ trainingId, jobLinks: links, loading, relo
           Dodaj
         </Button>
       </div>
+      )}
     </div>
   );
 }

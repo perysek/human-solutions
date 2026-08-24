@@ -22,7 +22,7 @@ rating ceiling) and flips to status='effective'.
 from datetime import date
 
 from config.database import managed_transaction
-from exceptions import NotFoundError, ValidationError
+from exceptions import ConflictError, NotFoundError, ValidationError
 from repositories.skills.skill_repository import SkillRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
 from repositories.trainings.training_repository import TrainingRepository
@@ -51,9 +51,13 @@ def _create_training_action_plan(
         raise ValidationError('Oczekiwany wzrost musi wynosić 1, 2 lub 3')
     if not training_start_date:
         raise ValidationError('Planowana data szkolenia jest wymagana')
+    if training_start_date < date.today():
+        raise ValidationError('Planowana data szkolenia nie może być wcześniejsza niż dzisiaj')
     training = TrainingRepository().get_by_id(training_id)
     if not training:
         raise NotFoundError('Szkolenie nie znalezione')
+    if TrainingParticipantRepository().exists_active(training_id, worker_id):
+        raise ConflictError('Ten pracownik jest już zapisany na to szkolenie')
 
     # Auto-derived, since the training-mode form collects only the training
     # + planned date + expected increase — description still has to satisfy

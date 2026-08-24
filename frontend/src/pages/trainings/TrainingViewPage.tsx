@@ -41,11 +41,20 @@ export function TrainingViewPage() {
   // TrainingSkillsSection's skill dropdown reacts immediately when
   // TrainingJobsSection adds/removes a job link — two sibling components,
   // each fetching its own copy, would leave one stale after the other's edit.
+  // Same reasoning applies the other way round now that TrainingJobsSection's
+  // own dropdown is scoped by linked skills (Task 6's reciprocal filtering) —
+  // so skill links are lifted here too, not fetched inside TrainingSkillsSection.
   const { data: jobLinksData, loading: jobLinksLoading, reload: reloadJobLinks } = useApiData(
     () => trainingsApi.getJobLinks(trainingId),
     [trainingId],
   );
   const jobLinks = jobLinksData?.jobs ?? [];
+
+  const { data: skillLinksData, loading: skillLinksLoading, reload: reloadSkillLinks } = useApiData(
+    () => trainingsApi.getSkillLinks(trainingId),
+    [trainingId],
+  );
+  const skillLinks = skillLinksData?.skills ?? [];
 
   const fullAccess = hasRole('superadmin', 'hr_manager');
   // TRN_7: `trainer` may edit only a training they already run — mirrors
@@ -126,9 +135,18 @@ export function TrainingViewPage() {
               loading={jobLinksLoading}
               reload={reloadJobLinks}
               onParticipantsChanged={reloadParticipants}
+              linkedSkillIds={skillLinks.map((l) => l.skill_id)}
             />
           )}
-          {fullAccess && <TrainingSkillsSection trainingId={training.id} linkedJobIds={jobLinks.map((l) => l.job_id)} />}
+          {fullAccess && (
+            <TrainingSkillsSection
+              trainingId={training.id}
+              skillLinks={skillLinks}
+              loading={skillLinksLoading}
+              reload={reloadSkillLinks}
+              linkedJobIds={jobLinks.map((l) => l.job_id)}
+            />
+          )}
 
           <ParticipantsTable
             trainingId={training.id}

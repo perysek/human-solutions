@@ -87,6 +87,11 @@ export interface CompetencyGapRow {
   gap: number;
   last_update: string | null;
   action_plan_id: number | null;
+  action_description: string | null;
+  action_planned_date: string | null;
+  action_status: string | null;
+  action_is_training: boolean | null;
+  action_training_description: string | null;
 }
 
 export interface SkillRemark {

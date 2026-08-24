@@ -6,6 +6,7 @@ import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingParticipant } from '@/lib/api/trainings';
 import { workersApi } from '@/lib/api/workers';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
 const EMPTY_DRAFT = { worker_id: '', trainer_id: '', start_date: '', finish_date: '', remarks: '' };
 
@@ -27,6 +28,7 @@ interface ParticipantsTableProps {
  * controls), so it's fetched once and shared rather than duplicated here. */
 export function ParticipantsTable({ trainingId, participants, loading, reload, canManage }: ParticipantsTableProps) {
   const toast = useToast();
+  const confirm = useConfirm();
   const { data: workersData } = useApiData(() => workersApi.list({ status: 'active', sort: 'surname', page_size: 200 }));
 
   const canExport = canManage;
@@ -77,6 +79,27 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
       remarks: p.remarks ?? '',
       effectiveness_date: p.effectiveness_date ?? '',
     });
+  }
+
+  async function handleDelete(p: TrainingParticipant) {
+    const ok = await confirm({
+      title: 'Usunąć uczestnika?',
+      message: `Uczestnik "${p.worker_name}" zostanie usunięty z listy uczestników tego szkolenia.`,
+      confirmText: 'Usuń',
+      type: 'danger',
+    });
+    if (!ok) return;
+    setSaving(true);
+    try {
+      await trainingsApi.removeParticipant(p.id);
+      toast.success('Uczestnik usunięty.');
+      if (editingId === p.id) setEditingId(null);
+      reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć uczestnika.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSaveEdit(participantId: number) {
@@ -214,9 +237,21 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
                   <td>{p.remarks ?? '—'}</td>
                   {canManage && (
                     <td className="text-right">
-                      <button type="button" className="action-icon-btn" title="Edytuj" aria-label={`Edytuj uczestnika ${p.worker_name}`} onClick={() => startEdit(p)}>
-                        <Icon name="edit" />
-                      </button>
+                      <div className="action-icons">
+                        <button
+                          type="button"
+                          className="action-icon-btn danger-reveal"
+                          title="Usuń"
+                          aria-label={`Usuń uczestnika ${p.worker_name}`}
+                          onClick={() => handleDelete(p)}
+                          disabled={saving}
+                        >
+                          <Icon name="delete" />
+                        </button>
+                        <button type="button" className="action-icon-btn" title="Edytuj" aria-label={`Edytuj uczestnika ${p.worker_name}`} onClick={() => startEdit(p)}>
+                          <Icon name="edit" />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>

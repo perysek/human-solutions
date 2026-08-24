@@ -47,6 +47,16 @@ function gapBucket(gap: number): 'critical' | 'warning' | 'notice' {
   return 'notice';
 }
 
+/** "Zaplanowane działanie" column text — the plan's own description, or
+ * (for a "Szkolenie" plan) the linked training's title, plus its planned
+ * date. Blank when the row has no plan at all. */
+function formatPlannedAction(row: CompetencyGapRow): string {
+  if (!row.action_plan_id) return '—';
+  const label = row.action_is_training ? (row.action_training_description ?? 'Szkolenie') : (row.action_description ?? '—');
+  const date = row.action_planned_date ? new Date(row.action_planned_date).toLocaleDateString('pl-PL') : null;
+  return date ? `${label} — ${date}` : label;
+}
+
 function getSortValue(row: CompetencyGapRow, key: string): string | number | null {
   switch (key) {
     case 'full_name':
@@ -86,7 +96,49 @@ export function CompetencyGapsReportPage() {
   const { data, loading, error, reload } = useApiData(() => workersApi.skillGaps(1));
   const allRows = useMemo(() => data?.results ?? [], [data]);
   const [actionSeed, setActionSeed] = useState<ActionPlanSeed | null>(null);
+  const [loadingPlanFor, setLoadingPlanFor] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+
+  /** A gap row's action-icon click: no plan yet -> open a blank create form
+   * (as before); a plan already exists -> fetch it and open the same
+   * edit form ActionPlansPage uses, pre-filled — the list row only carries
+   * `action_plan_id`, not the full record. */
+  async function handleActionClick(row: CompetencyGapRow) {
+    if (!row.action_plan_id) {
+      setActionSeed({
+        workerId: row.worker_id,
+        workerName: row.full_name,
+        skillId: row.skill_id,
+        skillDescription: row.skill_description,
+      });
+      return;
+    }
+    setLoadingPlanFor(row.action_plan_id);
+    try {
+      const plan = await actionPlansApi.get(row.action_plan_id);
+      setActionSeed({
+        id: plan.id,
+        workerId: plan.worker_id,
+        workerName: plan.worker_name,
+        skillId: plan.skill_id,
+        skillDescription: plan.skill_description,
+        description: plan.description,
+        responsibleId: plan.responsible_id ?? '',
+        plannedDate: plan.planned_date ?? '',
+        status: plan.status,
+        completedDate: plan.completed_date,
+        effectivenessDate: plan.effectiveness_date,
+        createdAt: plan.created_at,
+        isTraining: plan.is_training,
+        trainingDescription: plan.training_description,
+        expectedIncrease: plan.expected_increase,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się wczytać planu działania.');
+    } finally {
+      setLoadingPlanFor(null);
+    }
+  }
 
   async function handleDeletePlan(row: CompetencyGapRow) {
     if (!row.action_plan_id) return;
@@ -144,7 +196,7 @@ export function CompetencyGapsReportPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={9} />
+          <TableSkeleton cols={10} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : rows.length === 0 ? (
@@ -167,6 +219,7 @@ export function CompetencyGapsReportPage() {
                     <SortableTh label="Aktualny poziom" sortKey="current_rating" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Luka" sortKey="gap" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Ostatnia ocena" sortKey="last_update" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <th>Zaplanowane działanie</th>
                     <th className="text-right">Akcja</th>
                   </tr>
                 </thead>
@@ -206,6 +259,7 @@ export function CompetencyGapsReportPage() {
                           </span>
                         </td>
                         <td>{row.last_update ? new Date(row.last_update).toLocaleDateString('pl-PL') : '—'}</td>
+                        <td>{formatPlannedAction(row)}</td>
                         <td className="text-right">
                           <div className="action-icons">
                             {row.action_plan_id && canWrite && (
@@ -223,16 +277,10 @@ export function CompetencyGapsReportPage() {
                               type="button"
                               className="action-icon-btn"
                               style={row.action_plan_id ? ACTION_PLAN_BTN_STYLE : undefined}
-                              title={row.action_plan_id ? 'Zaplanuj działanie (plan już zdefiniowany)' : 'Zaplanuj działanie'}
-                              aria-label={`Zaplanuj działanie — ${row.full_name}, ${row.skill_description}`}
-                              onClick={() =>
-                                setActionSeed({
-                                  workerId: row.worker_id,
-                                  workerName: row.full_name,
-                                  skillId: row.skill_id,
-                                  skillDescription: row.skill_description,
-                                })
-                              }
+                              title={row.action_plan_id ? 'Edytuj plan działania' : 'Zaplanuj działanie'}
+                              aria-label={`${row.action_plan_id ? 'Edytuj' : 'Zaplanuj'} działanie — ${row.full_name}, ${row.skill_description}`}
+                              disabled={loadingPlanFor === row.action_plan_id && loadingPlanFor !== null}
+                              onClick={() => handleActionClick(row)}
                             >
                               <Icon name="checklist" />
                             </button>

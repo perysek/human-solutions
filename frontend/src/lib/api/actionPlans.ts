@@ -77,6 +77,7 @@ export const actionPlansApi = {
     const qs = usp.toString();
     return api.get<{ results: ActionPlan[]; count: number }>(qs ? `${BASE}?${qs}` : BASE);
   },
+  get: (id: number) => api.get<ActionPlan>(`${BASE}/${id}`),
   create: (payload: ActionPlanCreatePayload | ActionPlanTrainingCreatePayload) => api.post<{ success: boolean; id: number }>(BASE, payload),
   update: (id: number, payload: ActionPlanUpdatePayload) => api.put<{ success: boolean }>(`${BASE}/${id}`, payload),
   /** Soft delete (is_deleted/deleted_at) — see ActionPlanRepository.delete's docstring. */

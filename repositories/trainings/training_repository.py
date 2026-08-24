@@ -128,7 +128,7 @@ class TrainingRepository(AuditableMixin, BaseRepository):
                 SELECT CASE WHEN COUNT(*) = 0 THEN NULL
                             ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE finish_date IS NOT NULL AND effectiveness_date IS NOT NULL) / COUNT(*))
                        END
-                FROM training_participants WHERE training_id = %s
+                FROM training_participants WHERE training_id = %s AND NOT is_deleted
             ), updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
             """,
@@ -160,7 +160,7 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         on at least one enrollment", not a single trainer_id column on
         `trainings` itself."""
         row = self._fetch_one(
-            "SELECT 1 FROM training_participants WHERE training_id = %s AND trainer_id = %s LIMIT 1",
+            "SELECT 1 FROM training_participants WHERE training_id = %s AND trainer_id = %s AND NOT is_deleted LIMIT 1",
             (training_id, worker_id),
         )
         return row is not None

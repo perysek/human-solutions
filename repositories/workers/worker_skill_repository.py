@@ -102,18 +102,23 @@ class WorkerSkillRepository(AuditableMixin, BaseRepository):
                    js.skill_id, s.description AS skill_description,
                    js.required_rating, ws.current_rating, ws.last_update,
                    (js.required_rating - COALESCE(ws.current_rating, 0)) AS gap,
-                   (
-                       SELECT ap.id FROM action_plans ap
-                       WHERE ap.worker_id = w.id AND ap.skill_id = js.skill_id AND NOT ap.is_deleted
-                       ORDER BY ap.created_at DESC, ap.id DESC
-                       LIMIT 1
-                   ) AS action_plan_id
+                   ap.id AS action_plan_id, ap.description AS action_description,
+                   ap.planned_date AS action_planned_date, ap.status AS action_status,
+                   ap.is_training AS action_is_training, t.description AS action_training_description
             FROM workers w
             JOIN job_skills js ON js.job_id = w.job_id
             JOIN skills s ON s.id = js.skill_id
             LEFT JOIN worker_skills ws ON ws.worker_id = w.id AND ws.skill_id = js.skill_id
             LEFT JOIN jobs j ON j.id = w.job_id
             LEFT JOIN workers b ON b.id = w.boss_id
+            LEFT JOIN LATERAL (
+                SELECT ap.id, ap.description, ap.planned_date, ap.status, ap.is_training, ap.training_id
+                FROM action_plans ap
+                WHERE ap.worker_id = w.id AND ap.skill_id = js.skill_id AND NOT ap.is_deleted
+                ORDER BY ap.created_at DESC, ap.id DESC
+                LIMIT 1
+            ) ap ON true
+            LEFT JOIN trainings t ON t.id = ap.training_id
             WHERE {where}
             ORDER BY w.surname, w.firstname, gap DESC, s.description
         """

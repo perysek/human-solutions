@@ -11,6 +11,7 @@ from flask_login import login_required
 from config.auth_config import module_permission_required
 from exceptions import AppError, ValidationError, NotFoundError, ConflictError
 from repositories.skills.skill_repository import SkillRepository
+from repositories.jobs.job_skill_repository import JobSkillRepository
 
 skills_bp = Blueprint('skills', __name__, url_prefix='/skills')
 
@@ -59,6 +60,27 @@ def api_get(skill_id):
         raise
     except Exception:
         logging.exception('Unexpected error in api_get (skills)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@skills_bp.route('/api/<skill_id>/jobs', methods=['GET'])
+@login_required
+@module_permission_required('skills')
+def api_get_jobs(skill_id):
+    """GET /skills/api/<id>/jobs — stanowiska wymagające tej umiejętności
+    (odwrotność /jobs/api/<id>/skills). Zasila filtr "Dodaj stanowisko" na
+    stronie szczegółów szkolenia wewnętrznego, gdy do szkolenia przypisano
+    już jakąś umiejętność."""
+    if not _repo().get_by_id(skill_id):
+        raise NotFoundError('Umiejętność nie znaleziona')
+    try:
+        rows = JobSkillRepository().get_by_skill(skill_id)
+        jobs = [{'job_id': r['job_id'], 'job_description': r['job_description'], 'required_rating': r['required_rating']} for r in rows]
+        return jsonify({'jobs': jobs, 'count': len(jobs)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_jobs (skills)')
         raise AppError('Wystąpił błąd serwera')
 
 

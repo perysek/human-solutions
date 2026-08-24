@@ -50,33 +50,67 @@ _HISTORY_SELECT = """
 
 class TrainingParticipantRepository(AuditableMixin, BaseRepository):
     audit_entity_type = 'training'
+    _soft_delete = True  # delete() below rides BaseRepository's is_deleted/deleted_at UPDATE
 
     def __init__(self):
         super().__init__('training_participants')
 
     def get_by_training(self, training_id: int) -> List[Any]:
-        """TRN_5 — uczestnicy jednego szkolenia."""
+        """TRN_5 — uczestnicy jednego szkolenia, posortowani rosnąco po dacie
+        oceny skuteczności (brakująca data — jeszcze nieoceniony — na końcu,
+        NULLS LAST); nazwisko/imię jako tie-breaker dla wierszy bez tej
+        daty, żeby kolejność była stabilna, nie zależna od id."""
         return self._fetch_all(
-            _SELECT + " WHERE tp.training_id = %s ORDER BY w.surname, w.firstname", (training_id,),
+            _SELECT + " WHERE tp.training_id = %s AND NOT tp.is_deleted "
+            "ORDER BY tp.effectiveness_date ASC NULLS LAST, w.surname, w.firstname",
+            (training_id,),
         )
 
     def get_by_id(self, participant_id: int) -> Optional[Any]:
-        rows = self._fetch_all(_SELECT + " WHERE tp.id = %s", (participant_id,))
+        rows = self._fetch_all(_SELECT + " WHERE tp.id = %s AND NOT tp.is_deleted", (participant_id,))
         return rows[0] if rows else None
+
+    def exists_active(self, training_id: int, worker_id: str) -> bool:
+        """Pre-insert duplicate check for register_participant — is this
+        worker already a non-deleted participant of this training? Backed by
+        idx_training_participants_training_worker_active (migration
+        a7b8c9d0e1f2) as the authoritative guarantee; this is the friendly
+        ConflictError path so a duplicate-add attempt doesn't surface as a
+        raw 500 from the DB constraint."""
+        row = self._fetch_one(
+            "SELECT 1 FROM training_participants WHERE training_id = %s AND worker_id = %s AND NOT is_deleted LIMIT 1",
+            (training_id, worker_id),
+        )
+        return row is not None
 
     def get_export_rows(self, training_id: int) -> List[Any]:
         """TRN_11 — CSV export source rows: every training_participants
         field plus the worker's name and job description (OQ_4's confirmed
         column set), one query rather than the JSON list's separate
         per-purpose SELECT."""
-        return self._fetch_all(_EXPORT_SELECT + " WHERE tp.training_id = %s ORDER BY w.surname, w.firstname", (training_id,))
+        return self._fetch_all(
+            _EXPORT_SELECT + " WHERE tp.training_id = %s AND NOT tp.is_deleted ORDER BY w.surname, w.firstname", (training_id,),
+        )
 
     def get_by_worker(self, worker_id: str) -> List[Any]:
         """TRN_10 — historia szkoleń jednego pracownika, najnowsze pierwsze."""
         return self._fetch_all(
-            _HISTORY_SELECT + " WHERE tp.worker_id = %s ORDER BY t.training_date DESC NULLS LAST, tp.id DESC",
+            _HISTORY_SELECT + " WHERE tp.worker_id = %s AND NOT tp.is_deleted ORDER BY t.training_date DESC NULLS LAST, tp.id DESC",
             (worker_id,),
         )
+
+    def delete(self, participant_id: int) -> bool:
+        """Soft-delete (BaseRepository.delete() with _soft_delete=True sets
+        is_deleted/deleted_at rather than removing the row) + an explicit
+        DELETE audit entry, same shape as ActionPlanRepository.delete —
+        AuditableMixin's _audit isn't called by the inherited delete()."""
+        existing = self.get_by_id(participant_id)
+        if not existing:
+            return False
+        deleted = super().delete(participant_id)
+        if deleted:
+            self._audit('DELETE', existing['training_id'], label=existing['worker_id'])
+        return deleted
 
     def create(
         self, training_id: int, worker_id: str, start_date: Optional[date], finish_date: Optional[date],

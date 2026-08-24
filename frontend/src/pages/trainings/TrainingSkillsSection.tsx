@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/Button';
 import { SelectWrap } from '@/components/ui/SelectWrap';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
-import { trainingsApi } from '@/lib/api/trainings';
+import { trainingsApi, type TrainingSkillLink } from '@/lib/api/trainings';
 import { jobsApi, type JobSkillRequirement } from '@/lib/api/jobs';
+import { skillsApi } from '@/lib/api/skills';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
@@ -25,32 +26,44 @@ async function fetchSkillsRequiredByJobs(jobIds: string[]): Promise<JobSkillRequ
 
 interface TrainingSkillsSectionProps {
   trainingId: number;
-  /** Owned by TrainingViewPage, shared with TrainingJobsSection — see that
-   * section's props comment for why this isn't fetched independently here. */
+  /** Owned by TrainingViewPage (not fetched here) — shared with
+   * TrainingJobsSection so it can compute its own reciprocal filter off the
+   * same, always-current skill-link set. See that section's props comment
+   * for why job links are lifted the same way. */
+  skillLinks: TrainingSkillLink[];
+  loading: boolean;
+  reload: () => void;
   linkedJobIds: string[];
 }
 
 /** TRN_4 — which skills this training covers. Same shape as TrainingJobsSection.
  *
- * The "Dodaj umiejętność" dropdown is scoped to skills actually required by
- * this training's linked jobs (job_skills, JOB_4) — not the full skills
- * dictionary — so a linked skill always traces back to a linked job's
- * requirements. No jobs linked yet -> nothing to pick from (a helper message
- * explains why, rather than silently showing an empty select). */
-export function TrainingSkillsSection({ trainingId, linkedJobIds }: TrainingSkillsSectionProps) {
-  const { data, loading, reload } = useApiData(() => trainingsApi.getSkillLinks(trainingId), [trainingId]);
+ * The "Dodaj umiejętność" dropdown is reciprocally scoped, mirroring
+ * TrainingJobsSection's own "Dodaj stanowisko" dropdown: no jobs linked yet
+ * -> every skill in the dictionary is a candidate; once a job is linked,
+ * narrow to skills actually required by this training's linked jobs
+ * (job_skills, JOB_4) — a linked skill then always traces back to a linked
+ * job's requirements. */
+export function TrainingSkillsSection({ trainingId, skillLinks: links, loading, reload, linkedJobIds }: TrainingSkillsSectionProps) {
   const toast = useToast();
   const confirm = useConfirm();
 
   const [newSkillId, setNewSkillId] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const links = useMemo(() => data?.skills ?? [], [data]);
+  const { data: allSkillsData } = useApiData(() => skillsApi.list());
   const { data: requiredSkills } = useApiData(() => fetchSkillsRequiredByJobs(linkedJobIds), [linkedJobIds.join(',')]);
 
+  const candidateSkills: JobSkillRequirement[] = useMemo(
+    () =>
+      linkedJobIds.length === 0
+        ? (allSkillsData?.skills ?? []).map((s) => ({ skill_id: s.id, skill_description: s.description, required_rating: 0 }))
+        : (requiredSkills ?? []),
+    [linkedJobIds.length, allSkillsData, requiredSkills],
+  );
   const availableSkills = useMemo(
-    () => (requiredSkills ?? []).filter((s) => !links.some((l) => l.skill_id === s.skill_id)),
-    [requiredSkills, links],
+    () => candidateSkills.filter((s) => !links.some((l) => l.skill_id === s.skill_id)),
+    [candidateSkills, links],
   );
 
   async function persist(next: string[]) {
@@ -123,14 +136,11 @@ export function TrainingSkillsSection({ trainingId, linkedJobIds }: TrainingSkil
         </table>
       )}
 
-      {linkedJobIds.length === 0 ? (
+      {availableSkills.length === 0 ? (
         <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>
-          Najpierw dodaj powiązane stanowisko powyżej — lista dostępnych umiejętności pochodzi z wymagań stanowisk
-          powiązanych z tym szkoleniem.
-        </p>
-      ) : availableSkills.length === 0 ? (
-        <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>
-          Wszystkie umiejętności wymagane przez powiązane stanowiska są już dodane.
+          {linkedJobIds.length === 0
+            ? 'Wszystkie umiejętności ze słownika są już dodane.'
+            : 'Wszystkie umiejętności wymagane przez powiązane stanowiska są już dodane.'}
         </p>
       ) : (
         <div className="flex items-end gap-2">

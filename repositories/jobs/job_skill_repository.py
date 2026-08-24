@@ -28,6 +28,24 @@ class JobSkillRepository(AuditableMixin, BaseRepository):
     def get_by_job(self, job_id: str) -> List[Any]:
         return self._fetch_all(_SELECT + " WHERE js.job_id = %s ORDER BY s.id", (job_id,))
 
+    def get_by_skill(self, skill_id: str) -> List[Any]:
+        """Reverse of get_by_job — every job that requires `skill_id`, with
+        the job's own description joined in. Powers TrainingJobsSection's
+        "Dodaj stanowisko" dropdown when it's scoped to jobs matching the
+        training's already-linked skills (mirrors how TrainingSkillsSection
+        already scopes its own dropdown to skills required by linked jobs)."""
+        return self._fetch_all(
+            """
+            SELECT js.id, js.job_id, js.skill_id, j.description AS job_description,
+                   js.required_rating, js.created_at, js.updated_at
+            FROM job_skills js
+            JOIN jobs j ON j.id = js.job_id
+            WHERE js.skill_id = %s
+            ORDER BY j.id
+            """,
+            (skill_id,),
+        )
+
     def replace_requirements(self, job_id: str, requirements: List[dict]) -> None:
         """Replace the job's whole required-skills set in one call (JOB_4) —
         same delete-then-insert shape as WorkerNationalityRepository.replace_all,

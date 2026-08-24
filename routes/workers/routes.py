@@ -472,6 +472,11 @@ def api_skill_gaps():
                 'gap': r['gap'],
                 'last_update': r['last_update'].isoformat() if r['last_update'] else None,
                 'action_plan_id': r['action_plan_id'],
+                'action_description': r['action_description'],
+                'action_planned_date': r['action_planned_date'].isoformat() if r['action_planned_date'] else None,
+                'action_status': r['action_status'],
+                'action_is_training': r['action_is_training'],
+                'action_training_description': r['action_training_description'],
             }
             for r in rows
         ]
@@ -531,6 +536,26 @@ def api_list_action_plans():
         raise AppError('Wystąpił błąd serwera')
 
 
+@workers_bp.route('/api/action-plans/<int:action_plan_id>', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_get_action_plan(action_plan_id):
+    """GET /workers/api/action-plans/<id> — single plan, full shape. Used by
+    CompetencyGapsReportPage to open the edit form (not the empty create
+    form) for a gap row that already has a plan — the list endpoint's
+    `action_plan_id` alone isn't enough to pre-fill the modal."""
+    row = ActionPlanRepository().get_by_id(action_plan_id)
+    if not row:
+        raise NotFoundError('Plan działania nie znaleziony')
+    try:
+        return jsonify(_action_plan_json(row))
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_action_plan (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
 @workers_bp.route('/api/action-plans', methods=['POST'])
 @login_required
 @module_permission_required('workers')
@@ -569,6 +594,8 @@ def api_create_action_plan():
         raise ValidationError('Odpowiedzialny jest wymagany')
     if not planned_date:
         raise ValidationError('Planowana data jest wymagana')
+    if planned_date < date.today():
+        raise ValidationError('Planowana data nie może być wcześniejsza niż dzisiaj')
     if status not in _ACTION_PLAN_STATUSES:
         raise ValidationError('Nieprawidłowy status')
     if not WorkerRepository().get_by_id(worker_id):
@@ -616,8 +643,21 @@ def api_update_action_plan(action_plan_id):
         raise ValidationError('Odpowiedzialny jest wymagany')
     if not planned_date:
         raise ValidationError('Planowana data jest wymagana')
+    # Only enforced when the caller actually changed the date — an existing
+    # plan's planned_date may legitimately already be in the past (e.g.
+    # still "w trakcie" from last week); editing an unrelated field on it
+    # shouldn't be blocked by a date nobody touched.
+    if planned_date != existing['planned_date'] and planned_date < date.today():
+        raise ValidationError('Planowana data nie może być wcześniejsza niż dzisiaj')
     if status not in _ACTION_PLAN_STATUSES:
         raise ValidationError('Nieprawidłowy status')
+    if completed_date and completed_date > date.today():
+        raise ValidationError('Data zakończenia nie może być późniejsza niż dzisiaj')
+    created_date = existing['created_at'].date() if existing['created_at'] else None
+    if completed_date and created_date and completed_date < created_date:
+        raise ValidationError('Data zakończenia nie może być wcześniejsza niż data utworzenia planu')
+    if effectiveness_date and completed_date and effectiveness_date < completed_date:
+        raise ValidationError('Data oceny skuteczności nie może być wcześniejsza niż data zakończenia')
     if not WorkerRepository().get_by_id(responsible_id):
         raise NotFoundError('Odpowiedzialny pracownik nie znaleziony')
 
