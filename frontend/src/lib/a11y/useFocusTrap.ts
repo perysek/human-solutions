@@ -15,6 +15,10 @@ export function useFocusTrap(
     if (!active) return;
     const container = containerRef.current;
     if (!container) return;
+    // Captured now, not read fresh inside the cleanup closure below — by the
+    // time cleanup runs, returnFocusRef.current may already point at a
+    // different (or null) node if the ref target re-rendered in between.
+    const elementToRefocus = returnFocusRef?.current;
 
     function getFocusable(): HTMLElement[] {
       if (!container) return [];
@@ -41,7 +45,7 @@ export function useFocusTrap(
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      returnFocusRef?.current?.focus();
+      elementToRefocus?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
