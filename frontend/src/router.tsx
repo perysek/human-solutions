@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
+import { PresenceConfirmPage } from '@/pages/public/PresenceConfirmPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { AlertThresholdsPage } from '@/pages/dashboard/AlertThresholdsPage';
@@ -43,6 +44,11 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
+      {/* MOBILE_PRESENCE_CONFIRMATION_PLAN.md — public, unauthenticated,
+          same tier as /reset-password/:token above: no login, no
+          ProtectedRoute/AppShell. The token in the URL is the auth. */}
+      <Route path="/confirm/:token" element={<PresenceConfirmPage />} />
 
       {/* Everything below requires a logged-in user (mirrors @login_required). */}
       <Route element={<ProtectedRoute />}>

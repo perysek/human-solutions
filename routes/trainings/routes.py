@@ -24,6 +24,7 @@ uczestników/trenera, ale z imieniem i nazwiskiem zastąpionym identyfikatorem
 pracownika — lista NIE jest ukrywana ani redukowana do samej liczby.
 """
 import logging
+import os
 
 from flask import Blueprint, Response, request, jsonify
 from flask_login import login_required, current_user
@@ -31,11 +32,14 @@ from flask_login import login_required, current_user
 from config.auth_config import is_read_only, module_permission_required, role_required
 from exceptions import AppError, NotFoundError, PermissionDeniedError, ValidationError
 import services.training_service as training_service
+import services.training_presence_service as training_presence_service
 import services.csv_export_service as csv_export_service
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
 from repositories.trainings.training_job_repository import TrainingJobRepository
 from repositories.trainings.training_skill_repository import TrainingSkillRepository
+from repositories.trainings.training_trainer_repository import TrainingTrainerRepository
+from repositories.trainings.training_presence_repository import TrainingPresenceRepository
 
 trainings_bp = Blueprint('trainings', __name__, url_prefix='/trainings')
 
@@ -54,7 +58,21 @@ def _training_json(row) -> dict:
     }
 
 
-def _participant_json(row) -> dict:
+def _training_list_json(row, *, viewer: bool) -> dict:
+    """Task 1/3 — three extra, catalog-only columns on top of _training_json
+    (TrainingRepository.get_all's computed `participant_count`/`trainer_names`/
+    `trainer_ids`/`last_session_date`, not present on a single-training GET).
+    `viewer` picks `trainer_ids` over `trainer_names` — same RODO_3/OQ_3 name
+    redaction as `_redact_participant_for_viewer`, applied here instead of a
+    separate post-hoc redact pass since there's only one name-bearing field."""
+    d = _training_json(row)
+    d['participant_count'] = row['participant_count']
+    d['trainer_names'] = row['trainer_ids'] if viewer else row['trainer_names']
+    d['last_session_date'] = row['last_session_date'].isoformat() if row['last_session_date'] else None
+    return d
+
+
+def _participant_json(row, confirmed_ids: set = frozenset()) -> dict:
     return {
         'id': row['id'],
         'training_id': row['training_id'],
@@ -63,9 +81,12 @@ def _participant_json(row) -> dict:
         'start_date': row['start_date'].isoformat() if row['start_date'] else None,
         'finish_date': row['finish_date'].isoformat() if row['finish_date'] else None,
         'remarks': row['remarks'],
-        'trainer_id': row['trainer_id'],
-        'trainer_name': f"{row['trainer_firstname']} {row['trainer_surname']}" if row['trainer_id'] else None,
         'effectiveness_date': row['effectiveness_date'].isoformat() if row['effectiveness_date'] else None,
+        # MOBILE_PRESENCE_CONFIRMATION_PLAN.md §4.4 — mobile sign-in ✓ badge.
+        # confirmed_ids is a set of training_participant_id built once per
+        # list call (TrainingPresenceRepository.get_by_training), not a
+        # per-row query.
+        'confirmed': row['id'] in confirmed_ids,
     }
 
 
@@ -73,8 +94,6 @@ def _redact_participant_for_viewer(p: dict) -> dict:
     """OQ_3: `viewer` sees the participant list, but names become ids."""
     p = dict(p)
     p['worker_name'] = p['worker_id']
-    if p['trainer_id']:
-        p['trainer_name'] = p['trainer_id']
     return p
 
 
@@ -97,8 +116,9 @@ def api_list():
         skill_id = request.args.get('skill_id') or None
 
         rows, total = TrainingRepository().get_all(search=search, sort=sort, order=order, page=page, page_size=page_size, skill_id=skill_id)
+        viewer = current_user.role == 'viewer'
         return jsonify({
-            'trainings': [_training_json(r) for r in rows],
+            'trainings': [_training_list_json(r, viewer=viewer) for r in rows],
             'count': total,
             'page': page,
             'page_size': page_size,
@@ -250,6 +270,60 @@ def api_set_skill_links(training_id):
         raise AppError('Wystąpił błąd serwera')
 
 
+# ─── Trainer links (Task 2) ─────────────────────────────────────────────────
+
+@trainings_bp.route('/api/<int:training_id>/trainer-links', methods=['GET'])
+@login_required
+@module_permission_required('trainings')
+def api_get_trainer_links(training_id):
+    """GET /trainings/api/<id>/trainer-links — broader than job-links'/
+    skill-links' role_required('superadmin', 'hr_manager') on purpose:
+    TrainingViewPage's isOwnerTrainer bootstrapping check needs a `trainer`
+    role user to read their own training's trainer set to begin with (same
+    reasoning api_list_participants uses module_permission_required instead
+    of role_required — see this module's own docstring). Redacted for
+    `viewer` (RODO_3/OQ_3), same as participants."""
+    if not TrainingRepository().get_by_id(training_id):
+        raise NotFoundError('Szkolenie nie znalezione')
+    try:
+        rows = TrainingTrainerRepository().get_by_training(training_id)
+        viewer = current_user.role == 'viewer'
+        trainers = [
+            {
+                'trainer_id': r['trainer_id'],
+                'trainer_name': r['trainer_id'] if viewer else f"{r['trainer_firstname']} {r['trainer_surname']}",
+            }
+            for r in rows
+        ]
+        return jsonify({'trainers': trainers, 'count': len(trainers)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_trainer_links (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@trainings_bp.route('/api/<int:training_id>/trainer-links', methods=['PUT'])
+@login_required
+@role_required('superadmin', 'hr_manager')
+def api_set_trainer_links(training_id):
+    """Body: {trainer_ids: [...]} — zastępuje cały zestaw prowadzących to
+    szkolenie (Task 2, training_trainers). Mutation stays admin-only, same
+    as job-links/skill-links PUT, even though the GET above is broader —
+    `trainer` can see who runs their training, not reassign it."""
+    if not TrainingRepository().get_by_id(training_id):
+        raise NotFoundError('Szkolenie nie znalezione')
+    data = request.get_json() or {}
+    try:
+        TrainingTrainerRepository().replace_links(training_id, data.get('trainer_ids') or [])
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_set_trainer_links (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
 # ─── Participants (TRN_5/8/9/11) ───────────────────────────────────────────
 
 @trainings_bp.route('/api/<int:training_id>/participants', methods=['GET'])
@@ -261,7 +335,8 @@ def api_list_participants(training_id):
         raise NotFoundError('Szkolenie nie znalezione')
     try:
         rows = TrainingParticipantRepository().get_by_training(training_id)
-        participants = [_participant_json(r) for r in rows]
+        confirmed_ids = {c['training_participant_id'] for c in TrainingPresenceRepository().get_by_training(training_id)}
+        participants = [_participant_json(r, confirmed_ids) for r in rows]
         if current_user.role == 'viewer':
             participants = [_redact_participant_for_viewer(p) for p in participants]
         return jsonify({'participants': participants, 'count': len(participants)})
@@ -348,6 +423,47 @@ def api_export_participants(training_id):
         raise AppError('Wystąpił błąd serwera')
 
 
+# ─── Open trainings report (Task 4 — "Szkolenia otwarte") ──────────────────
+
+@trainings_bp.route('/api/open-report', methods=['GET'])
+@login_required
+@module_permission_required('trainings')
+def api_open_report():
+    """GET /trainings/api/open-report — every worker's not-yet-fully-completed
+    enrollment (TrainingParticipantRepository.get_open_report: finish_date
+    AND effectiveness_date both set is the "done" bar, same one
+    TrainingRepository.recalculate_completion uses), across every training.
+    Ordered worker-first server-side so the frontend can group rows under
+    their worker the same way CompetencyGapsReportPage does (first row of
+    each block carries the employee cell, the rest render it blank).
+    Redacted for `viewer` (RODO_3/OQ_3), same as participants/trainer links."""
+    try:
+        rows = TrainingParticipantRepository().get_open_report()
+        viewer = current_user.role == 'viewer'
+        results = [
+            {
+                'participant_id': r['id'],
+                'training_id': r['training_id'],
+                'worker_id': r['worker_id'],
+                'worker_name': r['worker_id'] if viewer else f"{r['worker_firstname']} {r['worker_surname']}",
+                'training_description': r['training_description'],
+                'planned_date': r['training_date'].isoformat() if r['training_date'] else None,
+                'trainer_name': r['trainer_ids'] if viewer else r['trainer_names'],
+                'start_date': r['start_date'].isoformat() if r['start_date'] else None,
+                'finish_date': r['finish_date'].isoformat() if r['finish_date'] else None,
+                'effectiveness_date': r['effectiveness_date'].isoformat() if r['effectiveness_date'] else None,
+                'status': r['status'],
+            }
+            for r in rows
+        ]
+        return jsonify({'results': results, 'count': len(results)})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_open_report (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
 # ─── Worker training history (TRN_10) ──────────────────────────────────────
 
 @trainings_bp.route('/api/worker/<worker_id>/history', methods=['GET'])
@@ -366,7 +482,7 @@ def api_worker_history(worker_id):
                 'start_date': r['start_date'].isoformat() if r['start_date'] else None,
                 'finish_date': r['finish_date'].isoformat() if r['finish_date'] else None,
                 'remarks': r['remarks'],
-                'trainer_name': f"{r['trainer_firstname']} {r['trainer_surname']}" if r['trainer_id'] else None,
+                'trainer_name': r['trainer_names'],
                 'effectiveness_date': r['effectiveness_date'].isoformat() if r['effectiveness_date'] else None,
             }
             for r in rows
@@ -376,4 +492,92 @@ def api_worker_history(worker_id):
         raise
     except Exception:
         logging.exception('Unexpected error in api_worker_history (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+# ─── Mobile presence confirmation — sign-in link (MOBILE_PRESENCE_CONFIRMATION_PLAN.md §4.4) ──
+
+def _absolute_confirm_url(token: str) -> str:
+    """The QR-encoded URL is scanned by a phone with no "current origin" —
+    unlike /reset-password/<token> (routes/auth/routes.py:175), which is
+    shown *inside* the SPA and can stay a relative path, this one must be
+    absolute. FRONTEND_URL defaults to the Vite dev server; set it in
+    production .env to the deployed SPA's real origin."""
+    base = os.environ.get('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+    return f'{base}/confirm/{token}'
+
+
+def _qr_png_base64(url: str) -> str:
+    """Server-side QR PNG, base64-encoded — rides the Pillow already
+    installed for OCR (requirements.txt), so no new frontend dependency is
+    needed to render the code (plan §2)."""
+    import base64
+    import io
+    import qrcode
+
+    img = qrcode.make(url)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return base64.b64encode(buf.getvalue()).decode('ascii')
+
+
+@trainings_bp.route('/api/<int:training_id>/sign-in-link', methods=['GET'])
+@login_required
+@module_permission_required('trainings')
+def api_get_sign_in_link(training_id):
+    """GET /trainings/api/<id>/sign-in-link — status panelu "Lista obecności"
+    na TrainingViewPage: aktywny link (jeśli jest) + licznik potwierdzonych."""
+    try:
+        status = training_presence_service.get_sign_in_status(training_id, current_user)
+        active = status['active_token']
+        return jsonify({
+            'active': active is not None,
+            'url': _absolute_confirm_url(active['token']) if active else None,
+            'expires_at': active['expires_at'].isoformat() if active else None,
+            'confirmed': status['confirmed'],
+            'total': status['total'],
+        })
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_get_sign_in_link (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@trainings_bp.route('/api/<int:training_id>/sign-in-link', methods=['POST'])
+@login_required
+@module_permission_required('trainings')
+def api_create_sign_in_link(training_id):
+    """POST /trainings/api/<id>/sign-in-link — generuje/regeneruje token
+    (unieważnia poprzedni aktywny) i zwraca gotowy PNG QR."""
+    try:
+        result = training_presence_service.generate_sign_in_link(training_id, current_user)
+        url = _absolute_confirm_url(result['token'])
+        return jsonify({
+            'success': True,
+            'token': result['token'],
+            'url': url,
+            'qr_png_base64': _qr_png_base64(url),
+            'expires_at': result['expires_at'].isoformat(),
+        }), 201
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_create_sign_in_link (trainings)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@trainings_bp.route('/api/<int:training_id>/sign-in-link', methods=['DELETE'])
+@login_required
+@module_permission_required('trainings')
+def api_revoke_sign_in_link(training_id):
+    """DELETE /trainings/api/<id>/sign-in-link — wcześniejsze unieważnienie
+    (zamyka okno na spóźnione/nieuprawnione potwierdzenia)."""
+    try:
+        training_presence_service.revoke_sign_in_link(training_id, current_user)
+        return jsonify({'success': True})
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_revoke_sign_in_link (trainings)')
         raise AppError('Wystąpił błąd serwera')

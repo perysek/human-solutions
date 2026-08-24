@@ -10,6 +10,12 @@ export interface TrainingListItem {
   training_details: string | null;
   created_at: string | null;
   updated_at: string | null;
+  /** Task 1 — total (non-deleted) participants, catalog-only (TrainingRepository.get_all). */
+  participant_count: number;
+  /** Task 3 — comma-joined trainer full names (ids instead, for `viewer` — RODO_3/OQ_3). */
+  trainer_names: string | null;
+  /** Task 3 — latest participant `finish_date` across the roster, or null if nobody's finished yet. */
+  last_session_date: string | null;
 }
 
 /** `completion` is deliberately absent — it's auto-derived server-side from
@@ -44,6 +50,13 @@ export interface TrainingSkillLink {
   skill_description: string;
 }
 
+/** Task 2 — a training's assigned trainer(s), training_trainers. Same shape
+ * as TrainingJobLink/TrainingSkillLink. */
+export interface TrainingTrainerLink {
+  trainer_id: string;
+  trainer_name: string;
+}
+
 export interface TrainingParticipant {
   id: number;
   training_id: number;
@@ -52,21 +65,55 @@ export interface TrainingParticipant {
   start_date: string | null;
   finish_date: string | null;
   remarks: string | null;
-  trainer_id: string | null;
-  trainer_name: string | null;
   effectiveness_date: string | null;
+  /** MOBILE_PRESENCE_CONFIRMATION_PLAN.md — mobile sign-in ✓ badge, true once
+   * this participant has a training_presence_confirmations row. */
+  confirmed: boolean;
+}
+
+/** Task 4 — one row of the "Szkolenia otwarte" report: a worker's single
+ * not-yet-fully-completed enrollment. `status` is derived server-side
+ * (training_participants has no status column) but reuses
+ * ACTION_PLAN_STATUS_OPTIONS' label/color vocabulary — see
+ * actionPlanStatus.ts and TrainingParticipantRepository._OPEN_REPORT_SELECT. */
+export interface OpenTrainingRow {
+  participant_id: number;
+  training_id: number;
+  worker_id: string;
+  worker_name: string;
+  training_description: string;
+  planned_date: string | null;
+  trainer_name: string | null;
+  start_date: string | null;
+  finish_date: string | null;
+  effectiveness_date: string | null;
+  status: 'defined' | 'in_progress' | 'completed';
+}
+
+export interface SignInLinkStatus {
+  active: boolean;
+  url: string | null;
+  expires_at: string | null;
+  confirmed: number;
+  total: number;
+}
+
+export interface SignInLinkCreated {
+  success: boolean;
+  token: string;
+  url: string;
+  qr_png_base64: string;
+  expires_at: string;
 }
 
 export interface ParticipantCreatePayload {
   worker_id: string;
-  trainer_id?: string | null;
   start_date?: string | null;
   finish_date?: string | null;
   remarks?: string | null;
 }
 
 export interface ParticipantUpdatePayload {
-  trainer_id?: string | null;
   start_date?: string | null;
   finish_date?: string | null;
   remarks?: string | null;
@@ -107,11 +154,13 @@ export const trainingsApi = {
   update: (id: number, payload: TrainingPayload) => api.put<{ success: boolean }>(`${BASE}/${id}`, payload),
   remove: (id: number) => api.del<{ success: boolean }>(`${BASE}/${id}`),
 
-  // Job/skill links (TRN_3/4)
+  // Job/skill/trainer links (TRN_3/4, Task 2)
   getJobLinks: (id: number) => api.get<{ jobs: TrainingJobLink[]; count: number }>(`${BASE}/${id}/job-links`),
   setJobLinks: (id: number, jobIds: string[]) => api.put<{ success: boolean }>(`${BASE}/${id}/job-links`, { job_ids: jobIds }),
   getSkillLinks: (id: number) => api.get<{ skills: TrainingSkillLink[]; count: number }>(`${BASE}/${id}/skill-links`),
   setSkillLinks: (id: number, skillIds: string[]) => api.put<{ success: boolean }>(`${BASE}/${id}/skill-links`, { skill_ids: skillIds }),
+  getTrainerLinks: (id: number) => api.get<{ trainers: TrainingTrainerLink[]; count: number }>(`${BASE}/${id}/trainer-links`),
+  setTrainerLinks: (id: number, trainerIds: string[]) => api.put<{ success: boolean }>(`${BASE}/${id}/trainer-links`, { trainer_ids: trainerIds }),
 
   // Participants (TRN_5/8/9/11)
   getParticipants: (id: number) => api.get<{ participants: TrainingParticipant[]; count: number }>(`${BASE}/${id}/participants`),
@@ -130,4 +179,12 @@ export const trainingsApi = {
   // Worker profile (TRN_10)
   workerHistory: (workerId: string) =>
     api.get<{ history: WorkerTrainingHistoryItem[]; count: number }>(`${BASE}/worker/${encodeURIComponent(workerId)}/history`),
+
+  // Task 4 — "Szkolenia otwarte" tab
+  openReport: () => api.get<{ results: OpenTrainingRow[]; count: number }>(`${BASE}/open-report`),
+
+  // Mobile presence confirmation — sign-in link (MOBILE_PRESENCE_CONFIRMATION_PLAN.md §5.4)
+  getSignInLink: (id: number) => api.get<SignInLinkStatus>(`${BASE}/${id}/sign-in-link`),
+  createSignInLink: (id: number) => api.post<SignInLinkCreated>(`${BASE}/${id}/sign-in-link`),
+  revokeSignInLink: (id: number) => api.del<{ success: boolean }>(`${BASE}/${id}/sign-in-link`),
 };

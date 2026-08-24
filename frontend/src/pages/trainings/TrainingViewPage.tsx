@@ -10,7 +10,9 @@ import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { TrainingJobsSection } from './TrainingJobsSection';
 import { TrainingSkillsSection } from './TrainingSkillsSection';
+import { TrainingTrainersSection } from './TrainingTrainersSection';
 import { ParticipantsTable } from './ParticipantsTable';
+import { SignInLinkPanel } from './SignInLinkPanel';
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -56,11 +58,23 @@ export function TrainingViewPage() {
   );
   const skillLinks = skillLinksData?.skills ?? [];
 
+  // Task 2 — trainer moved from training_participants to its own link table
+  // (training_trainers). Fetched unconditionally (not gated on fullAccess)
+  // for the same reason jobLinks/skillLinks are: isOwnerTrainer below needs
+  // it regardless of role, and GET trainer-links is deliberately broader
+  // than job-links/skill-links' admin-only gate (see routes/trainings/routes.py's
+  // api_get_trainer_links docstring) so a `trainer` can actually fetch it.
+  const { data: trainerLinksData, loading: trainerLinksLoading, reload: reloadTrainerLinks } = useApiData(
+    () => trainingsApi.getTrainerLinks(trainingId),
+    [trainingId],
+  );
+  const trainerLinks = trainerLinksData?.trainers ?? [];
+
   const fullAccess = hasRole('superadmin', 'hr_manager');
   // TRN_7: `trainer` may edit only a training they already run — mirrors
   // services/training_service.assert_trainer_can_edit exactly (see
   // ParticipantsTable's docstring for the bootstrapping nuance this implies).
-  const isOwnerTrainer = user?.role === 'trainer' && participants.some((p) => p.trainer_id === user.workerId);
+  const isOwnerTrainer = user?.role === 'trainer' && trainerLinks.some((l) => l.trainer_id === user.workerId);
   const canEdit = fullAccess || isOwnerTrainer;
 
   async function handleDelete() {
@@ -131,6 +145,18 @@ export function TrainingViewPage() {
               </div>
             </div>
 
+            {/* Task 2 — trainer-links PUT is admin-only (mirrors Jobs/Skills'
+                own gate), placed first since "who runs it" is more basic
+                training info than the job/skill links below it. */}
+            {fullAccess && (
+              <TrainingTrainersSection
+                trainingId={training.id}
+                trainerLinks={trainerLinks}
+                loading={trainerLinksLoading}
+                reload={reloadTrainerLinks}
+              />
+            )}
+
             {/* TRN_3/4 — job-links/skill-links routes gate on role_required('superadmin', 'hr_manager'),
                 not module access — `trainer`/`viewer` never reach these endpoints. */}
             {fullAccess && (
@@ -152,6 +178,12 @@ export function TrainingViewPage() {
                 linkedJobIds={jobLinks.map((l) => l.job_id)}
               />
             )}
+
+            {/* MOBILE_PRESENCE_CONFIRMATION_PLAN.md §5.4 — same ownership
+                gate as the sign-in-link endpoints themselves
+                (module_permission_required('trainings') +
+                assert_trainer_can_edit), mirrored client-side by canEdit. */}
+            {canEdit && <SignInLinkPanel trainingId={training.id} onConfirmationsChanged={reloadParticipants} />}
 
             <ParticipantsTable
               trainingId={training.id}

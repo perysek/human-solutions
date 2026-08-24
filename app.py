@@ -19,14 +19,28 @@ load_dotenv(_BASE_DIR / '.env.local', override=True)
 
 from flask import Flask, jsonify
 from flask_login import LoginManager
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config.database import DatabaseConnection, initialize_pool, assert_schema_current
 from exceptions import AppError
+from extensions import limiter
 from repositories.users.user_repository import UserRepository
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
+
+    # Nginx (DEPLOYMENT_VULTR.md) sits in front of Gunicorn and sets
+    # X-Forwarded-For/X-Real-IP correctly, but nothing in this app trusted
+    # them before — request.remote_addr was Nginx's own loopback address on
+    # every request. That was silently harmless while nothing read
+    # remote_addr; MOBILE_PRESENCE_CONFIRMATION_PLAN.md's public sign-in
+    # endpoints are the first thing that does (the presence-confirmation
+    # audit trail's ip_address column, and Flask-Limiter's per-IP key below)
+    # — both would be wrong/useless without this. x_for=1 trusts exactly one
+    # proxy hop, matching Nginx being the only proxy in front of Gunicorn.
+    # No-ops in dev (run_dev.py never sends X-Forwarded-For).
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     secret_key = os.environ.get('SECRET_KEY', '')
     if not secret_key or len(secret_key) < 32:
@@ -70,6 +84,9 @@ def create_app() -> Flask:
     from config.session_guard import register_idle_timeout
     register_idle_timeout(app)
 
+    # --- Rate limiting (public sign-in endpoints, extensions.py) ---
+    limiter.init_app(app)
+
     # --- CSRF ---
     # No CSRF middleware here: every consumer is the SPA (frontend/), making
     # same-origin fetch/XHR calls with SESSION_COOKIE_SAMESITE='Lax' and an
@@ -91,8 +108,10 @@ def create_app() -> Flask:
     from routes.trainings.routes import trainings_bp
     from routes.dashboard.routes import dashboard_bp
     from routes.main.routes import main_bp
+    from routes.public.routes import public_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(public_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)
     app.register_blueprint(jobs_bp)

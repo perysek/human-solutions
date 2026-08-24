@@ -115,17 +115,13 @@ def register_participant(training_id: int, payload: dict, user) -> int:
     if TrainingParticipantRepository().exists_active(training_id, worker_id):
         raise ConflictError('Ten pracownik jest już zapisany na to szkolenie')
 
-    trainer_id = (payload.get('trainer_id') or '').strip() or None
-    if trainer_id and not WorkerRepository().get_by_id(trainer_id):
-        raise NotFoundError('Trener (pracownik) nie znaleziony')
-
     start_date = _parse_date(payload.get('start_date'))
     finish_date = _parse_date(payload.get('finish_date'))
     _validate_participant_dates(start_date, finish_date)
     remarks = (payload.get('remarks') or '').strip() or None
 
     with managed_transaction():
-        new_id = TrainingParticipantRepository().create(training_id, worker_id, start_date, finish_date, remarks, trainer_id)
+        new_id = TrainingParticipantRepository().create(training_id, worker_id, start_date, finish_date, remarks)
         TrainingRepository().recalculate_completion(training_id)
     return new_id
 
@@ -148,17 +144,13 @@ def update_participant(participant_id: int, payload: dict, user) -> None:
         raise NotFoundError('Uczestnik nie znaleziony')
     assert_trainer_can_edit(existing['training_id'], user)
 
-    trainer_id = (payload.get('trainer_id') or '').strip() or None
-    if trainer_id and not WorkerRepository().get_by_id(trainer_id):
-        raise NotFoundError('Trener (pracownik) nie znaleziony')
-
     start_date = _parse_date(payload.get('start_date'))
     finish_date = _parse_date(payload.get('finish_date'))
     _validate_participant_dates(start_date, finish_date)
     effectiveness_date = _parse_date(payload.get('effectiveness_date'))
     remarks = (payload.get('remarks') or '').strip() or None
 
-    repo.update(participant_id, start_date, finish_date, remarks, trainer_id, effectiveness_date)
+    repo.update(participant_id, start_date, finish_date, remarks, effectiveness_date)
     TrainingRepository().recalculate_completion(existing['training_id'])
     action_plan_service.apply_training_effectiveness(participant_id)
 

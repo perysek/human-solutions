@@ -46,6 +46,11 @@ export default defineConfig({
       // '/api' keeps this consistent with every other module above instead
       // of being the one exception.
       '/dashboard/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      // MOBILE_PRESENCE_CONFIRMATION_PLAN.md §5.1 — '/public' has no
+      // frontend-route collision (the mobile page itself lives at
+      // '/confirm/:token', not '/public'), so — same as '/auth'/'/system'
+      // above — it's proxied whole, not scoped to a '/public/api' suffix.
+      '/public': { target: 'http://127.0.0.1:5001', changeOrigin: true },
     },
   },
 });

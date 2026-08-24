@@ -8,10 +8,9 @@ import { workersApi } from '@/lib/api/workers';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
-const EMPTY_DRAFT = { worker_id: '', trainer_id: '', start_date: '', finish_date: '', remarks: '' };
+const EMPTY_DRAFT = { worker_id: '', start_date: '', finish_date: '', remarks: '' };
 
 interface RowDraft {
-  trainer_id: string;
   start_date: string;
   finish_date: string;
   remarks: string;
@@ -20,7 +19,6 @@ interface RowDraft {
 
 function draftFromParticipant(p: TrainingParticipant): RowDraft {
   return {
-    trainer_id: p.trainer_id ?? '',
     start_date: p.start_date ?? '',
     finish_date: p.finish_date ?? '',
     remarks: p.remarks ?? '',
@@ -91,7 +89,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
     () => (workersData?.workers ?? []).map((w) => ({ value: w.id, label: `${w.surname} ${w.firstname}` })),
     [workersData],
   );
-  const trainerOptions = useMemo(() => [{ value: '', label: '—' }, ...workerOptions], [workerOptions]);
 
   // Seed a draft for every participant that doesn't have one yet (new rows,
   // or the very first render) — never overwrite one that already exists, so
@@ -124,7 +121,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
     try {
       await trainingsApi.addParticipant(trainingId, {
         worker_id: draft.worker_id,
-        trainer_id: draft.trainer_id || null,
         start_date: draft.start_date || null,
         finish_date: draft.finish_date || null,
         remarks: draft.remarks.trim() || null,
@@ -165,7 +161,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
     setSaving(true);
     try {
       await trainingsApi.updateParticipant(participantId, {
-        trainer_id: d.trainer_id || null,
         start_date: d.start_date || null,
         finish_date: d.finish_date || null,
         remarks: d.remarks.trim() || null,
@@ -208,9 +203,9 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
           <thead>
             <tr>
               <th>Pracownik</th>
+              <th title="Potwierdzenie obecności przez telefon (MOBILE_PRESENCE_CONFIRMATION_PLAN.md)">Obecność</th>
               <th>Data rozpoczęcia</th>
               <th>Data zakończenia</th>
-              <th>Trener</th>
               <th>Skuteczność</th>
               <th>Uwagi</th>
               {canManage && <th className="text-right">Akcje</th>}
@@ -230,6 +225,19 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
               return (
                 <tr key={p.id}>
                   <td>{p.worker_name}</td>
+                  <td>
+                    {p.confirmed ? (
+                      <span
+                        title="Potwierdzono obecność (mobilna lista obecności)"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-success)', fontSize: '0.8125rem' }}
+                      >
+                        <Icon name="check_circle" size={16} />
+                        Tak
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>—</span>
+                    )}
+                  </td>
                   <td>
                     {canManage ? (
                       <input
@@ -254,20 +262,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
                       />
                     ) : (
                       fmt(p.finish_date)
-                    )}
-                  </td>
-                  <td>
-                    {canManage ? (
-                      <SearchableSelect
-                        id={`participant-trainer-${p.id}`}
-                        ariaLabel={`Trener — ${p.worker_name}`}
-                        triggerClassName="cell-edit-input"
-                        options={trainerOptions}
-                        value={d.trainer_id}
-                        onChange={(v) => updateDraft(p.id, { trainer_id: v })}
-                      />
-                    ) : (
-                      (p.trainer_name ?? '—')
                     )}
                   </td>
                   <td>
@@ -330,7 +324,7 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
       )}
 
       {canManage && adding && (
-        <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr auto', alignItems: 'end' }}>
+        <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr auto', alignItems: 'end' }}>
           <div>
             <SearchableSelect
               id="participant-add-worker"
@@ -338,15 +332,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
               options={workerOptions}
               value={draft.worker_id}
               onChange={(v) => setDraft((d) => ({ ...d, worker_id: v }))}
-            />
-          </div>
-          <div>
-            <SearchableSelect
-              id="participant-add-trainer"
-              label="Trener"
-              options={trainerOptions}
-              value={draft.trainer_id}
-              onChange={(v) => setDraft((d) => ({ ...d, trainer_id: v }))}
             />
           </div>
           <div>

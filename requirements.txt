@@ -42,5 +42,11 @@ APScheduler>=3.10.0
 # Utilities
 python-dotenv==1.2.2
 
+# Mobile presence confirmation (MOBILE_PRESENCE_CONFIRMATION_PLAN.md) —
+# rate-limiting the public sign-in endpoints; QR PNG rendering rides the
+# Pillow already installed above (OCR).
+Flask-Limiter>=3.8,<4.0
+qrcode>=7.4,<8.0
+
 # Production WSGI server (Render/Linux deployment)
 gunicorn==21.2.0

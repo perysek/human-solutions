@@ -32,7 +32,7 @@ def _user_json(user) -> dict:
         'last_login': user.last_login.isoformat() if user.last_login else None,
         # Faza 5: exposed so the SPA can decide, without a round trip, whether
         # the logged-in `trainer` is the owner of a given training (compare
-        # against training.trainer_id) — same worker_id the backend's
+        # against its training_trainers set) — same worker_id the backend's
         # own_data_worker_id() reads for the real enforcement.
         'worker_id': getattr(user, 'worker_id', None),
     }

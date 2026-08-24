@@ -11,21 +11,29 @@ import { useApiData } from '@/lib/api/useApiData';
 import { useServerSort } from '@/lib/useServerSort';
 import { trainingsApi, type TrainingListItem } from '@/lib/api/trainings';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { OpenTrainingsTab } from './OpenTrainingsTab';
 
 const PAGE_SIZE = 25;
+
+type TabKey = 'list' | 'open';
 
 function fmt(d: string | null) {
   return d ? new Date(d).toLocaleDateString('pl-PL') : '—';
 }
 
-/** TRN_1 — training catalog. 4652 rows per IMPLEMENTATION_PLAN.md's data
- * estimate, the collection PaginatedTable's `serverSide` mode actually
- * exists for (same shape as WorkersListPage, cross-cutting decision #7). */
+/** TRN_1 — training catalog, now split into two tabs (Task 4): "Lista
+ * szkoleń" is the original TRN_1 catalog below, unchanged; "Szkolenia
+ * otwarte" (OpenTrainingsTab) is a separate report over the same /trainings
+ * route, not a new page — client-side tab state, no router change. 4652
+ * rows per IMPLEMENTATION_PLAN.md's data estimate for the catalog, the
+ * collection PaginatedTable's `serverSide` mode actually exists for (same
+ * shape as WorkersListPage, cross-cutting decision #7). */
 export function TrainingsListPage() {
   const navigate = useNavigate();
   const { hasRole } = useAuth();
   const canCreate = hasRole('superadmin', 'hr_manager');
 
+  const [tab, setTab] = useState<TabKey>('list');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const { sortKey, sortOrder, onSort } = useServerSort('training_date', 'asc');
@@ -72,68 +80,89 @@ export function TrainingsListPage() {
         }
       />
 
-      <div className="search-card">
-        <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po nazwie lub powiązanej umiejętności…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetToFirstPage();
-              }}
-            />
-          </div>
-        </div>
+      <div className="page-tabs" role="tablist" aria-label="Widok szkoleń">
+        <button type="button" role="tab" aria-selected={tab === 'list'} className={`page-tab ${tab === 'list' ? 'is-active' : ''}`} onClick={() => setTab('list')}>
+          Lista szkoleń
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'open'} className={`page-tab ${tab === 'open' ? 'is-active' : ''}`} onClick={() => setTab('open')}>
+          Szkolenia otwarte
+        </button>
       </div>
 
-      <div className="table-container" style={{ flex: 1 }}>
-        {loading ? (
-          <TableSkeleton cols={3} />
-        ) : error ? (
-          <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
-        ) : trainings.length === 0 ? (
-          <EmptyState icon="badge" title="Brak szkoleń" message={search ? 'Żadne szkolenie nie pasuje do wyszukiwania.' : 'Dodaj pierwsze szkolenie.'} />
-        ) : (
-          <PaginatedTable
-            rows={trainings}
-            pageSize={PAGE_SIZE}
-            serverSide={{ page, totalItems: data?.count ?? 0, onPageChange: setPage }}
-          >
-            {(pageRows) => (
-              <table className="refined-table">
-                <thead>
-                  <tr>
-                    <SortableTh label="Nazwa" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
-                    <SortableTh label="Data" sortKey="training_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
-                    <SortableTh label="Ukończenie" sortKey="completion" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageRows.map((t, i) => (
-                    <tr
-                      key={t.id}
-                      onClick={() => goToView(t)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') goToView(t);
-                      }}
-                      tabIndex={0}
-                      style={{ cursor: 'pointer', animationDelay: `${Math.min(i, 7) * 30}ms` }}
-                      aria-label={`Zobacz szkolenie ${t.description}`}
-                    >
-                      <td>{t.description}</td>
-                      <td>{fmt(t.training_date)}</td>
-                      <td>{t.completion !== null ? `${t.completion}%` : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {tab === 'open' ? (
+        <OpenTrainingsTab />
+      ) : (
+        <>
+          <div className="search-card">
+            <div className="search-wrapper">
+              <div className="search-input-wrap">
+                <input
+                  type="text"
+                  className="refined-input"
+                  placeholder="Szukaj po nazwie lub powiązanej umiejętności…"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    resetToFirstPage();
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="table-container" style={{ flex: 1 }}>
+            {loading ? (
+              <TableSkeleton cols={6} />
+            ) : error ? (
+              <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
+            ) : trainings.length === 0 ? (
+              <EmptyState icon="badge" title="Brak szkoleń" message={search ? 'Żadne szkolenie nie pasuje do wyszukiwania.' : 'Dodaj pierwsze szkolenie.'} />
+            ) : (
+              <PaginatedTable
+                rows={trainings}
+                pageSize={PAGE_SIZE}
+                serverSide={{ page, totalItems: data?.count ?? 0, onPageChange: setPage }}
+              >
+                {(pageRows) => (
+                  <table className="refined-table">
+                    <thead>
+                      <tr>
+                        <SortableTh label="Nazwa" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
+                        <th>Prowadzący</th>
+                        <SortableTh label="Data" sortKey="training_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
+                        <th>Data ostatniej sesji</th>
+                        <th>Uczestników</th>
+                        <SortableTh label="Ukończenie" sortKey="completion" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageRows.map((t, i) => (
+                        <tr
+                          key={t.id}
+                          onClick={() => goToView(t)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') goToView(t);
+                          }}
+                          tabIndex={0}
+                          style={{ cursor: 'pointer', animationDelay: `${Math.min(i, 7) * 30}ms` }}
+                          aria-label={`Zobacz szkolenie ${t.description}`}
+                        >
+                          <td>{t.description}</td>
+                          <td>{t.trainer_names ?? '—'}</td>
+                          <td>{fmt(t.training_date)}</td>
+                          <td>{fmt(t.last_session_date)}</td>
+                          <td>{t.participant_count}</td>
+                          <td>{t.completion !== null ? `${t.completion}%` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </PaginatedTable>
             )}
-          </PaginatedTable>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

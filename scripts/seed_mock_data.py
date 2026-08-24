@@ -53,6 +53,7 @@ from repositories.trainings.training_job_repository import TrainingJobRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_skill_repository import TrainingSkillRepository
+from repositories.trainings.training_trainer_repository import TrainingTrainerRepository
 from repositories.workers.action_plan_repository import ActionPlanRepository
 from repositories.workers.worker_repository import WorkerRepository
 from repositories.workers.worker_skill_remark_repository import WorkerSkillRemarkRepository
@@ -346,6 +347,7 @@ def seed_trainings(job_workers: dict):
     training_repo = TrainingRepository()
     job_link_repo = TrainingJobRepository()
     skill_link_repo = TrainingSkillRepository()
+    trainer_link_repo = TrainingTrainerRepository()
     participant_repo = TrainingParticipantRepository()
 
     manager_ids = job_workers.get('KIEROWNIK_PROD', []) + job_workers.get('KIER_JAK', []) + job_workers.get('DYR', [])
@@ -367,8 +369,14 @@ def seed_trainings(job_workers: dict):
         candidates = list(dict.fromkeys(candidates))  # dedupe, keep order
         participants = random.sample(candidates, k=min(6, len(candidates))) if candidates else []
 
+        # Task 2 — trainer is training-level now (training_trainers), not
+        # per-participant: one trainer picked per training instead of once
+        # per enrollee.
+        trainers = [m for m in manager_ids if m not in participants] or manager_ids
+        if trainers:
+            trainer_link_repo.replace_links(training_id, [random.choice(trainers)])
+
         for worker_id in participants:
-            trainer_id = random.choice([m for m in manager_ids if m != worker_id]) if manager_ids else None
             start_date = training_date
             finish_date = training_date + timedelta(days=random.choice([0, 1, 2]))
             effectiveness_date = None
@@ -377,12 +385,12 @@ def seed_trainings(job_workers: dict):
                 effectiveness_date = candidate_eff if candidate_eff <= TODAY else None
             participant_repo.create(
                 training_id, worker_id, start_date, finish_date,
-                random.choice([None, None, 'Ukończono z wynikiem pozytywnym.']), trainer_id,
+                random.choice([None, None, 'Ukończono z wynikiem pozytywnym.']),
             )
             if effectiveness_date:
                 participants_of_training = participant_repo.get_by_training(training_id)
                 row = next(p for p in participants_of_training if p['worker_id'] == worker_id)
-                participant_repo.update(row['id'], start_date, finish_date, row['remarks'], trainer_id, effectiveness_date)
+                participant_repo.update(row['id'], start_date, finish_date, row['remarks'], effectiveness_date)
             participant_count += 1
 
     print(f'  {training_count} trainings, {participant_count} participants.')

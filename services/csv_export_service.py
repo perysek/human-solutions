@@ -18,6 +18,9 @@ from repositories.trainings.training_repository import TrainingRepository
 _HEADER = [
     'Pracownik', 'Stanowisko', 'Data rozpoczęcia', 'Data zakończenia',
     'Uwagi', 'Trener', 'Data oceny skuteczności',
+    # MOBILE_PRESENCE_CONFIRMATION_PLAN.md — this pair *is* the artifact that
+    # replaces the scanned, wet-signed paper sheet for an audit/inspection.
+    'Obecność potwierdzona', 'Podpis (potwierdzenie mobilne)',
 ]
 
 
@@ -34,15 +37,16 @@ def export_training_participants_csv(training_id: int) -> bytes:
     writer = csv.writer(buf, delimiter=';')
     writer.writerow(_HEADER)
     for r in rows:
-        trainer_name = f"{r['trainer_firstname']} {r['trainer_surname']}" if r['trainer_id'] else ''
         writer.writerow([
             f"{r['worker_firstname']} {r['worker_surname']}",
             r['job_description'] or '',
             r['start_date'].isoformat() if r['start_date'] else '',
             r['finish_date'].isoformat() if r['finish_date'] else '',
             r['remarks'] or '',
-            trainer_name,
+            r['trainer_names'] or '',
             r['effectiveness_date'].isoformat() if r['effectiveness_date'] else '',
+            r['confirmed_at'].isoformat() if r['confirmed_at'] else '',
+            r['signature_name'] or '',
         ])
 
     return buf.getvalue().encode('utf-8-sig')

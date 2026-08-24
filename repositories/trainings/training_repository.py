@@ -70,9 +70,26 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         count_query = f"SELECT COUNT(*) AS total FROM trainings{where_clause}"
         total = self._fetch_one(count_query, tuple(params))['total']
 
+        # Three computed columns for the catalog table only (not part of
+        # _COLUMNS/get_by_id — a training's own record has no "participant
+        # count", these are derived from its roster): `participant_count`
+        # (Task 1's "Uczestników" column), and `trainer_names`/`trainer_ids`
+        # (Task 3's "Prowadzący" column — both variants returned so the route
+        # layer can redact to ids for `viewer`, same RODO_3/OQ_3 rule as
+        # TrainingParticipantRepository's participant/trainer names). A
+        # training can have several trainers (training_trainers, migration
+        # b8c9d0e1f2a3), hence STRING_AGG rather than a single join.
+        # `last_session_date` (Task 3) is the roster's latest finish_date —
+        # NULL until at least one participant has actually finished.
         offset = max(page - 1, 0) * page_size
         list_query = (
-            f"SELECT {_COLUMNS} FROM trainings{where_clause} "
+            f"SELECT {_COLUMNS}, "
+            "(SELECT COUNT(*) FROM training_participants tp WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS participant_count, "
+            "(SELECT STRING_AGG(w.firstname || ' ' || w.surname, ', ' ORDER BY w.surname, w.firstname) "
+            " FROM training_trainers tt JOIN workers w ON w.id = tt.trainer_id WHERE tt.training_id = trainings.id) AS trainer_names, "
+            "(SELECT STRING_AGG(tt.trainer_id, ', ' ORDER BY tt.trainer_id) FROM training_trainers tt WHERE tt.training_id = trainings.id) AS trainer_ids, "
+            "(SELECT MAX(tp.finish_date) FROM training_participants tp WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS last_session_date "
+            f"FROM trainings{where_clause} "
             f"ORDER BY {sort_column} {order_sql} NULLS LAST, id ASC LIMIT %s OFFSET %s"
         )
         rows = self._fetch_all(list_query, tuple(params) + (page_size, offset))
@@ -153,30 +170,30 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         return row['total']
 
     def is_trainer_of(self, training_id: int, worker_id: str) -> bool:
-        """TRN_7's ownership check: does ``worker_id`` appear as the trainer
-        on any participant row of this training? A training can have several
-        participants trained by different people (co-taught / multi-session
-        courses), so "the trainer of this training" is "figures as trainer
-        on at least one enrollment", not a single trainer_id column on
+        """TRN_7's ownership check: does ``worker_id`` appear as one of this
+        training's assigned trainers (`training_trainers`, migration
+        b8c9d0e1f2a3)? A training can have several trainers (co-taught /
+        multi-session courses), so "the trainer of this training" is
+        "figures in its trainer set", not a single trainer_id column on
         `trainings` itself."""
         row = self._fetch_one(
-            "SELECT 1 FROM training_participants WHERE training_id = %s AND trainer_id = %s AND NOT is_deleted LIMIT 1",
+            "SELECT 1 FROM training_trainers WHERE training_id = %s AND trainer_id = %s LIMIT 1",
             (training_id, worker_id),
         )
         return row is not None
 
     def list_for_trainer(self, trainer_worker_id: str) -> List[Any]:
-        """Trainings where ``trainer_worker_id`` runs at least one
-        enrollment — the query Faza 6's dashboard "moje szkolenia" panel
-        will consume (own_data=TRUE row for `trainer`/`dashboard`, PRD §11).
-        No Faza 5 route calls this yet; built now per IMPLEMENTATION_PLAN.md
-        §10's explicit method list rather than left for Faza 6 to add
-        alongside its own repository changes."""
+        """Trainings ``trainer_worker_id`` is assigned to run — the query
+        Faza 6's dashboard "moje szkolenia" panel will consume (own_data=TRUE
+        row for `trainer`/`dashboard`, PRD §11). No Faza 5 route calls this
+        yet; built now per IMPLEMENTATION_PLAN.md §10's explicit method list
+        rather than left for Faza 6 to add alongside its own repository
+        changes."""
         query = f"""
             SELECT DISTINCT {', '.join(f't.{c}' for c in _COLUMNS.split(', '))}
             FROM trainings t
-            JOIN training_participants tp ON tp.training_id = t.id
-            WHERE tp.trainer_id = %s
+            JOIN training_trainers tt ON tt.training_id = t.id
+            WHERE tt.trainer_id = %s
             ORDER BY t.training_date DESC NULLS LAST, t.id
         """
         return self._fetch_all(query, (trainer_worker_id,))

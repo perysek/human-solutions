@@ -75,7 +75,7 @@ def _create_training_action_plan(
         # an HR-initiated side effect of raising a corrective action from
         # the Workers module gap report, a different actor and boundary.
         participant_id = TrainingParticipantRepository().create(
-            training_id, worker_id, start_date=training_start_date, finish_date=None, remarks=None, trainer_id=None,
+            training_id, worker_id, start_date=training_start_date, finish_date=None, remarks=None,
         )
         # register_participant() (the normal TRN_8 path) triggers this same
         # recalculation itself — this call bypasses that helper (see above),
