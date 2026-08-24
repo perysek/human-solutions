@@ -3,12 +3,27 @@ import { Button } from '@/components/ui/Button';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
-import { workersApi } from '@/lib/api/workers';
+import { workersApi, type SkillGap, type WorkerSkillItem } from '@/lib/api/workers';
 import { skillsApi } from '@/lib/api/skills';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
 const RATING_OPTIONS = [1, 2, 3];
+
+// Tier color class per rating — see .rating-pill-0/1/2/3 in components.css.
+// 0 is the "brak oceny" sentinel (never a real worker_skills.current_rating,
+// which is always 1-3) — RatingPill renders it as a dashed placeholder pill
+// rather than picking from RATING_OPTIONS, since choosing a value from a
+// rating=0 row means *creating* the rating (POST), not editing one (PUT).
+const RATING_TIER_CLASS: Record<number, string> = { 0: 'rating-pill-0', 1: 'rating-pill-1', 2: 'rating-pill-2', 3: 'rating-pill-3' };
+
+/** Read-only (!canWrite) text for a rating — the interactive RatingPill
+ * shows the literal 0 sentinel (simpler: no options/placeholder juggling),
+ * but a plain-text viewer would misread a bare "0" as an actual low rating
+ * rather than "not yet rated", so this collapses it to an em-dash instead. */
+function formatRating(rating: number): string {
+  return rating === 0 ? '—' : String(rating);
+}
 
 function GapBadge({ gap }: { gap: number }) {
   if (gap <= 0) return <span className="status-badge active">Spełnia</span>;
@@ -22,7 +37,13 @@ function GapBadge({ gap }: { gap: number }) {
  * consistency + column scanability, see the design discussion this
  * replaced). Pulses (reusing `tile-check-pop`, same trick as StatusBadge)
  * whenever `rating` changes after mount, so a save gets the same "yes, that
- * registered" feedback a full reload would give for free. */
+ * registered" feedback a full reload would give for free.
+ *
+ * `rating` is always 0-3, never null — 0 means this skill has no
+ * worker_skills row yet (a job-required skill nobody's rated). The trigger
+ * has no option for 0 (RATING_OPTIONS is still just 1-3, the only real
+ * ratings); it shows via `placeholder="0"`, the same fallback SearchableSelect
+ * already uses when `value` matches no option. */
 function RatingPill({
   skillId,
   skillDescription,
@@ -32,7 +53,7 @@ function RatingPill({
 }: {
   skillId: string;
   skillDescription: string;
-  rating: number | null;
+  rating: number;
   onChange: (value: number) => void;
   disabled: boolean;
 }) {
@@ -52,10 +73,11 @@ function RatingPill({
       id={`competency-rating-${skillId}`}
       ariaLabel={`Ocena — ${skillDescription}`}
       fullWidth={false}
-      triggerClassName={`rating-pill${pulsing ? ' rating-pill-pulse' : ''}`}
+      placeholder="0"
+      triggerClassName={`rating-pill ${RATING_TIER_CLASS[rating]}${pulsing ? ' rating-pill-pulse' : ''}`}
       triggerStyle={{ gap: '0.25rem', padding: '0.25rem 0.4rem' }}
       options={RATING_OPTIONS.map((opt) => ({ value: String(opt), label: String(opt) }))}
-      value={String(rating ?? '')}
+      value={String(rating)}
       onChange={(v) => onChange(Number(v))}
       disabled={disabled}
     />
@@ -69,6 +91,66 @@ function RatingPill({
  * the plan calls this a "zakładka" (tab), but this app has no tab
  * component anywhere else; a Section card matches the page's existing
  * pattern instead of introducing a one-off new interaction idiom. */
+/** One row of the merged Kompetencje table — joins WorkerSkillItem (an
+ * actual rating) and SkillGap (a job requirement) on skill_id. A skill can
+ * be either, both, or (transiently, mid-load) neither; `hasRating` is what
+ * every write action branches on (POST a new worker_skills row vs PUT the
+ * existing one; remarks/history/delete only exist once a row does). */
+interface UnifiedSkillRow {
+  skill_id: string;
+  skill_description: string;
+  required_rating: number | null;
+  current_rating: number;
+  gap: number | null;
+  last_update: string | null;
+  hasRating: boolean;
+}
+
+/** Merges `ratings` + `gaps` into one row per skill, sorted gap-first (a
+ * required skill with an unmet/missing rating), then requirements already
+ * met, then skills rated but not required by the job — mirrors the
+ * "surface what needs attention first" convention WorkerAttentionSection/
+ * ActionPlansPage already use elsewhere on this page. */
+function mergeSkillRows(ratings: WorkerSkillItem[], gaps: SkillGap[]): UnifiedSkillRow[] {
+  const bySkill = new Map<string, UnifiedSkillRow>();
+  for (const r of ratings) {
+    bySkill.set(r.skill_id, {
+      skill_id: r.skill_id,
+      skill_description: r.skill_description,
+      required_rating: null,
+      current_rating: r.current_rating ?? 0,
+      gap: null,
+      last_update: r.last_update,
+      hasRating: true,
+    });
+  }
+  for (const g of gaps) {
+    const existing = bySkill.get(g.skill_id);
+    if (existing) {
+      existing.required_rating = g.required_rating;
+      existing.gap = g.gap;
+    } else {
+      bySkill.set(g.skill_id, {
+        skill_id: g.skill_id,
+        skill_description: g.skill_description,
+        required_rating: g.required_rating,
+        current_rating: 0,
+        gap: g.gap,
+        last_update: null,
+        hasRating: false,
+      });
+    }
+  }
+
+  function rank(row: UnifiedSkillRow): number {
+    if (row.required_rating != null && (row.gap ?? 0) > 0) return 0;
+    if (row.required_rating != null) return 1;
+    return 2;
+  }
+
+  return Array.from(bySkill.values()).sort((a, b) => rank(a) - rank(b) || a.skill_description.localeCompare(b.skill_description, 'pl'));
+}
+
 export function WorkerCompetencySection({ workerId, canWrite }: { workerId: string; canWrite: boolean }) {
   const { data: skillsData, loading: skillsLoading, reload: reloadSkills } = useApiData(() => workersApi.getSkills(workerId), [workerId]);
   const { data: gapData, loading: gapLoading } = useApiData(() => workersApi.getGapAnalysis(workerId), [workerId, skillsData]);
@@ -77,7 +159,9 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
   const confirm = useConfirm();
 
   const ratings = useMemo(() => skillsData?.skills ?? [], [skillsData]);
-  const gaps = gapData?.gaps ?? [];
+  const gaps = useMemo(() => gapData?.gaps ?? [], [gapData]);
+  const rows = useMemo(() => mergeSkillRows(ratings, gaps), [ratings, gaps]);
+  const loading = skillsLoading || gapLoading;
 
   const [newSkillId, setNewSkillId] = useState('');
   const [newRating, setNewRating] = useState(2);
@@ -95,32 +179,38 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
     [allSkillsData, ratings],
   );
 
-  async function handleAddRating() {
-    if (!newSkillId) return;
+  /** Single write path for both the footer "Dodaj ocenę" form and a
+   * unified-row RatingPill: `hasRating` decides POST (new worker_skills
+   * row — a job-required skill nobody's rated yet, or the footer's own
+   * arbitrary-skill picker) vs PUT (editing an existing rating). Returns
+   * whether it succeeded so callers can decide whether to reset their own
+   * local form state. */
+  async function handleRateSkill(skillId: string, hasRating: boolean, rating: number): Promise<boolean> {
     setSaving(true);
     try {
-      await workersApi.setSkill(workerId, newSkillId, newRating, new Date().toISOString().slice(0, 10));
-      toast.success('Ocena dodana.');
+      if (hasRating) {
+        await workersApi.updateSkill(workerId, skillId, rating, new Date().toISOString().slice(0, 10));
+        toast.success('Ocena zaktualizowana.');
+      } else {
+        await workersApi.setSkill(workerId, skillId, rating, new Date().toISOString().slice(0, 10));
+        toast.success('Ocena dodana.');
+      }
       reloadSkills();
-      setNewSkillId('');
-      setNewRating(2);
+      return true;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nie udało się dodać oceny.');
+      toast.error(err instanceof Error ? err.message : 'Nie udało się zapisać oceny.');
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleUpdateRating(skillId: string, rating: number) {
-    setSaving(true);
-    try {
-      await workersApi.updateSkill(workerId, skillId, rating, new Date().toISOString().slice(0, 10));
-      toast.success('Ocena zaktualizowana.');
-      reloadSkills();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nie udało się zaktualizować oceny.');
-    } finally {
-      setSaving(false);
+  async function handleAddRating() {
+    if (!newSkillId) return;
+    const ok = await handleRateSkill(newSkillId, false, newRating);
+    if (ok) {
+      setNewSkillId('');
+      setNewRating(2);
     }
   }
 
@@ -196,117 +286,88 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
         Kompetencje
       </h2>
 
-      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-ink-muted)' }}>
-        Luki kompetencyjne (wymagania stanowiska)
-      </h3>
-      {gapLoading ? (
+      {loading ? (
         <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>Ładowanie…</p>
-      ) : gaps.length === 0 ? (
-        <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-          Brak wymagań do porównania (pracownik bez przypisanego stanowiska lub stanowisko bez wymagań).
-        </p>
-      ) : (
-        <table className="refined-table" style={{ marginBottom: '1.5rem' }}>
-          <thead>
-            <tr>
-              <th>Umiejętność</th>
-              <th>Wymagana</th>
-              <th>Posiadana</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {gaps.map((g) => (
-              <tr key={g.skill_id}>
-                <td>{g.skill_description}</td>
-                <td>{g.required_rating}</td>
-                <td>{g.current_rating ?? '—'}</td>
-                <td>
-                  <GapBadge gap={g.gap} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-ink-muted)' }}>
-        Oceny umiejętności
-      </h3>
-      {skillsLoading ? (
-        <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>Ładowanie…</p>
-      ) : ratings.length === 0 ? (
+      ) : rows.length === 0 ? (
         <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem', marginBottom: canWrite ? '1rem' : 0 }}>
-          Brak ocenionych umiejętności.
+          Brak umiejętności — pracownik nie ma wymagań stanowiska ani ocenionych umiejętności.
         </p>
       ) : (
         <table className="refined-table" style={{ marginBottom: canWrite ? '1rem' : 0 }}>
           <thead>
             <tr>
               <th>Umiejętność</th>
+              <th>Wymagana</th>
               <th>Ocena</th>
+              <th>Status</th>
               <th>Aktualizacja</th>
               <th className="text-right"><span className="sr-only">Akcje</span></th>
             </tr>
           </thead>
           <tbody>
-            {ratings.map((r) => (
-              <Fragment key={r.skill_id}>
+            {rows.map((row) => (
+              <Fragment key={row.skill_id}>
                 <tr>
-                  <td>{r.skill_description}</td>
+                  <td>{row.skill_description}</td>
+                  <td>{row.required_rating ?? '—'}</td>
                   <td>
                     {canWrite ? (
                       <RatingPill
-                        skillId={r.skill_id}
-                        skillDescription={r.skill_description}
-                        rating={r.current_rating}
-                        onChange={(v) => handleUpdateRating(r.skill_id, v)}
+                        skillId={row.skill_id}
+                        skillDescription={row.skill_description}
+                        rating={row.current_rating}
+                        onChange={(v) => handleRateSkill(row.skill_id, row.hasRating, v)}
                         disabled={saving}
                       />
                     ) : (
-                      (r.current_rating ?? '—')
+                      formatRating(row.current_rating)
                     )}
                   </td>
-                  <td>{r.last_update ? new Date(r.last_update).toLocaleDateString('pl-PL') : '—'}</td>
+                  <td>{row.required_rating != null && row.gap != null ? <GapBadge gap={row.gap} /> : '—'}</td>
+                  <td>{row.last_update ? new Date(row.last_update).toLocaleDateString('pl-PL') : '—'}</td>
                   <td className="text-right">
-                    <div className="action-icons">
-                      <button
-                        type="button"
-                        className="action-icon-btn"
-                        title="Uwagi i historia oceny"
-                        aria-label={`Uwagi i historia oceny — ${r.skill_description}`}
-                        aria-expanded={expandedSkillId === r.skill_id}
-                        onClick={() => toggleRemarks(r.skill_id)}
-                      >
-                        <Icon name="info" />
-                      </button>
-                      {canWrite && (
+                    {row.hasRating ? (
+                      <div className="action-icons">
                         <button
                           type="button"
                           className="action-icon-btn"
-                          title="Usuń ocenę"
-                          aria-label={`Usuń ocenę — ${r.skill_description}`}
-                          onClick={() => handleRemoveRating(r.skill_id, r.skill_description)}
-                          disabled={saving}
+                          title="Uwagi i historia oceny"
+                          aria-label={`Uwagi i historia oceny — ${row.skill_description}`}
+                          aria-expanded={expandedSkillId === row.skill_id}
+                          onClick={() => toggleRemarks(row.skill_id)}
                         >
-                          <Icon name="delete" />
+                          <Icon name="info" />
                         </button>
-                      )}
-                    </div>
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className="action-icon-btn"
+                            title="Usuń ocenę"
+                            aria-label={`Usuń ocenę — ${row.skill_description}`}
+                            onClick={() => handleRemoveRating(row.skill_id, row.skill_description)}
+                            disabled={saving}
+                          >
+                            <Icon name="delete" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
-                {expandedSkillId === r.skill_id && (
+                {row.hasRating && expandedSkillId === row.skill_id && (
                   <tr>
-                    <td colSpan={4} style={{ background: 'var(--color-surface)' }}>
+                    <td colSpan={6} style={{ background: 'var(--color-surface)' }}>
                       <div style={{ padding: '0.75rem 0' }}>
                         <h4 className="text-xs font-semibold mb-1.5" style={{ color: 'var(--color-ink-muted)' }}>
                           Historia oceny
                         </h4>
-                        {(ratingHistoryBySkill[r.skill_id]?.length ?? 0) === 0 ? (
+                        {(ratingHistoryBySkill[row.skill_id]?.length ?? 0) === 0 ? (
                           <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem', marginBottom: '0.75rem' }}>Brak historii zmian oceny.</p>
                         ) : (
                           <ul className="space-y-1.5 mb-3">
-                            {ratingHistoryBySkill[r.skill_id].map((ev) => (
+                            {ratingHistoryBySkill[row.skill_id].map((ev) => (
                               <li key={ev.id} style={{ fontSize: '0.8125rem', color: 'var(--color-ink)' }}>
                                 <span style={{ color: 'var(--color-ink-subtle)' }}>
                                   {ev.timestamp ? new Date(ev.timestamp).toLocaleString('pl-PL') : ''} — {ev.user_name ?? 'System'}:
@@ -321,11 +382,11 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                         </h4>
                         {remarksLoading ? (
                           <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>Ładowanie uwag…</p>
-                        ) : (remarksBySkill[r.skill_id]?.length ?? 0) === 0 ? (
+                        ) : (remarksBySkill[row.skill_id]?.length ?? 0) === 0 ? (
                           <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>Brak uwag.</p>
                         ) : (
                           <ul className="space-y-1.5 mb-2">
-                            {remarksBySkill[r.skill_id].map((rem) => (
+                            {remarksBySkill[row.skill_id].map((rem) => (
                               <li key={rem.id} style={{ fontSize: '0.8125rem', color: 'var(--color-ink)' }}>
                                 <span style={{ color: 'var(--color-ink-subtle)' }}>
                                   {rem.created_at ? new Date(rem.created_at).toLocaleString('pl-PL') : ''}
@@ -346,7 +407,13 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                               onChange={(e) => setNewRemark(e.target.value)}
                               aria-label="Nowa uwaga"
                             />
-                            <Button type="button" variant="secondary" small onClick={() => handleAddRemark(r.skill_id)} disabled={!newRemark.trim() || saving}>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              small
+                              onClick={() => handleAddRemark(row.skill_id)}
+                              disabled={!newRemark.trim() || saving}
+                            >
                               Dodaj
                             </Button>
                           </div>
