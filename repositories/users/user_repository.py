@@ -46,9 +46,15 @@ class UserRepository(BaseRepository):
         # Hash password using bcrypt
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
+        # tenant_id: users.tenant_id is NOT NULL as of SCALING_PREP_PLAN.md
+        # Phase 2, but that phase deliberately shipped no tenant-resolution
+        # middleware yet (single-tenant today — see MULTI_TENANCY_PROPOSAL.md
+        # Phase C for when a real per-request tenant exists). Resolve the same
+        # seeded 'staamp-poland' row the Phase 2 migration backfilled onto
+        # every existing user, so every NEW user lands in it too.
         query = """
-            INSERT INTO users (email, password_hash, full_name, role, is_active)
-            VALUES (%s, %s, %s, %s, TRUE)
+            INSERT INTO users (email, password_hash, full_name, role, is_active, tenant_id)
+            VALUES (%s, %s, %s, %s, TRUE, (SELECT id FROM tenants WHERE slug = 'staamp-poland'))
         """
         return self._execute_insert(query, (email, password_hash, full_name, role))
 
