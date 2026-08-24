@@ -15,7 +15,10 @@ export interface WorkerListItem {
   /** task3 — competence gap, or no currently-valid BHP training/medical
    * exam despite having records of that kind. List-only (api_list). */
   needs_attention: boolean;
-  boss_id: string | null;
+  /** Derived, not manually assigned — whoever holds the is_managerial job
+   * in this worker's own job's department (comma-joined if more than one
+   * holds it). null if their job has no department, or that department has
+   * no manager assigned. */
   boss_name: string | null;
   gender: 'Male' | 'Female' | 'UNKNOWN';
   hire_date: string | null;
@@ -42,7 +45,6 @@ export interface WorkerPayload {
   firstname: string;
   surname: string;
   job_id?: string | null;
-  boss_id?: string | null;
   gender: string;
   hire_date?: string | null;
   birth_date?: string | null;

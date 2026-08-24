@@ -25,13 +25,24 @@ _SORT_COLUMNS = {
 }
 _DEFAULT_SORT = 'surname'
 
-# Joins firstname/surname of both the worker and their boss, plus the job's
-# description and (task1) its department/is_managerial flag, in one query —
-# this is the shared SELECT base for both get_all (list, WRK_1/WRK_11) and
-# get_by_id (profile header, WRK_2). department_name/is_managerial feed
-# WorkerViewPage's "kierownik działu xxxxx" label — a worker is shown as
-# managing a department when their own job.is_managerial is true AND that
-# job has a department_id (see routes/workers/routes.py's _worker_json).
+# Joins the worker's job description, (task1) its department/is_managerial
+# flag, and (product decision, 2026-08-24) a derived "boss" label, in one
+# query — this is the shared SELECT base for both get_all (list, WRK_1/
+# WRK_11) and get_by_id (profile header, WRK_2). department_name/
+# is_managerial feed WorkerViewPage's "kierownik działu xxxxx" label — a
+# worker is shown as managing a department when their own job.is_managerial
+# is true AND that job has a department_id (see routes/workers/routes.py's
+# _worker_json).
+#
+# boss_name — no longer a stored self-reference (workers.boss_id was
+# dropped, migration e2f3a4b5c6d7): "przełożony" is derived exactly like
+# DepartmentRepository._SELECT's manager_names and JobRepository's
+# supervisor_job_id — whoever holds the is_managerial=TRUE job in this
+# worker's own job's department (idx_jobs_one_manager_per_department caps
+# that at one job, but nothing caps how many active workers hold it, so this
+# is a STRING_AGG same as manager_names, not a single name). NULL when the
+# worker's job has no department, or that department has no managerial job,
+# or nobody currently holds it.
 #
 # Split into columns/FROM (rather than one opaque string) so get_all can
 # splice in `_NEEDS_ATTENTION_SQL` as one more selected column without
@@ -39,14 +50,16 @@ _DEFAULT_SORT = 'surname'
 _BASE_COLUMNS = """
     w.id, w.firstname, w.surname, w.job_id, j.description AS job_description,
     j.is_managerial AS job_is_managerial, j.department_id, d.name AS department_name,
-    w.boss_id, b.firstname AS boss_firstname, b.surname AS boss_surname,
+    (SELECT STRING_AGG(bw.firstname || ' ' || bw.surname, ', ' ORDER BY bw.surname, bw.firstname)
+       FROM workers bw WHERE bw.job_id = sj.id AND bw.fire_date IS NULL) AS boss_name,
     w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at
 """
 _FROM_CLAUSE = """
     FROM workers w
     LEFT JOIN jobs j ON j.id = w.job_id
     LEFT JOIN departments d ON d.id = j.department_id
-    LEFT JOIN workers b ON b.id = w.boss_id
+    LEFT JOIN jobs sj ON sj.department_id = j.department_id
+        AND sj.is_managerial = TRUE AND sj.id != j.id
 """
 _SELECT_BASE = f"SELECT {_BASE_COLUMNS} {_FROM_CLAUSE}"
 
@@ -115,18 +128,17 @@ class WorkerRepository(AuditableMixin, BaseRepository):
 
     def create(
         self, *, firstname: str, surname: str, job_id: Optional[str] = None,
-        boss_id: Optional[str] = None, gender: str = 'UNKNOWN',
-        hire_date: Optional[date] = None,
+        gender: str = 'UNKNOWN', hire_date: Optional[date] = None,
     ) -> str:
         """Insert a worker row. Caller (services/worker_service.py) is
         expected to run this inside managed_transaction() alongside the
         birth/nationality/foreigner rows (ERR_1)."""
         worker_id = self._next_id()
         query = """
-            INSERT INTO workers (id, firstname, surname, job_id, boss_id, gender, hire_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO workers (id, firstname, surname, job_id, gender, hire_date)
+            VALUES (%s, %s, %s, %s, %s, %s)
         """
-        self._execute(query, (worker_id, firstname, surname, job_id, boss_id, gender, hire_date))
+        self._execute(query, (worker_id, firstname, surname, job_id, gender, hire_date))
         self._audit('CREATE', worker_id, label=f'{firstname} {surname}')
         return worker_id
 
@@ -188,16 +200,15 @@ class WorkerRepository(AuditableMixin, BaseRepository):
 
     def update(
         self, worker_id: str, *, firstname: str, surname: str,
-        job_id: Optional[str], boss_id: Optional[str], gender: str,
-        hire_date: Optional[date],
+        job_id: Optional[str], gender: str, hire_date: Optional[date],
     ) -> None:
         query = """
             UPDATE workers
-            SET firstname = %s, surname = %s, job_id = %s, boss_id = %s,
+            SET firstname = %s, surname = %s, job_id = %s,
                 gender = %s, hire_date = %s, updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
         """
-        self._execute(query, (firstname, surname, job_id, boss_id, gender, hire_date, worker_id))
+        self._execute(query, (firstname, surname, job_id, gender, hire_date, worker_id))
         self._audit('UPDATE', worker_id, label=f'{firstname} {surname}')
 
     def deactivate(self, worker_id: str) -> bool:
@@ -209,12 +220,23 @@ class WorkerRepository(AuditableMixin, BaseRepository):
             self._audit('DEACTIVATE', worker_id, field_name='fire_date', new='CURRENT_DATE')
         return deactivated
 
-    def get_subordinates(self, boss_id: str) -> List[Any]:
-        """Direct reports of `boss_id` (WRK_9) — one level, not the full
+    def get_subordinates(self, worker_id: str) -> List[Any]:
+        """Direct reports of `worker_id` (WRK_9) — one level, not the full
         transitive tree (the plan's own wording: "lista pracowników
-        przypisanych do danego przełożonego")."""
-        query = _SELECT_BASE + " WHERE w.boss_id = %s ORDER BY w.surname, w.firstname"
-        return self._fetch_all(query, (boss_id,))
+        przypisanych do danego przełożonego"), derived from the job
+        hierarchy: every non-managerial worker in the department `worker_id`
+        manages (empty if `worker_id`'s own job isn't flagged
+        is_managerial — a non-manager has no subordinates)."""
+        query = _SELECT_BASE + """
+            WHERE COALESCE(j.is_managerial, FALSE) = FALSE
+            AND j.department_id IN (
+                SELECT mj.department_id FROM workers mw
+                JOIN jobs mj ON mj.id = mw.job_id
+                WHERE mw.id = %s AND mj.is_managerial = TRUE AND mj.department_id IS NOT NULL
+            )
+            ORDER BY w.surname, w.firstname
+        """
+        return self._fetch_all(query, (worker_id,))
 
     def count_needs_attention_by_category(self) -> dict:
         """task2 — WorkersListPage's stat cards. Active-worker (fire_date

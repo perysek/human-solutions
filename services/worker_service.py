@@ -43,10 +43,6 @@ def _validate_common(payload: dict) -> None:
     if job_id and not JobRepository().get_by_id(job_id):
         raise NotFoundError(f'Stanowisko "{job_id}" nie istnieje')
 
-    boss_id = payload.get('boss_id')
-    if boss_id and not WorkerRepository().get_by_id(boss_id):
-        raise NotFoundError(f'Przełożony o id "{boss_id}" nie istnieje')
-
 
 def _apply_personal_data(worker_id: str, payload: dict, *, is_update: bool) -> None:
     """Shared birth/nationality/foreigner write logic for create and update
@@ -93,7 +89,6 @@ def create_worker(payload: dict) -> str:
             firstname=payload['firstname'].strip(),
             surname=payload['surname'].strip(),
             job_id=payload.get('job_id') or None,
-            boss_id=payload.get('boss_id') or None,
             gender=payload.get('gender') or 'UNKNOWN',
             hire_date=_parse_date(payload.get('hire_date')),
         )
@@ -109,8 +104,6 @@ def update_worker(worker_id: str, payload: dict) -> None:
         raise NotFoundError('Pracownik nie znaleziony')
 
     _validate_common(payload)
-    if payload.get('boss_id') == worker_id:
-        raise ValidationError('Pracownik nie może być swoim własnym przełożonym')
 
     with managed_transaction():
         WorkerRepository().update(
@@ -118,7 +111,6 @@ def update_worker(worker_id: str, payload: dict) -> None:
             firstname=payload['firstname'].strip(),
             surname=payload['surname'].strip(),
             job_id=payload.get('job_id') or None,
-            boss_id=payload.get('boss_id') or None,
             gender=payload.get('gender') or 'UNKNOWN',
             hire_date=_parse_date(payload.get('hire_date')),
         )

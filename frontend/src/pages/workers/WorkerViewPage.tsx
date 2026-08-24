@@ -124,18 +124,7 @@ export function WorkerViewPage() {
               {worker.job_is_managerial && worker.department_name && (
                 <Field label="Kierownik działu" value={`kierownik działu ${worker.department_name}`} />
               )}
-              <Field
-                label="Przełożony"
-                value={
-                  worker.boss_id ? (
-                    <Link to={`/workers/${encodeURIComponent(worker.boss_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
-                      {worker.boss_name}
-                    </Link>
-                  ) : (
-                    '—'
-                  )
-                }
-              />
+              <Field label="Przełożony" value={worker.boss_name ?? '—'} />
               <Field label="Płeć" value={GENDER_LABELS[worker.gender] ?? worker.gender} />
               <Field label="Status" value={<StatusBadge status={worker.is_active ? 'active' : 'inactive'}>{worker.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>} />
               <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />

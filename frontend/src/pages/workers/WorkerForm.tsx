@@ -27,24 +27,13 @@ export function WorkerForm({ mode, initial, onSaved, onCancel }: WorkerFormProps
   useEscapeAction(onCancel);
 
   const { data: jobsData } = useApiData(() => jobsApi.list());
-  // Boss candidates: every active worker except the one being edited (a
-  // worker can't be their own boss — the backend re-validates this too).
-  const { data: bossData } = useApiData(() => workersApi.list({ status: 'active', page_size: 500 }));
 
   const jobOptions = useMemo(() => (jobsData?.jobs ?? []).map((j) => ({ value: j.id, label: `${j.id} — ${j.description ?? ''}`.trim() })), [jobsData]);
-  const bossOptions = useMemo(
-    () =>
-      (bossData?.workers ?? [])
-        .filter((w) => w.id !== initial?.id)
-        .map((w) => ({ value: w.id, label: `${w.full_name}${w.job_description ? ` (${w.job_description})` : ''}` })),
-    [bossData, initial],
-  );
 
   const [firstname, setFirstname] = useState(initial?.firstname ?? '');
   const [surname, setSurname] = useState(initial?.surname ?? '');
   const [jobId, setJobId] = useState(initial?.job_id ?? '');
   const selectedJob = useMemo(() => (jobsData?.jobs ?? []).find((j) => j.id === jobId), [jobsData, jobId]);
-  const [bossId, setBossId] = useState(initial?.boss_id ?? '');
   const [gender, setGender] = useState<string>(initial?.gender ?? 'UNKNOWN');
   const [hireDate, setHireDate] = useState(initial?.hire_date ?? '');
 
@@ -80,7 +69,6 @@ export function WorkerForm({ mode, initial, onSaved, onCancel }: WorkerFormProps
       firstname: firstname.trim(),
       surname: surname.trim(),
       job_id: jobId || null,
-      boss_id: bossId || null,
       gender,
       hire_date: hireDate || null,
       birth_date: birthDate || null,
@@ -135,7 +123,6 @@ export function WorkerForm({ mode, initial, onSaved, onCancel }: WorkerFormProps
                 : undefined
             }
           />
-          <SelectField label="Przełożony" name="boss_id" value={bossId} onChange={(e) => setBossId(e.target.value)} options={bossOptions} placeholder="Brak" />
           <SelectField label="Płeć" name="gender" value={gender} onChange={(e) => setGender(e.target.value)} options={GENDER_OPTIONS} required />
           <TextField label="Data zatrudnienia" name="hire_date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
         </FormFieldset>

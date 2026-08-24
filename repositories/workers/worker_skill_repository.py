@@ -98,7 +98,8 @@ class WorkerSkillRepository(AuditableMixin, BaseRepository):
         query = f"""
             SELECT w.id AS worker_id, w.firstname, w.surname,
                    j.description AS job_description,
-                   b.firstname AS boss_firstname, b.surname AS boss_surname,
+                   (SELECT STRING_AGG(bw.firstname || ' ' || bw.surname, ', ' ORDER BY bw.surname, bw.firstname)
+                      FROM workers bw WHERE bw.job_id = sj.id AND bw.fire_date IS NULL) AS boss_name,
                    js.skill_id, s.description AS skill_description,
                    js.required_rating, ws.current_rating, ws.last_update,
                    (js.required_rating - COALESCE(ws.current_rating, 0)) AS gap,
@@ -110,7 +111,8 @@ class WorkerSkillRepository(AuditableMixin, BaseRepository):
             JOIN skills s ON s.id = js.skill_id
             LEFT JOIN worker_skills ws ON ws.worker_id = w.id AND ws.skill_id = js.skill_id
             LEFT JOIN jobs j ON j.id = w.job_id
-            LEFT JOIN workers b ON b.id = w.boss_id
+            LEFT JOIN jobs sj ON sj.department_id = j.department_id
+                AND sj.is_managerial = TRUE AND sj.id != j.id
             LEFT JOIN LATERAL (
                 SELECT ap.id, ap.description, ap.planned_date, ap.status, ap.is_training, ap.training_id
                 FROM action_plans ap

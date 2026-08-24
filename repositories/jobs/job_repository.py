@@ -21,11 +21,29 @@ class JobRepository(AuditableMixin, BaseRepository):
     audit_entity_type = 'job'
     # department_name via LEFT JOIN — jobs.department_id jest opcjonalne
     # (task1: "Optional"), więc INNER JOIN wykluczałby stanowiska bez działu.
+    #
+    # supervisor_job_* — "stanowisko przełożone" nie jest osobną kolumną:
+    # tak jak "kierownik działu" (DepartmentRepository), wyliczane jest z
+    # istniejącej reguły "co najwyżej jedno stanowisko kierownicze na dział"
+    # (idx_jobs_one_manager_per_department) — przełożonym stanowiska jest
+    # stanowisko kierownicze tego samego działu (jeśli istnieje i nie jest
+    # tym samym stanowiskiem — kierownicze stanowisko nie jest przełożonym
+    # samego siebie).
+    #
+    # worker_count — liczba aktywnych pracowników (fire_date IS NULL) na tym
+    # stanowisku, ta sama definicja "aktywny" co DepartmentRepository's
+    # worker_count/manager_names.
     _columns = (
         'j.id, j.description, j.department_id, d.name AS department_name, '
-        'j.is_managerial, j.created_at, j.updated_at'
+        'j.is_managerial, j.created_at, j.updated_at, '
+        'sj.id AS supervisor_job_id, sj.description AS supervisor_job_description, '
+        '(SELECT COUNT(*) FROM workers w WHERE w.job_id = j.id AND w.fire_date IS NULL) AS worker_count'
     )
-    _FROM = 'FROM jobs j LEFT JOIN departments d ON d.id = j.department_id'
+    _FROM = (
+        'FROM jobs j LEFT JOIN departments d ON d.id = j.department_id '
+        'LEFT JOIN jobs sj ON sj.department_id = j.department_id '
+        'AND sj.is_managerial = TRUE AND sj.id != j.id'
+    )
 
     def __init__(self):
         super().__init__('jobs')
@@ -70,7 +88,7 @@ class JobRepository(AuditableMixin, BaseRepository):
         """Zaktualizuj stanowisko. Audytuje zmianę pola description,
         żeby historia zmian pokazywała starą i nową wartość, nie tylko fakt
         edycji — department_id/is_managerial nie są osobno audytowane
-        (drugorzędne wobec description, jak boss_id/gender w WorkerRepository)."""
+        (drugorzędne wobec description, jak gender w WorkerRepository)."""
         existing = self.get_by_id(job_id)
         old_description = existing['description'] if existing else None
         query = (

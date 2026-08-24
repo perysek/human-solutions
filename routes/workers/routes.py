@@ -58,9 +58,6 @@ workers_bp = Blueprint('workers', __name__, url_prefix='/workers')
 
 
 def _worker_json(row) -> dict:
-    boss_name = None
-    if row.get('boss_firstname'):
-        boss_name = f"{row['boss_firstname']} {row['boss_surname']}"
     return {
         'id': row['id'],
         'firstname': row['firstname'],
@@ -74,8 +71,11 @@ def _worker_json(row) -> dict:
         # Only present on rows from WorkerRepository.get_all (api_list, task3) —
         # get_by_id/get_subordinates/get_by_job don't compute it.
         'needs_attention': bool(row.get('needs_attention', False)),
-        'boss_id': row['boss_id'],
-        'boss_name': boss_name,
+        # Derived, not stored (see WorkerRepository._BASE_COLUMNS) — the
+        # worker(s) holding the is_managerial job in this worker's own job's
+        # department, comma-joined if more than one holds it, None if their
+        # job has no department or that department has no manager assigned.
+        'boss_name': row.get('boss_name'),
         'gender': row['gender'],
         'hire_date': row['hire_date'].isoformat() if row['hire_date'] else None,
         'fire_date': row['fire_date'].isoformat() if row['fire_date'] else None,
@@ -496,7 +496,7 @@ def api_skill_gaps():
                 'worker_id': r['worker_id'],
                 'full_name': f"{r['firstname']} {r['surname']}",
                 'job_description': r['job_description'],
-                'boss_name': f"{r['boss_firstname']} {r['boss_surname']}" if r['boss_firstname'] else None,
+                'boss_name': r['boss_name'],
                 'skill_id': r['skill_id'],
                 'skill_description': r['skill_description'],
                 'required_rating': r['required_rating'],
