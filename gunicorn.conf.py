@@ -9,7 +9,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config.runtime_guards import assert_single_worker
 
 # Network
-bind = "127.0.0.1:8083"        # Nginx proxies to this; never expose directly
+# 8084, not the sibling my-way-beauty-salon app's 8083 — both apps share one
+# Vultr box (see DEPLOYMENT.md's "Before you start" section).
+bind = "127.0.0.1:8084"        # Nginx proxies to this; never expose directly
 
 # Workers — single process required for in-memory state (IMPORT_RUNNER queue,
 # scheduler). Thread-based concurrency handles SSE streaming + concurrent API
@@ -25,15 +27,16 @@ threads = 4
 # is now enforced in code, not trusted to the comment above.
 assert_single_worker(workers, os.environ.get("WEB_CONCURRENCY"))
 
-# Timeouts — OCR on high-DPI PDFs can take 60+ seconds
+# Timeouts — generous headroom for report/export endpoints; this app does no
+# OCR (unlike the sibling salon app these defaults were copied from)
 timeout = 180
 graceful_timeout = 30
 keepalive = 5
 
 # Logging
-accesslog = "/var/log/my-way-beauty-salon/access.log"
-errorlog  = "/var/log/my-way-beauty-salon/error.log"
+accesslog = "/var/log/human-solutions/access.log"
+errorlog  = "/var/log/human-solutions/error.log"
 loglevel  = "info"
 
 # Process naming (visible in `ps aux`)
-proc_name = "my-way-beauty-salon"
+proc_name = "human-solutions"
