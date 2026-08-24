@@ -52,7 +52,8 @@ _BASE_COLUMNS = """
     j.is_managerial AS job_is_managerial, j.department_id, d.name AS department_name,
     (SELECT STRING_AGG(bw.firstname || ' ' || bw.surname, ', ' ORDER BY bw.surname, bw.firstname)
        FROM workers bw WHERE bw.job_id = sj.id AND bw.fire_date IS NULL) AS boss_name,
-    w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at
+    w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at,
+    wos.completed AS onboarding_completed, wos.completion_pct AS onboarding_completion_pct
 """
 _FROM_CLAUSE = """
     FROM workers w
@@ -60,6 +61,7 @@ _FROM_CLAUSE = """
     LEFT JOIN departments d ON d.id = j.department_id
     LEFT JOIN jobs sj ON sj.department_id = j.department_id
         AND sj.is_managerial = TRUE AND sj.id != j.id
+    LEFT JOIN worker_onboarding_status wos ON wos.worker_id = w.id AND wos.job_id = w.job_id
 """
 _SELECT_BASE = f"SELECT {_BASE_COLUMNS} {_FROM_CLAUSE}"
 

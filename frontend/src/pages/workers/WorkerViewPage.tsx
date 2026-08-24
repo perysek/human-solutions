@@ -68,6 +68,11 @@ export function WorkerViewPage() {
                   Podwładni
                 </Button>
               )}
+              {worker && (
+                <Button variant="secondary" onClick={() => navigate(`/workers/${encodeURIComponent(worker.id)}/onboarding-trainings`)}>
+                  Szkolenia wstępne
+                </Button>
+              )}
               {worker?.is_active && !worker.pending_termination && (
                 <Button variant="danger" onClick={() => setShowTerminationModal(true)}>
                   Dezaktywuj

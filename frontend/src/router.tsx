@@ -31,6 +31,7 @@ import { WorkerCreatePage } from '@/pages/workers/WorkerCreatePage';
 import { WorkerViewPage } from '@/pages/workers/WorkerViewPage';
 import { WorkerEditPage } from '@/pages/workers/WorkerEditPage';
 import { WorkerHierarchyPage } from '@/pages/workers/WorkerHierarchyPage';
+import { WorkerOnboardingTrainingsPage } from '@/pages/workers/WorkerOnboardingTrainingsPage';
 import { CompetencyGapsReportPage } from '@/pages/workers/CompetencyGapsReportPage';
 import { ActionPlansPage } from '@/pages/workers/ActionPlansPage';
 import { MedicalExpiringReportPage } from '@/pages/medical/MedicalExpiringReportPage';
@@ -84,6 +85,7 @@ export function AppRoutes() {
             <Route path="/workers/:id" element={<WorkerViewPage />} />
             <Route path="/workers/:id/edit" element={<WorkerEditPage />} />
             <Route path="/workers/:id/subordinates" element={<WorkerHierarchyPage />} />
+            <Route path="/workers/:id/onboarding-trainings" element={<WorkerOnboardingTrainingsPage />} />
           </Route>
 
           {/* module_permission_required('jobs') — routes/jobs/routes.py */}

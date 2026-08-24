@@ -14,6 +14,7 @@ import { useApiData } from '@/lib/api/useApiData';
 import { useServerSort } from '@/lib/useServerSort';
 import { workersApi, type WorkerListItem } from '@/lib/api/workers';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { onboardingBadgeInfo } from '@/lib/onboardingStatus';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Aktywni' },
@@ -174,7 +175,7 @@ export function WorkersListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={6} />
+          <TableSkeleton cols={7} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : workers.length === 0 ? (
@@ -200,6 +201,7 @@ export function WorkersListPage() {
                     <SortableTh label="Data zatrudnienia" sortKey="hire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <SortableTh label="Data zwolnienia" sortKey="fire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <th>Status</th>
+                    <th>Szkolenia wstępne</th>
                     {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
                   </tr>
                 </thead>
@@ -246,6 +248,19 @@ export function WorkersListPage() {
                             </span>
                           )}
                         </span>
+                      </td>
+                      <td>
+                        {(() => {
+                          const badge = onboardingBadgeInfo(w.onboarding_completed, w.onboarding_completion_pct);
+                          return (
+                            <StatusBadge status={badge.status}>
+                              {badge.label}
+                              {badge.pct !== null && (
+                                <span style={{ marginLeft: '0.375rem', opacity: 0.7 }}>{badge.pct}%</span>
+                              )}
+                            </StatusBadge>
+                          );
+                        })()}
                       </td>
                       {canWrite && (
                         <td>

@@ -362,7 +362,13 @@ def seed_trainings(job_workers: dict):
         )
         training_count += 1
         if spec['jobs']:
-            job_link_repo.replace_links(training_id, spec['jobs'])
+            # replace_links takes {job_id, is_mandatory, sequence_order} dicts
+            # (migration n3o4p5q6r7s8) — seed data has no opinion on either,
+            # so every link comes in as mandatory/unordered (the columns'
+            # own defaults, just spelled out explicitly here).
+            job_link_repo.replace_links(
+                training_id, [{'job_id': j, 'is_mandatory': True, 'sequence_order': None} for j in spec['jobs']]
+            )
         skill_link_repo.replace_links(training_id, spec['skills'])
 
         candidates = [wid for j in spec['jobs'] for wid in job_workers.get(j, [])] if spec['jobs'] else all_worker_ids

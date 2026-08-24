@@ -16,6 +16,19 @@ export interface TrainingListItem {
   trainer_names: string | null;
   /** Task 3 — latest participant `finish_date` across the roster, or null if nobody's finished yet. */
   last_session_date: string | null;
+  /** Only present when the list was fetched with `worker_id` (the
+   * "Szkolenia wstępne" picker, WorkerOnboardingTrainingsPage) — this
+   * worker's own active-enrollment status for this training, or null if
+   * they aren't enrolled at all. Same 3-value vocabulary as OpenTrainingRow's
+   * `status` (minus 'completed' never actually reachable there). */
+  worker_status: 'defined' | 'in_progress' | 'completed' | null;
+  /** Only present when the list was fetched with `job_id` — that specific
+   * (training, job) link's own training_job metadata (migration
+   * n3o4p5q6r7s8): is this training mandatory for the job's onboarding
+   * curriculum, and where does it sit in the completion order (null =
+   * unordered). Null (not just absent) when `job_id` wasn't passed. */
+  job_is_mandatory: boolean | null;
+  job_sequence_order: number | null;
 }
 
 /** `completion` is deliberately absent — it's auto-derived server-side from
@@ -38,11 +51,29 @@ export interface TrainingsListParams {
   /** Narrows to trainings linked (training_skills) to this skill — the
    * "Szkolenie" picker in ActionPlanModal. */
   skill_id?: string;
+  /** Narrows to trainings linked (training_job) to this job position — the
+   * "Szkolenia wstępne" picker (WorkerOnboardingTrainingsPage). */
+  job_id?: string;
+  /** Paired with `job_id` — adds each row's `worker_status` for this worker
+   * (doesn't filter anything out). */
+  worker_id?: string;
 }
 
 export interface TrainingJobLink {
   job_id: string;
   job_description: string | null;
+  /** training_job metadata (migration n3o4p5q6r7s8) — see TrainingListItem's
+   * job_is_mandatory/job_sequence_order for what these mean. Never null here
+   * for is_mandatory (the column itself is NOT NULL); sequence_order stays
+   * nullable ("unordered"). */
+  is_mandatory: boolean;
+  sequence_order: number | null;
+}
+
+export interface TrainingJobLinkInput {
+  job_id: string;
+  is_mandatory: boolean;
+  sequence_order: number | null;
 }
 
 export interface TrainingSkillLink {
@@ -142,6 +173,8 @@ function buildQuery(params: TrainingsListParams): string {
   if (params.page) usp.set('page', String(params.page));
   if (params.page_size) usp.set('page_size', String(params.page_size));
   if (params.skill_id) usp.set('skill_id', params.skill_id);
+  if (params.job_id) usp.set('job_id', params.job_id);
+  if (params.worker_id) usp.set('worker_id', params.worker_id);
   const qs = usp.toString();
   return qs ? `${BASE}?${qs}` : BASE;
 }
@@ -156,7 +189,7 @@ export const trainingsApi = {
 
   // Job/skill/trainer links (TRN_3/4, Task 2)
   getJobLinks: (id: number) => api.get<{ jobs: TrainingJobLink[]; count: number }>(`${BASE}/${id}/job-links`),
-  setJobLinks: (id: number, jobIds: string[]) => api.put<{ success: boolean }>(`${BASE}/${id}/job-links`, { job_ids: jobIds }),
+  setJobLinks: (id: number, jobs: TrainingJobLinkInput[]) => api.put<{ success: boolean }>(`${BASE}/${id}/job-links`, { jobs }),
   getSkillLinks: (id: number) => api.get<{ skills: TrainingSkillLink[]; count: number }>(`${BASE}/${id}/skill-links`),
   setSkillLinks: (id: number, skillIds: string[]) => api.put<{ success: boolean }>(`${BASE}/${id}/skill-links`, { skill_ids: skillIds }),
   getTrainerLinks: (id: number) => api.get<{ trainers: TrainingTrainerLink[]; count: number }>(`${BASE}/${id}/trainer-links`),

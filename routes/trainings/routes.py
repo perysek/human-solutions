@@ -64,11 +64,20 @@ def _training_list_json(row, *, viewer: bool) -> dict:
     `trainer_ids`/`last_session_date`, not present on a single-training GET).
     `viewer` picks `trainer_ids` over `trainer_names` — same RODO_3/OQ_3 name
     redaction as `_redact_participant_for_viewer`, applied here instead of a
-    separate post-hoc redact pass since there's only one name-bearing field."""
+    separate post-hoc redact pass since there's only one name-bearing field.
+
+    `worker_status`/`job_is_mandatory`/`job_sequence_order`
+    (WorkerOnboardingTrainingsPage's picker) are only present on the row
+    dict when `worker_id`/`job_id` were passed to get_all — `.get(...)`
+    rather than `row['worker_status']` so this stays a no-op addition for
+    every other caller of this same endpoint."""
     d = _training_json(row)
     d['participant_count'] = row['participant_count']
     d['trainer_names'] = row['trainer_ids'] if viewer else row['trainer_names']
     d['last_session_date'] = row['last_session_date'].isoformat() if row['last_session_date'] else None
+    d['worker_status'] = row.get('worker_status')
+    d['job_is_mandatory'] = row.get('job_is_mandatory')
+    d['job_sequence_order'] = row.get('job_sequence_order')
     return d
 
 
@@ -103,10 +112,13 @@ def _redact_participant_for_viewer(p: dict) -> dict:
 @login_required
 @module_permission_required('trainings')
 def api_list():
-    """GET /trainings/api?search=&sort=&order=&page=&page_size=&skill_id= — TRN_1.
+    """GET /trainings/api?search=&sort=&order=&page=&page_size=&skill_id=&job_id=&worker_id= — TRN_1.
     `skill_id` (ActionPlanModal's "Szkolenie" picker) narrows to trainings
     actually linked to that skill via training_skills — see
-    TrainingRepository.get_all's docstring."""
+    TrainingRepository.get_all's docstring. `job_id`/`worker_id`
+    (WorkerOnboardingTrainingsPage's "Szkolenia wstępne" picker) narrow to
+    one job's linked trainings and flag which ones this worker is already
+    enrolled in."""
     try:
         search = request.args.get('search') or None
         sort = request.args.get('sort') or None
@@ -114,8 +126,13 @@ def api_list():
         page = max(int(request.args.get('page', 1)), 1)
         page_size = min(max(int(request.args.get('page_size', 25)), 1), 200)
         skill_id = request.args.get('skill_id') or None
+        job_id = request.args.get('job_id') or None
+        worker_id = request.args.get('worker_id') or None
 
-        rows, total = TrainingRepository().get_all(search=search, sort=sort, order=order, page=page, page_size=page_size, skill_id=skill_id)
+        rows, total = TrainingRepository().get_all(
+            search=search, sort=sort, order=order, page=page, page_size=page_size,
+            skill_id=skill_id, job_id=job_id, worker_id=worker_id,
+        )
         viewer = current_user.role == 'viewer'
         return jsonify({
             'trainings': [_training_list_json(r, viewer=viewer) for r in rows],
@@ -208,7 +225,15 @@ def api_get_job_links(training_id):
         raise NotFoundError('Szkolenie nie znalezione')
     try:
         rows = TrainingJobRepository().get_by_training(training_id)
-        jobs = [{'job_id': r['job_id'], 'job_description': r['job_description']} for r in rows]
+        jobs = [
+            {
+                'job_id': r['job_id'],
+                'job_description': r['job_description'],
+                'is_mandatory': r['is_mandatory'],
+                'sequence_order': r['sequence_order'],
+            }
+            for r in rows
+        ]
         return jsonify({'jobs': jobs, 'count': len(jobs)})
     except AppError:
         raise
@@ -221,12 +246,16 @@ def api_get_job_links(training_id):
 @login_required
 @role_required('superadmin', 'hr_manager')
 def api_set_job_links(training_id):
-    """Body: {job_ids: [...]} — zastępuje cały zestaw powiązanych stanowisk (TRN_3)."""
+    """Body: {jobs: [{job_id, is_mandatory, sequence_order}, ...]} — zastępuje
+    cały zestaw powiązanych stanowisk wraz z ich metadanymi (TRN_3, migracja
+    n3o4p5q6r7s8). Ten sam endpoint obsługuje dodanie jednego powiązania
+    (WorkerOnboardingTrainingsPage's "Utwórz szkolenie" wysyła listę
+    jednoelementową dla świeżo utworzonego szkolenia)."""
     if not TrainingRepository().get_by_id(training_id):
         raise NotFoundError('Szkolenie nie znalezione')
     data = request.get_json() or {}
     try:
-        TrainingJobRepository().replace_links(training_id, data.get('job_ids') or [])
+        TrainingJobRepository().replace_links(training_id, data.get('jobs') or [])
         return jsonify({'success': True})
     except AppError:
         raise

@@ -14,6 +14,7 @@ from config.auth_config import own_data_worker_id
 from config.database import managed_transaction
 from exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 import services.action_plan_service as action_plan_service
+import services.worker_onboarding_service as worker_onboarding_service
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
 from repositories.workers.worker_repository import WorkerRepository
@@ -153,6 +154,7 @@ def update_participant(participant_id: int, payload: dict, user) -> None:
     repo.update(participant_id, start_date, finish_date, remarks, effectiveness_date)
     TrainingRepository().recalculate_completion(existing['training_id'])
     action_plan_service.apply_training_effectiveness(participant_id)
+    worker_onboarding_service.recalculate_if_onboarding(existing['worker_id'], existing['is_onboarding'])
 
 
 def remove_participant(participant_id: int, user) -> None:
@@ -169,6 +171,7 @@ def remove_participant(participant_id: int, user) -> None:
     deleted = repo.delete(participant_id)
     if deleted:
         TrainingRepository().recalculate_completion(existing['training_id'])
+        worker_onboarding_service.recalculate_if_onboarding(existing['worker_id'], existing['is_onboarding'])
 
 
 def list_worker_history(worker_id: str) -> List[dict]:

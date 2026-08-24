@@ -3,11 +3,15 @@ import { Button } from '@/components/ui/Button';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
-import { trainingsApi, type TrainingJobLink } from '@/lib/api/trainings';
+import { trainingsApi, type TrainingJobLink, type TrainingJobLinkInput } from '@/lib/api/trainings';
 import { jobsApi, type JobListItem } from '@/lib/api/jobs';
 import { skillsApi } from '@/lib/api/skills';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
+
+function toInput(l: TrainingJobLink): TrainingJobLinkInput {
+  return { job_id: l.job_id, is_mandatory: l.is_mandatory, sequence_order: l.sequence_order };
+}
 
 /** Union of every job that requires any of `skillIds` (reverse of
  * TrainingSkillsSection's fetchSkillsRequiredByJobs), deduped by job_id.
@@ -83,6 +87,8 @@ export function TrainingJobsSection({
   const confirm = useConfirm();
 
   const [newJobId, setNewJobId] = useState('');
+  const [newMandatory, setNewMandatory] = useState(true);
+  const [newSequenceOrder, setNewSequenceOrder] = useState('');
   const [saving, setSaving] = useState(false);
 
   const availableJobs = useMemo(() => {
@@ -97,7 +103,7 @@ export function TrainingJobsSection({
    * start a concurrent auto-enroll that races the first on the same
    * duplicate-check (see autoEnrollWorkersFromJob's docstring for why that
    * matters here specifically). */
-  async function persist(next: string[]) {
+  async function persist(next: TrainingJobLinkInput[]) {
     try {
       await trainingsApi.setJobLinks(trainingId, next);
       toast.success('Powiązania zaktualizowane.');
@@ -138,10 +144,13 @@ export function TrainingJobsSection({
     if (!newJobId) return;
     const jobId = newJobId;
     const jobLabel = availableJobs.find((j) => j.id === jobId)?.description ?? jobId;
+    const sequenceOrder = newSequenceOrder.trim() ? Number(newSequenceOrder) : null;
     setSaving(true);
     try {
-      await persist([...links.map((l) => l.job_id), jobId]);
+      await persist([...links.map(toInput), { job_id: jobId, is_mandatory: newMandatory, sequence_order: sequenceOrder }]);
       setNewJobId('');
+      setNewMandatory(true);
+      setNewSequenceOrder('');
       await autoEnrollWorkersFromJob(jobId, jobLabel);
     } catch {
       // persist() already toasted the failure — nothing further to do,
@@ -161,7 +170,7 @@ export function TrainingJobsSection({
     if (!ok) return;
     setSaving(true);
     try {
-      await persist(links.filter((l) => l.job_id !== jobId).map((l) => l.job_id));
+      await persist(links.filter((l) => l.job_id !== jobId).map(toInput));
     } catch {
       // already toasted by persist()
     } finally {
@@ -184,6 +193,8 @@ export function TrainingJobsSection({
           <thead>
             <tr>
               <th>Stanowisko</th>
+              <th>Obowiązkowe</th>
+              <th>Kolejność</th>
               <th className="text-right"><span className="sr-only">Akcje</span></th>
             </tr>
           </thead>
@@ -191,6 +202,19 @@ export function TrainingJobsSection({
             {links.map((l) => (
               <tr key={l.job_id}>
                 <td>{l.job_description ?? l.job_id}</td>
+                <td>
+                  {l.is_mandatory ? (
+                    <span
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-success)', fontSize: '0.8125rem' }}
+                    >
+                      <Icon name="check_circle" size={16} />
+                      Tak
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--color-ink-subtle)', fontSize: '0.8125rem' }}>Nie</span>
+                  )}
+                </td>
+                <td>{l.sequence_order ?? '—'}</td>
                 <td className="text-right">
                   <button
                     type="button"
@@ -223,6 +247,33 @@ export function TrainingJobsSection({
             value={newJobId}
             onChange={setNewJobId}
           />
+        </div>
+        <div>
+          <label className="form-label" htmlFor="training-jobs-add-order">
+            Kolejność
+          </label>
+          <input
+            id="training-jobs-add-order"
+            type="number"
+            min={1}
+            className="form-input"
+            style={{ width: '6rem' }}
+            value={newSequenceOrder}
+            onChange={(e) => setNewSequenceOrder(e.target.value)}
+            placeholder="—"
+          />
+        </div>
+        <div className="flex items-center gap-2" style={{ paddingBottom: '0.625rem' }}>
+          <input
+            id="training-jobs-add-mandatory"
+            type="checkbox"
+            style={{ accentColor: 'var(--color-accent)' }}
+            checked={newMandatory}
+            onChange={(e) => setNewMandatory(e.target.checked)}
+          />
+          <label htmlFor="training-jobs-add-mandatory" className="text-sm" style={{ color: 'var(--color-ink)' }}>
+            Obowiązkowe
+          </label>
         </div>
         <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newJobId || saving}>
           <Icon name="add" size={16} />

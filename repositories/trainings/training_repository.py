@@ -32,6 +32,7 @@ class TrainingRepository(AuditableMixin, BaseRepository):
     def get_all(
         self, *, search: Optional[str] = None, sort: Optional[str] = None,
         order: str = 'asc', page: int = 1, page_size: int = 25, skill_id: Optional[str] = None,
+        job_id: Optional[str] = None, worker_id: Optional[str] = None,
     ) -> Tuple[List[Any], int]:
         """Paginated, filtered, sorted training catalog (TRN_1). Search
         matches the training's own description OR (via EXISTS, so a
@@ -43,7 +44,23 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         search) — the "Szkolenie" picker in ActionPlanModal uses it to show
         only trainings already linked to the gap's skill (training_skills),
         so raising a training-linked action plan can't point at a training
-        that has nothing to do with the skill it's meant to close."""
+        that has nothing to do with the skill it's meant to close.
+
+        `job_id` is the same idea over `training_job` — the "Szkolenia
+        wstępne" picker (WorkerOnboardingTrainingsPage) narrows the catalog
+        to trainings linked to one worker's job position.
+
+        `worker_id`, paired with `job_id`, adds one computed column
+        (`worker_status`, NULL unless passed) rather than filtering — the
+        picker needs to know, per row, whether this worker already has an
+        active enrollment (to disable that row's checkbox), not to have
+        already-enrolled trainings dropped from the list.
+
+        `job_id` also adds `job_is_mandatory`/`job_sequence_order` — that
+        specific (training, job) link's own training_job metadata (migration
+        n3o4p5q6r7s8), so the "Szkolenia wstępne" picker can show/sort by
+        them. Both NULL when `job_id` isn't passed (nothing to scope them
+        to — a training has no single "the" job)."""
         conditions = []
         params: list = []
 
@@ -61,6 +78,12 @@ class TrainingRepository(AuditableMixin, BaseRepository):
                 "EXISTS (SELECT 1 FROM training_skills tsk2 WHERE tsk2.training_id = trainings.id AND tsk2.skill_id = %s)"
             )
             params.append(skill_id)
+
+        if job_id:
+            conditions.append(
+                "EXISTS (SELECT 1 FROM training_job tj3 WHERE tj3.training_id = trainings.id AND tj3.job_id = %s)"
+            )
+            params.append(job_id)
 
         where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ''
 
@@ -81,6 +104,34 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         # b8c9d0e1f2a3), hence STRING_AGG rather than a single join.
         # `last_session_date` (Task 3) is the roster's latest finish_date —
         # NULL until at least one participant has actually finished.
+        # worker_status — only spliced in when worker_id is given, since its
+        # placeholder sits inside the SELECT list (before where_clause's own
+        # params in the final SQL text) and must be bound in that same
+        # left-to-right position. Same 3-value CASE as
+        # TrainingParticipantRepository._OPEN_REPORT_SELECT's `status`, minus
+        # the "completed" distinction being reachable here too — an
+        # already-fully-done onboarding training still counts as "already
+        # enrolled" for the picker's duplicate-guard.
+        worker_status_col = ''
+        worker_status_params: tuple = ()
+        if worker_id:
+            worker_status_col = (
+                ", (SELECT CASE WHEN tp2.finish_date IS NOT NULL AND tp2.effectiveness_date IS NOT NULL THEN 'completed' "
+                "WHEN tp2.finish_date IS NOT NULL THEN 'in_progress' ELSE 'defined' END "
+                "FROM training_participants tp2 WHERE tp2.training_id = trainings.id AND tp2.worker_id = %s "
+                "AND NOT tp2.is_deleted ORDER BY tp2.id DESC LIMIT 1) AS worker_status"
+            )
+            worker_status_params = (worker_id,)
+
+        job_link_col = ''
+        job_link_params: tuple = ()
+        if job_id:
+            job_link_col = (
+                ", (SELECT tj4.is_mandatory FROM training_job tj4 WHERE tj4.training_id = trainings.id AND tj4.job_id = %s) AS job_is_mandatory, "
+                "(SELECT tj4.sequence_order FROM training_job tj4 WHERE tj4.training_id = trainings.id AND tj4.job_id = %s) AS job_sequence_order"
+            )
+            job_link_params = (job_id, job_id)
+
         offset = max(page - 1, 0) * page_size
         list_query = (
             f"SELECT {_COLUMNS}, "
@@ -88,11 +139,12 @@ class TrainingRepository(AuditableMixin, BaseRepository):
             "(SELECT STRING_AGG(w.firstname || ' ' || w.surname, ', ' ORDER BY w.surname, w.firstname) "
             " FROM training_trainers tt JOIN workers w ON w.id = tt.trainer_id WHERE tt.training_id = trainings.id) AS trainer_names, "
             "(SELECT STRING_AGG(tt.trainer_id, ', ' ORDER BY tt.trainer_id) FROM training_trainers tt WHERE tt.training_id = trainings.id) AS trainer_ids, "
-            "(SELECT MAX(tp.finish_date) FROM training_participants tp WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS last_session_date "
+            "(SELECT MAX(tp.finish_date) FROM training_participants tp WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS last_session_date"
+            f"{worker_status_col}{job_link_col} "
             f"FROM trainings{where_clause} "
             f"ORDER BY {sort_column} {order_sql} NULLS LAST, id ASC LIMIT %s OFFSET %s"
         )
-        rows = self._fetch_all(list_query, tuple(params) + (page_size, offset))
+        rows = self._fetch_all(list_query, worker_status_params + job_link_params + tuple(params) + (page_size, offset))
 
         return rows, total
 

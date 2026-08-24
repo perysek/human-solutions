@@ -28,6 +28,7 @@ from repositories.workers.worker_skill_remark_repository import WorkerSkillRemar
 import services.action_plan_service as action_plan_service
 import services.competency_service as competency_service
 import services.worker_service as worker_service
+import services.worker_onboarding_service as worker_onboarding_service
 from services.alert_service import get_expiring_foreigner_docs
 
 # LUK_1/LUK_2 — the 4 status values the "plan działania" modal + tracking
@@ -76,6 +77,13 @@ def _worker_json(row) -> dict:
         # department, comma-joined if more than one holds it, None if their
         # job has no department or that department has no manager assigned.
         'boss_name': row.get('boss_name'),
+        # "Szkolenia wstępne" (worker_onboarding_status, joined by job_id —
+        # see WorkerRepository._FROM_CLAUSE). Both None = "Nie zaplanowane"
+        # (never bulk-scheduled for this worker's current job); otherwise
+        # `onboarding_completed` picks "Zakończone"/"W trakcie" and
+        # `onboarding_completion_pct` is that badge's own %.
+        'onboarding_completed': row.get('onboarding_completed'),
+        'onboarding_completion_pct': row.get('onboarding_completion_pct'),
         'gender': row['gender'],
         'hire_date': row['hire_date'].isoformat() if row['hire_date'] else None,
         'fire_date': row['fire_date'].isoformat() if row['fire_date'] else None,
@@ -315,6 +323,39 @@ def api_subordinates(worker_id):
         raise
     except Exception:
         logging.exception('Unexpected error in api_subordinates (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+# ─── "Szkolenia wstępne" (onboarding trainings bulk-schedule) ─────────────────
+
+@workers_bp.route('/api/<worker_id>/onboarding-trainings/schedule', methods=['POST'])
+@login_required
+@module_permission_required('workers')
+def api_schedule_onboarding_trainings(worker_id):
+    """POST /workers/api/<id>/onboarding-trainings/schedule — body:
+    {training_ids: [...], start_date: 'YYYY-MM-DD'}. Bulk-enrolls the worker
+    into every selected training (already scoped to their job's curriculum
+    by WorkerOnboardingTrainingsPage's own GET /trainings/api?job_id=&worker_id=
+    call — services.worker_onboarding_service re-validates that scope
+    server-side), stepping each training's planned start date +7 days past
+    the previous one (+1 if that lands on a Sunday). Trainings the worker is
+    already actively enrolled in are skipped, not rejected — see that
+    module's docstring."""
+    data = request.get_json() or {}
+    try:
+        result = worker_onboarding_service.schedule_onboarding_trainings(worker_id, data)
+        return jsonify({
+            'success': True,
+            'scheduled_count': result['scheduled_count'],
+            'skipped_count': result['skipped_count'],
+            'start_date': result['start_date'].isoformat(),
+            'end_date': result['end_date'].isoformat() if result['end_date'] else None,
+            'participant_ids': result['participant_ids'],
+        })
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_schedule_onboarding_trainings (workers)')
         raise AppError('Wystąpił błąd serwera')
 
 

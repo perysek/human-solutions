@@ -18,7 +18,7 @@ from repositories.base_repository import BaseRepository
 
 _SELECT = """
     SELECT tp.id, tp.training_id, tp.worker_id, w.firstname AS worker_firstname, w.surname AS worker_surname,
-           tp.start_date, tp.finish_date, tp.remarks,
+           tp.start_date, tp.finish_date, tp.remarks, tp.is_onboarding,
            tp.effectiveness_date, tp.created_at, tp.updated_at
     FROM training_participants tp
     JOIN workers w ON w.id = tp.worker_id
@@ -157,18 +157,21 @@ class TrainingParticipantRepository(AuditableMixin, BaseRepository):
 
     def create(
         self, training_id: int, worker_id: str, start_date: Optional[date], finish_date: Optional[date],
-        remarks: Optional[str],
+        remarks: Optional[str], is_onboarding: bool = False,
     ) -> int:
         """TRN_8 — zarejestruj uczestnika. `effectiveness_date` celowo nie
         jest tu parametrem: PRD wiąże ją z późniejszą oceną skuteczności
         szkolenia (TRN_9), nie z samą rejestracją. `trainer_id` przestał być
         parametrem tej metody wraz z migracją b8c9d0e1f2a3 — trener jest
         teraz przypisany do szkolenia (training_trainers), nie do
-        pojedynczego zapisu uczestnika."""
+        pojedynczego zapisu uczestnika. `is_onboarding` (migracja
+        m2n3o4p5q6r7) — ustawiane wyłącznie przez
+        services/worker_onboarding_service.py's bulk-schedule flow ("Szkolenia
+        wstępne"); zwykła rejestracja (TrainingViewPage) zostawia domyślne FALSE."""
         new_id = self._execute_insert(
-            "INSERT INTO training_participants (training_id, worker_id, start_date, finish_date, remarks) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (training_id, worker_id, start_date, finish_date, remarks),
+            "INSERT INTO training_participants (training_id, worker_id, start_date, finish_date, remarks, is_onboarding) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (training_id, worker_id, start_date, finish_date, remarks, is_onboarding),
         )
         self._audit('CREATE', training_id, label=worker_id)
         return new_id

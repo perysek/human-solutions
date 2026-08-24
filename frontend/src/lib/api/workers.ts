@@ -20,6 +20,11 @@ export interface WorkerListItem {
    * holds it). null if their job has no department, or that department has
    * no manager assigned. */
   boss_name: string | null;
+  /** "Szkolenia wstępne" (worker_onboarding_status, keyed by worker_id +
+   * this worker's current job_id). Both null = "Nie zaplanowane" — nobody's
+   * ever run the bulk-schedule flow for this worker's current job. */
+  onboarding_completed: boolean | null;
+  onboarding_completion_pct: number | null;
   gender: 'Male' | 'Female' | 'UNKNOWN';
   hire_date: string | null;
   fire_date: string | null;
@@ -174,6 +179,23 @@ function buildQuery(params: WorkersListParams): string {
   return qs ? `${BASE}?${qs}` : BASE;
 }
 
+/** "Szkolenia wstępne" bulk-schedule result — see WorkerOnboardingTrainingsPage.
+ * `end_date` is null only when every selected training was already an
+ * active enrollment (scheduled_count === 0). */
+export interface OnboardingScheduleResult {
+  success: boolean;
+  scheduled_count: number;
+  skipped_count: number;
+  start_date: string;
+  end_date: string | null;
+  participant_ids: number[];
+}
+
+export interface OnboardingSchedulePayload {
+  training_ids: number[];
+  start_date: string;
+}
+
 export interface NeedsAttentionSummary {
   gap_count: number;
   medical_count: number;
@@ -197,6 +219,8 @@ export const workersApi = {
   submitTermination: (id: string, payload: SubmitTerminationPayload) =>
     api.post<{ success: boolean; id: number }>(`${BASE}/${encodeURIComponent(id)}/termination`, payload),
   subordinates: (id: string) => api.get<{ subordinates: WorkerListItem[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/subordinates`),
+  scheduleOnboardingTrainings: (id: string, payload: OnboardingSchedulePayload) =>
+    api.post<OnboardingScheduleResult>(`${BASE}/${encodeURIComponent(id)}/onboarding-trainings/schedule`, payload),
   expiringForeignerDocs: (days = 30) =>
     api.get<{ workers: ExpiringForeignerDoc[]; count: number }>(`${BASE}/expiring-foreigner-docs?days=${days}`),
 
