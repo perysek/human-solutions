@@ -16,33 +16,35 @@ export function RoleViewPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader
-        title="Rola"
-        subtitle={role?.display_name}
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => navigate('/roles')}>
-              Wróć do listy
-            </Button>
-            {role && (
-              <Button variant="primary" onClick={() => navigate(`/roles/${role.id}/edit`)}>
-                Edytuj
+      <div className="form-page-shell">
+        <PageHeader
+          title="Rola"
+          subtitle={role?.display_name}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => navigate('/roles')}>
+                Wróć do listy
               </Button>
-            )}
-          </>
-        }
-      />
+              {role && (
+                <Button variant="primary" onClick={() => navigate(`/roles/${role.id}/edit`)}>
+                  Edytuj
+                </Button>
+              )}
+            </>
+          }
+        />
 
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !role ? (
-        <EmptyState icon="error" title="Nie znaleziono roli" message={error ?? undefined} />
-      ) : (
-        <div className="form-card">
-          <h2 className="form-legend">Uprawnienia modułowe</h2>
-          <RolePermissionMatrix value={role.permissions_detail} readOnly />
-        </div>
-      )}
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !role ? (
+          <EmptyState icon="error" title="Nie znaleziono roli" message={error ?? undefined} />
+        ) : (
+          <div className="form-card">
+            <h2 className="form-legend">Uprawnienia modułowe</h2>
+            <RolePermissionMatrix value={role.permissions_detail} readOnly />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -9,7 +9,7 @@ export function JobWorkersSection({ jobId }: { jobId: string }) {
   const workers = data?.workers ?? [];
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
+    <div className="form-card animate-fade-up">
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Pracownicy na tym stanowisku
       </h2>

@@ -43,52 +43,54 @@ export function UserViewPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader
-        title="Użytkownik"
-        subtitle={user?.full_name}
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => navigate('/users')}>
-              Wróć do listy
-            </Button>
-            {user && <Button variant="primary" onClick={() => navigate(`/users/${user.id}/edit`)}>Edytuj</Button>}
-          </>
-        }
-      />
+      <div className="form-page-shell">
+        <PageHeader
+          title="Użytkownik"
+          subtitle={user?.full_name}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => navigate('/users')}>
+                Wróć do listy
+              </Button>
+              {user && <Button variant="primary" onClick={() => navigate(`/users/${user.id}/edit`)}>Edytuj</Button>}
+            </>
+          }
+        />
 
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !user ? (
-        <EmptyState icon="error" title="Nie znaleziono użytkownika" message={error ?? undefined} />
-      ) : (
-        <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Imię i nazwisko" value={user.full_name} />
-            <Field label="Email" value={user.email} />
-            <Field label="Rola" value={ROLE_LABELS[user.role] ?? user.role} />
-            <Field label="Status" value={<span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>{user.is_active ? 'Aktywny' : 'Nieaktywny'}</span>} />
-            <Field
-              label="Blokada konta"
-              value={
-                user.is_locked ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span className="status-badge inactive">
-                      Zablokowane {user.locked_until ? `do ${new Date(user.locked_until).toLocaleString('pl-PL')}` : ''}
-                    </span>
-                    <Button variant="secondary" small onClick={handleUnlock}>
-                      Odblokuj
-                    </Button>
-                  </div>
-                ) : (
-                  `Brak (${user.failed_logins} nieudanych prób od ostatniego sukcesu)`
-                )
-              }
-            />
-            <Field label="Ostatnie logowanie" value={user.last_login ? new Date(user.last_login).toLocaleString('pl-PL') : 'nigdy'} />
-            <Field label="Utworzono" value={user.created_at ? new Date(user.created_at).toLocaleString('pl-PL') : '—'} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !user ? (
+          <EmptyState icon="error" title="Nie znaleziono użytkownika" message={error ?? undefined} />
+        ) : (
+          <div className="form-card animate-fade-up">
+            <div className="form-grid">
+              <Field label="Imię i nazwisko" value={user.full_name} />
+              <Field label="Email" value={user.email} />
+              <Field label="Rola" value={ROLE_LABELS[user.role] ?? user.role} />
+              <Field label="Status" value={<span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>{user.is_active ? 'Aktywny' : 'Nieaktywny'}</span>} />
+              <Field
+                label="Blokada konta"
+                value={
+                  user.is_locked ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span className="status-badge inactive">
+                        Zablokowane {user.locked_until ? `do ${new Date(user.locked_until).toLocaleString('pl-PL')}` : ''}
+                      </span>
+                      <Button variant="secondary" small onClick={handleUnlock}>
+                        Odblokuj
+                      </Button>
+                    </div>
+                  ) : (
+                    `Brak (${user.failed_logins} nieudanych prób od ostatniego sukcesu)`
+                  )
+                }
+              />
+              <Field label="Ostatnie logowanie" value={user.last_login ? new Date(user.last_login).toLocaleString('pl-PL') : 'nigdy'} />
+              <Field label="Utworzono" value={user.created_at ? new Date(user.created_at).toLocaleString('pl-PL') : '—'} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

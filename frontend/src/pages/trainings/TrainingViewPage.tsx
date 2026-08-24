@@ -83,80 +83,86 @@ export function TrainingViewPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader
-        title="Szkolenie"
-        subtitle={training?.description}
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => navigate('/trainings')}>
-              Wróć do listy
-            </Button>
-            {training && fullAccess && (
-              <Button variant="danger" onClick={handleDelete}>
-                Usuń
+      {/* Wider than the standard 60rem .form-page-shell (still centered the
+          same way): the Uczestnicy table's 7 columns of inline-editable
+          cells — unlike TrainingForm's fields — genuinely need the extra
+          room; at 60rem "Uwagi" was truncating to 3-4 visible characters. */}
+      <div className="form-page-shell" style={{ maxWidth: '64rem' }}>
+        <PageHeader
+          title="Szkolenie"
+          subtitle={training?.description}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => navigate('/trainings')}>
+                Wróć do listy
               </Button>
-            )}
-            {training && canEdit && (
-              <Button variant="primary" onClick={() => navigate(`/trainings/${training.id}/edit`)}>
-                Edytuj
-              </Button>
-            )}
-          </>
-        }
-      />
+              {training && fullAccess && (
+                <Button variant="danger" onClick={handleDelete}>
+                  Usuń
+                </Button>
+              )}
+              {training && canEdit && (
+                <Button variant="primary" onClick={() => navigate(`/trainings/${training.id}/edit`)}>
+                  Edytuj
+                </Button>
+              )}
+            </>
+          }
+        />
 
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !training ? (
-        <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
-      ) : (
-        <div className="space-y-4">
-          <div className="form-card animate-fade-up" style={{ maxWidth: '64rem' }}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Nazwa" value={training.description} />
-              <Field label="Data szkolenia" value={training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'} />
-              <Field label="Stopień ukończenia" value={training.completion !== null ? `${training.completion}%` : '—'} />
-              <Field label="Uwagi" value={training.remarks ?? '—'} />
-              <div className="form-field-full">
-                <Field label="Szczegóły szkolenia" value={training.training_details ?? '—'} />
-              </div>
-              <div className="form-field-full">
-                <Field label="Dokumenty referencyjne" value={training.related_docs ?? '—'} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !training ? (
+          <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
+        ) : (
+          <div className="space-y-4">
+            <div className="form-card animate-fade-up">
+              <div className="form-grid">
+                <Field label="Nazwa" value={training.description} />
+                <Field label="Data szkolenia" value={training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'} />
+                <Field label="Stopień ukończenia" value={training.completion !== null ? `${training.completion}%` : '—'} />
+                <Field label="Uwagi" value={training.remarks ?? '—'} />
+                <div className="form-field-full">
+                  <Field label="Szczegóły szkolenia" value={training.training_details ?? '—'} />
+                </div>
+                <div className="form-field-full">
+                  <Field label="Dokumenty referencyjne" value={training.related_docs ?? '—'} />
+                </div>
               </div>
             </div>
+
+            {/* TRN_3/4 — job-links/skill-links routes gate on role_required('superadmin', 'hr_manager'),
+                not module access — `trainer`/`viewer` never reach these endpoints. */}
+            {fullAccess && (
+              <TrainingJobsSection
+                trainingId={training.id}
+                jobLinks={jobLinks}
+                loading={jobLinksLoading}
+                reload={reloadJobLinks}
+                onParticipantsChanged={reloadParticipants}
+                linkedSkillIds={skillLinks.map((l) => l.skill_id)}
+              />
+            )}
+            {fullAccess && (
+              <TrainingSkillsSection
+                trainingId={training.id}
+                skillLinks={skillLinks}
+                loading={skillLinksLoading}
+                reload={reloadSkillLinks}
+                linkedJobIds={jobLinks.map((l) => l.job_id)}
+              />
+            )}
+
+            <ParticipantsTable
+              trainingId={training.id}
+              participants={participants}
+              loading={participantsLoading}
+              reload={reloadParticipants}
+              canManage={canEdit}
+            />
           </div>
-
-          {/* TRN_3/4 — job-links/skill-links routes gate on role_required('superadmin', 'hr_manager'),
-              not module access — `trainer`/`viewer` never reach these endpoints. */}
-          {fullAccess && (
-            <TrainingJobsSection
-              trainingId={training.id}
-              jobLinks={jobLinks}
-              loading={jobLinksLoading}
-              reload={reloadJobLinks}
-              onParticipantsChanged={reloadParticipants}
-              linkedSkillIds={skillLinks.map((l) => l.skill_id)}
-            />
-          )}
-          {fullAccess && (
-            <TrainingSkillsSection
-              trainingId={training.id}
-              skillLinks={skillLinks}
-              loading={skillLinksLoading}
-              reload={reloadSkillLinks}
-              linkedJobIds={jobLinks.map((l) => l.job_id)}
-            />
-          )}
-
-          <ParticipantsTable
-            trainingId={training.id}
-            participants={participants}
-            loading={participantsLoading}
-            reload={reloadParticipants}
-            canManage={canEdit}
-          />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

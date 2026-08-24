@@ -186,7 +186,7 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem' }}>
+    <div className="form-card animate-fade-up">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
           Uczestnicy

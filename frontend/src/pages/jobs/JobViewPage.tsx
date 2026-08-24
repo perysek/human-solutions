@@ -28,48 +28,50 @@ export function JobViewPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader
-        title="Stanowisko"
-        subtitle={job?.id}
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => navigate('/jobs')}>
-              Wróć do listy
-            </Button>
-            {job && canWrite && (
-              <Button variant="primary" onClick={() => navigate(`/jobs/${encodeURIComponent(job.id)}/edit`)}>
-                Edytuj
+      <div className="form-page-shell">
+        <PageHeader
+          title="Stanowisko"
+          subtitle={job?.id}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => navigate('/jobs')}>
+                Wróć do listy
               </Button>
-            )}
-          </>
-        }
-      />
+              {job && canWrite && (
+                <Button variant="primary" onClick={() => navigate(`/jobs/${encodeURIComponent(job.id)}/edit`)}>
+                  Edytuj
+                </Button>
+              )}
+            </>
+          }
+        />
 
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !job ? (
-        <EmptyState icon="error" title="Nie znaleziono stanowiska" message={error ?? undefined} />
-      ) : (
-        <div className="space-y-4">
-          <div className="form-card animate-fade-up" style={{ maxWidth: '40rem' }}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Kod" value={job.id} />
-              <Field label="Opis" value={job.description ?? '—'} />
-              <Field label="Utworzono" value={job.created_at ? new Date(job.created_at).toLocaleString('pl-PL') : '—'} />
-              <Field label="Zaktualizowano" value={job.updated_at ? new Date(job.updated_at).toLocaleString('pl-PL') : '—'} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !job ? (
+          <EmptyState icon="error" title="Nie znaleziono stanowiska" message={error ?? undefined} />
+        ) : (
+          <div className="space-y-4">
+            <div className="form-card animate-fade-up">
+              <div className="form-grid">
+                <Field label="Kod" value={job.id} />
+                <Field label="Opis" value={job.description ?? '—'} />
+                <Field label="Utworzono" value={job.created_at ? new Date(job.created_at).toLocaleString('pl-PL') : '—'} />
+                <Field label="Zaktualizowano" value={job.updated_at ? new Date(job.updated_at).toLocaleString('pl-PL') : '—'} />
+              </div>
             </div>
+
+            <JobSkillsSection jobId={job.id} canWrite={canWrite} />
+
+            {/* GET /jobs/api/<id>/workers gates on the 'workers' module, not
+                'jobs' (RODO — see routes/jobs/routes.py's comment), so this
+                section only renders for roles that actually have that grant —
+                today the same superadmin/hr_manager set as 'jobs', but not
+                guaranteed to always be. */}
+            {hasModuleAccess('workers') && <JobWorkersSection jobId={job.id} />}
           </div>
-
-          <JobSkillsSection jobId={job.id} canWrite={canWrite} />
-
-          {/* GET /jobs/api/<id>/workers gates on the 'workers' module, not
-              'jobs' (RODO — see routes/jobs/routes.py's comment), so this
-              section only renders for roles that actually have that grant —
-              today the same superadmin/hr_manager set as 'jobs', but not
-              guaranteed to always be. */}
-          {hasModuleAccess('workers') && <JobWorkersSection jobId={job.id} />}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

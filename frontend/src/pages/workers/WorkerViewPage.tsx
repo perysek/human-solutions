@@ -31,11 +31,11 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '48rem' }}>
+    <div className="form-card animate-fade-up">
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         {title}
       </h2>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+      <div className="form-grid">{children}</div>
     </div>
   );
 }
@@ -70,122 +70,124 @@ export function WorkerViewPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader
-        title="Pracownik"
-        subtitle={worker?.full_name}
-        subtitleViewTransitionName={worker ? `worker-name-${worker.id}` : undefined}
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => navigate('/workers')}>
-              Wróć do listy
-            </Button>
-            {worker && (
-              <Button variant="secondary" onClick={() => navigate(`/workers/${encodeURIComponent(worker.id)}/subordinates`)}>
-                Podwładni
+      <div className="form-page-shell">
+        <PageHeader
+          title="Pracownik"
+          subtitle={worker?.full_name}
+          subtitleViewTransitionName={worker ? `worker-name-${worker.id}` : undefined}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => navigate('/workers')}>
+                Wróć do listy
               </Button>
-            )}
-            {worker?.is_active && (
-              <Button variant="danger" onClick={handleDeactivate}>
-                Dezaktywuj
-              </Button>
-            )}
-            {worker && (
-              <Button variant="primary" onClick={() => navigate(`/workers/${encodeURIComponent(worker.id)}/edit`)}>
-                Edytuj
-              </Button>
-            )}
-          </>
-        }
-      />
-
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !worker ? (
-        <EmptyState icon="error" title="Nie znaleziono pracownika" message={error ?? undefined} />
-      ) : (
-        <div className="space-y-4">
-          <Section title="Dane podstawowe">
-            <Field label="Id" value={worker.id} />
-            <Field label="Imię i nazwisko" value={worker.full_name} />
-            <Field
-              label="Stanowisko"
-              value={
-                worker.job_id ? (
-                  <Link to={`/jobs/${encodeURIComponent(worker.job_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
-                    {worker.job_description ?? worker.job_id}
-                  </Link>
-                ) : (
-                  '—'
-                )
-              }
-            />
-            <Field
-              label="Przełożony"
-              value={
-                worker.boss_id ? (
-                  <Link to={`/workers/${encodeURIComponent(worker.boss_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
-                    {worker.boss_name}
-                  </Link>
-                ) : (
-                  '—'
-                )
-              }
-            />
-            <Field label="Płeć" value={GENDER_LABELS[worker.gender] ?? worker.gender} />
-            <Field label="Status" value={<StatusBadge status={worker.is_active ? 'active' : 'inactive'}>{worker.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>} />
-            <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />
-            <Field label="Data zwolnienia" value={worker.fire_date ? new Date(worker.fire_date).toLocaleDateString('pl-PL') : '—'} />
-          </Section>
-
-          <Section title="Dane urodzenia">
-            <Field label="Data urodzenia" value={worker.birth.birth_date ? new Date(worker.birth.birth_date).toLocaleDateString('pl-PL') : '—'} />
-            <Field label="Miejsce urodzenia" value={worker.birth.birth_place ?? '—'} />
-          </Section>
-
-          <Section title="Obywatelstwo">
-            <div className="form-field-full">
-              {worker.nationalities.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {worker.nationalities.map((n) => (
-                    <span key={n} className="refined-badge badge-gray">
-                      {n}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>Brak danych.</p>
+              {worker && (
+                <Button variant="secondary" onClick={() => navigate(`/workers/${encodeURIComponent(worker.id)}/subordinates`)}>
+                  Podwładni
+                </Button>
               )}
-            </div>
-          </Section>
+              {worker?.is_active && (
+                <Button variant="danger" onClick={handleDeactivate}>
+                  Dezaktywuj
+                </Button>
+              )}
+              {worker && (
+                <Button variant="primary" onClick={() => navigate(`/workers/${encodeURIComponent(worker.id)}/edit`)}>
+                  Edytuj
+                </Button>
+              )}
+            </>
+          }
+        />
 
-          <Section title="Dane cudzoziemca">
-            {worker.foreigner ? (
-              <>
-                <Field label="Rodzaj dokumentu" value={worker.foreigner.document_kind ?? '—'} />
-                <Field label="Ważność dokumentu" value={worker.foreigner.document_validity ? new Date(worker.foreigner.document_validity).toLocaleDateString('pl-PL') : '—'} />
-                <Field label="Podstawa zatrudnienia" value={worker.foreigner.employment_basis ?? '—'} />
-                <Field label="Ważność podstawy" value={worker.foreigner.employment_basis_validity ? new Date(worker.foreigner.employment_basis_validity).toLocaleDateString('pl-PL') : '—'} />
-              </>
-            ) : (
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !worker ? (
+          <EmptyState icon="error" title="Nie znaleziono pracownika" message={error ?? undefined} />
+        ) : (
+          <div className="space-y-4">
+            <Section title="Dane podstawowe">
+              <Field label="Id" value={worker.id} />
+              <Field label="Imię i nazwisko" value={worker.full_name} />
+              <Field
+                label="Stanowisko"
+                value={
+                  worker.job_id ? (
+                    <Link to={`/jobs/${encodeURIComponent(worker.job_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
+                      {worker.job_description ?? worker.job_id}
+                    </Link>
+                  ) : (
+                    '—'
+                  )
+                }
+              />
+              <Field
+                label="Przełożony"
+                value={
+                  worker.boss_id ? (
+                    <Link to={`/workers/${encodeURIComponent(worker.boss_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
+                      {worker.boss_name}
+                    </Link>
+                  ) : (
+                    '—'
+                  )
+                }
+              />
+              <Field label="Płeć" value={GENDER_LABELS[worker.gender] ?? worker.gender} />
+              <Field label="Status" value={<StatusBadge status={worker.is_active ? 'active' : 'inactive'}>{worker.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>} />
+              <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />
+              <Field label="Data zwolnienia" value={worker.fire_date ? new Date(worker.fire_date).toLocaleDateString('pl-PL') : '—'} />
+            </Section>
+
+            <Section title="Dane urodzenia">
+              <Field label="Data urodzenia" value={worker.birth.birth_date ? new Date(worker.birth.birth_date).toLocaleDateString('pl-PL') : '—'} />
+              <Field label="Miejsce urodzenia" value={worker.birth.birth_place ?? '—'} />
+            </Section>
+
+            <Section title="Obywatelstwo">
               <div className="form-field-full">
-                <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>Pracownik nie jest cudzoziemcem.</p>
+                {worker.nationalities.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {worker.nationalities.map((n) => (
+                      <span key={n} className="refined-badge badge-gray">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>Brak danych.</p>
+                )}
               </div>
+            </Section>
+
+            <Section title="Dane cudzoziemca">
+              {worker.foreigner ? (
+                <>
+                  <Field label="Rodzaj dokumentu" value={worker.foreigner.document_kind ?? '—'} />
+                  <Field label="Ważność dokumentu" value={worker.foreigner.document_validity ? new Date(worker.foreigner.document_validity).toLocaleDateString('pl-PL') : '—'} />
+                  <Field label="Podstawa zatrudnienia" value={worker.foreigner.employment_basis ?? '—'} />
+                  <Field label="Ważność podstawy" value={worker.foreigner.employment_basis_validity ? new Date(worker.foreigner.employment_basis_validity).toLocaleDateString('pl-PL') : '—'} />
+                </>
+              ) : (
+                <div className="form-field-full">
+                  <p style={{ color: 'var(--color-ink-subtle)', fontSize: '0.875rem' }}>Pracownik nie jest cudzoziemcem.</p>
+                </div>
+              )}
+            </Section>
+
+            <WorkerCompetencySection workerId={worker.id} canWrite={canWrite} />
+
+            {hasModuleAccess('medical') && (
+              <WorkerMedicalSection workerId={worker.id} canWrite={!isModuleReadOnly('medical')} />
             )}
-          </Section>
 
-          <WorkerCompetencySection workerId={worker.id} canWrite={canWrite} />
+            {hasModuleAccess('bhp') && (
+              <WorkerBhpSection workerId={worker.id} canWrite={!isModuleReadOnly('bhp')} />
+            )}
 
-          {hasModuleAccess('medical') && (
-            <WorkerMedicalSection workerId={worker.id} canWrite={!isModuleReadOnly('medical')} />
-          )}
-
-          {hasModuleAccess('bhp') && (
-            <WorkerBhpSection workerId={worker.id} canWrite={!isModuleReadOnly('bhp')} />
-          )}
-
-          <WorkerTrainingHistorySection workerId={worker.id} />
-        </div>
-      )}
+            <WorkerTrainingHistorySection workerId={worker.id} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

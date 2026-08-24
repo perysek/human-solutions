@@ -116,7 +116,7 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '48rem' }}>
+    <div className="form-card animate-fade-up">
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Badania lekarskie
       </h2>
