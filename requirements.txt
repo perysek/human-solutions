@@ -9,42 +9,26 @@ bcrypt==4.1.2
 alembic==1.18.4
 psycopg2-binary==2.9.10  # PostgreSQL support (2.9.10 = first with cp313 wheels; fixes CI on Python 3.13)
 
-# OCR i przetwarzanie PDF
-pytesseract==0.3.13
-pdf2image==1.17.0
+# QR PNG rendering (mobile presence confirmation, see below)
 Pillow==12.2.0
-opencv-python>=4.8.0
-numpy>=1.24.0
-PyMuPDF>=1.24.0  # For direct text extraction from text-based PDFs
 
 # Eksport danych
 openpyxl==3.1.5
-pandas>=2.0.0
 
 # Import wizyt z URL (caldis.pl — metoda requests)
 requests>=2.28.0
 beautifulsoup4>=4.12.0
 
-# Import wizyt z URL (caldis.pl — metoda Playwright/Chromium)
-# Jednorazowa instalacja przeglądarki: python -m playwright install chromium
-playwright>=1.40.0
-
 # Parsowanie i walidacja
 python-dateutil==2.9.0.post0
 schwifty==2026.3.0
-
-# SMS — Twilio outbound reminders
-twilio>=9.0.0
-
-# Background job scheduler (SMS auto-send)
-APScheduler>=3.10.0
 
 # Utilities
 python-dotenv==1.2.2
 
 # Mobile presence confirmation (MOBILE_PRESENCE_CONFIRMATION_PLAN.md) —
 # rate-limiting the public sign-in endpoints; QR PNG rendering rides the
-# Pillow already installed above (OCR).
+# Pillow installed above.
 Flask-Limiter>=3.8,<4.0
 qrcode>=7.4,<8.0
 
