@@ -10,8 +10,9 @@ values; the categories table seeds the same 10 values so nothing breaks.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = 'k5l6m7n8o9p0'
 down_revision: Union[str, None] = 'j4k5l6m7n8o9'

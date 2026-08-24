@@ -14,9 +14,10 @@ import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
 
 const ROLE_LABELS: Record<string, string> = {
-  superuser: 'Superadmin',
-  admin: 'Administrator',
-  receptionist: 'Recepcjonistka',
+  superadmin: 'Administrator systemu',
+  hr_manager: 'Kierownik HR',
+  trainer: 'Trener',
+  viewer: 'Obserwator',
 };
 
 const STATUS_OPTIONS = [
@@ -44,7 +45,7 @@ export function UsersListPage() {
   const { hasRole } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
-  const canDelete = hasRole('superuser');
+  const canDelete = hasRole('superadmin');
 
   const { data, loading, error, reload } = useApiData(() => usersApi.list());
   const [search, setSearch] = useState('');
@@ -139,8 +140,8 @@ export function UsersListPage() {
                       onSort={onSort}
                       filter={{ options: STATUS_OPTIONS, selected: statusFilter, onChange: setStatusFilter }}
                     />
-                    <th>Pracownik</th>
-                    <th className="text-right">Akcje</th>
+                    <th>Blokada</th>
+                    <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,7 +164,13 @@ export function UsersListPage() {
                           {u.is_active ? 'Aktywny' : 'Nieaktywny'}
                         </span>
                       </td>
-                      <td>{u.employee_name ?? '—'}</td>
+                      <td>
+                        {u.is_locked ? (
+                          <span className="status-badge inactive">Zablokowane</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td>
                         <div className="action-icons">
                           <button

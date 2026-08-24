@@ -1,10 +1,11 @@
 /**
- * Mirrors database/models.py `User.role`. Kept as a union of the 3 roles
- * this build's seed data (scripts/seed_dev_data.py) actually creates —
- * the backend's `roles` table is the real source of truth and could have
- * more/fewer rows; this is just what the UI knows how to label.
+ * Mirrors config/auth_config.py's ROLE_HIERARCHY — the Staamp HR domain's
+ * four roles (IMPLEMENTATION_PLAN.md §5.1). The backend's `roles` table is
+ * the real source of truth (a superadmin can add further custom roles via
+ * the Roles UI); this union is just what the UI knows how to label without
+ * an extra round-trip.
  */
-export type Role = 'superuser' | 'admin' | 'receptionist';
+export type Role = 'superadmin' | 'hr_manager' | 'trainer' | 'viewer';
 
 export interface AuthUser {
   id: number;
@@ -13,6 +14,12 @@ export interface AuthUser {
   role: Role;
   isActive: boolean;
   lastLogin: string | null;
+  /** Faza 5 — links this account to a `workers` row (null for most
+   * superadmin/hr_manager accounts). Lets the UI compare against a
+   * training's `trainer_id` to decide whether a `trainer` owns it, without
+   * a round trip — the real enforcement is server-side
+   * (own_data_worker_id/assert_trainer_can_edit). */
+  workerId: string | null;
 }
 
 export interface ModulePermission {
@@ -33,8 +40,7 @@ export interface MeResponse {
     role: string;
     is_active: boolean;
     last_login: string | null;
+    worker_id: string | null;
   };
   permissions?: RawPermissions;
-  is_supervisor?: boolean;
-  has_linked_employee?: boolean;
 }

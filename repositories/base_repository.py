@@ -151,11 +151,11 @@ class BaseRepository:
 		"""Context manager for explicit transaction control.
 
 		Usage:
-		    with self.transaction() as conn:
-		        cursor = conn.cursor()
-		        cursor.execute(...)
-		        cursor.execute(...)
-		    # auto-commits on success, rolls back on exception
+			with self.transaction() as conn:
+				cursor = conn.cursor()
+				cursor.execute(...)
+				cursor.execute(...)
+			# auto-commits on success, rolls back on exception
 		"""
 		conn = self._get_conn()
 		try:
@@ -170,9 +170,9 @@ class BaseRepository:
 		"""Build safe IN clause placeholders.
 
 		Returns (placeholders_str, params_tuple):
-		    clause, params = self._in_clause([1, 2, 3])
-		    query = f"SELECT * FROM t WHERE id IN {clause}"
-		    cursor.execute(query, params)
+			clause, params = self._in_clause([1, 2, 3])
+			query = f"SELECT * FROM t WHERE id IN {clause}"
+			cursor.execute(query, params)
 		"""
 		placeholders = ','.join(['%s'] * len(items))
 		return f"({placeholders})", tuple(items)
@@ -202,6 +202,9 @@ class BaseRepository:
 		"""Przywróć soft-deleted rekord"""
 		if not self._soft_delete:
 			return False
-		query = f"UPDATE {self.table_name} SET is_deleted = FALSE, deleted_at = NULL WHERE id = %s AND is_deleted = TRUE"
+		query = (
+			f"UPDATE {self.table_name} SET is_deleted = FALSE, deleted_at = NULL "
+			"WHERE id = %s AND is_deleted = TRUE"
+		)
 		cursor = self._execute(query, (id,))
 		return cursor.rowcount > 0

@@ -2,15 +2,15 @@ import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { AuthLayout } from '@/components/layout/AuthLayout';
+import { Button } from '@/components/ui/Button';
 
 // Real accounts from scripts/seed_dev_data.py — see BACKEND_SETUP.md.
 const DEV_PASSWORD = 'DevPass123!';
 const DEV_ACCOUNTS = [
-  { email: 'anna.kowalska@myway.local', role: 'superuser' },
-  { email: 'marek.nowak@myway.local', role: 'admin' },
-  { email: 'piotr.zielinski@myway.local', role: 'admin' },
-  { email: 'katarzyna.wisniewska@myway.local', role: 'receptionist (supervisor)' },
-  { email: 'aleksandra.wojcik@myway.local', role: 'receptionist' },
+  { email: 'superadmin@dev.local', role: 'superadmin' },
+  { email: 'hr.manager@dev.local', role: 'hr_manager' },
+  { email: 'trainer@dev.local', role: 'trainer' },
+  { email: 'viewer@dev.local', role: 'viewer' },
 ];
 
 /** Faithful port of templates/auth/login.html — same card/input/button classes. */
@@ -27,7 +27,7 @@ export function LoginPage() {
 
   if (!isLoading && isAuthenticated) {
     const next = (location.state as { next?: string } | null)?.next;
-    return <Navigate to={next ?? '/profile'} replace />;
+    return <Navigate to={next ?? '/'} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -40,7 +40,7 @@ export function LoginPage() {
       return;
     }
     const next = (location.state as { next?: string } | null)?.next;
-    navigate(next ?? '/profile', { replace: true });
+    navigate(next ?? '/', { replace: true });
   }
 
   return (
@@ -48,19 +48,14 @@ export function LoginPage() {
     <div className="max-w-md w-full mx-4">
       <div className="refined-card" style={{ padding: '2.5rem' }}>
         <div className="text-center" style={{ marginBottom: '2.5rem' }}>
-          <img
-            src="/logo.webp"
-            alt="MyWay Nails &amp; Beauty"
-            style={{ display: 'block', width: '100%', maxWidth: 200, height: 'auto', objectFit: 'contain', margin: '0 auto 0.75rem' }}
-          />
-          {/* Single tracked caption instead of the previous large sans-serif
-              "Beauty Salon" heading, which clashed with the serif logo above
-              it — now matches the sidebar's own logo+caption treatment. */}
+          <h1 className="refined-title" style={{ marginBottom: '0.5rem' }}>
+            System Kadrowy
+          </h1>
           <p
             className="text-[13px] tracking-widest uppercase text-center"
             style={{ color: 'var(--color-ink-subtle)' }}
           >
-            Beauty Salon Management
+            Zarządzanie kadrami
           </p>
           <div
             aria-hidden="true"
@@ -119,9 +114,9 @@ export function LoginPage() {
             </label>
           </div>
 
-          <button type="submit" className="refined-btn-brand" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
+          <Button type="submit" variant="primary" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
             {submitting ? 'Logowanie…' : 'Zaloguj się'}
-          </button>
+          </Button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
@@ -131,7 +126,7 @@ export function LoginPage() {
         </div>
 
         <div className="refined-footer">
-          <p>&copy; {new Date().getFullYear()} MyWay Beauty Salon. Wszelkie prawa zastrzeżone.</p>
+          <p>&copy; {new Date().getFullYear()} System Kadrowy. Wszelkie prawa zastrzeżone.</p>
         </div>
       </div>
 

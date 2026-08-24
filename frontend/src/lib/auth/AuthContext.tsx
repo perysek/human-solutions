@@ -8,11 +8,14 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   /** True until the initial GET /auth/me session-check resolves. */
   isLoading: boolean;
-  isSupervisor: boolean;
-  hasLinkedEmployee: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   hasModuleAccess: (moduleName: ModuleName | string) => boolean;
+  /** True when the user's only grant to this module is read_only — mutating
+   * actions (create/edit/delete) must hide/disable, not just rely on the
+   * backend's 403 (module_permission_required already blocks the request;
+   * this is for not showing a button that would just fail). */
+  isModuleReadOnly: (moduleName: ModuleName | string) => boolean;
   hasRole: (...roles: Role[]) => boolean;
 }
 
@@ -26,6 +29,7 @@ function toAuthUser(raw: NonNullable<MeResponse['user']>): AuthUser {
     role: raw.role as Role,
     isActive: raw.is_active,
     lastLogin: raw.last_login,
+    workerId: raw.worker_id,
   };
 }
 
@@ -40,21 +44,15 @@ function toPermissionsMap(raw: MeResponse['permissions']): Record<string, Module
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [permissions, setPermissions] = useState<Record<string, ModulePermission>>({});
-  const [isSupervisor, setIsSupervisor] = useState(false);
-  const [hasLinkedEmployee, setHasLinkedEmployee] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const applyMe = useCallback((me: MeResponse) => {
     if (me.authenticated && me.user) {
       setUser(toAuthUser(me.user));
       setPermissions(toPermissionsMap(me.permissions));
-      setIsSupervisor(Boolean(me.is_supervisor));
-      setHasLinkedEmployee(Boolean(me.has_linked_employee));
     } else {
       setUser(null);
       setPermissions({});
-      setIsSupervisor(false);
-      setHasLinkedEmployee(false);
     }
   }, []);
 
@@ -103,6 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [permissions],
   );
 
+  const isModuleReadOnly = useCallback(
+    (moduleName: ModuleName | string) => permissions[moduleName]?.readOnly ?? false,
+    [permissions],
+  );
+
   const hasRole = useCallback((...roles: Role[]) => (user ? roles.includes(user.role) : false), [user]);
 
   const value = useMemo<AuthContextValue>(
@@ -110,19 +113,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: user !== null,
       isLoading,
-      isSupervisor,
-      hasLinkedEmployee,
       login,
       logout,
       hasModuleAccess,
+      isModuleReadOnly,
       hasRole,
     }),
-    [user, isLoading, isSupervisor, hasLinkedEmployee, login, logout, hasModuleAccess, hasRole],
+    [user, isLoading, login, logout, hasModuleAccess, isModuleReadOnly, hasRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Context + companion hook colocated deliberately (single call site pattern
+// used by every provider in this app — see ConfirmProvider/ToastProvider) —
+// react-refresh/only-export-components only affects HMR granularity, not
+// correctness, and isn't worth a second file for one hook.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within an <AuthProvider>');

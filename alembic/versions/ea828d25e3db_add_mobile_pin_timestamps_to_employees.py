@@ -8,8 +8,9 @@ Backs employee-edit-page PIN management: when the current PIN hash was set
 (reset/change/first-use) and when the employee last authenticated with it in
 the mobile app. NULL means "never".
 """
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = 'ea828d25e3db'
 down_revision = 'd5e6f7g8h9i0'

@@ -8,8 +8,9 @@ export interface UserListItem {
   is_active: boolean;
   last_login: string | null;
   created_at: string | null;
-  employee_id: number | null;
-  employee_name: string | null;
+  failed_logins: number;
+  is_locked: boolean;
+  locked_until: string | null;
 }
 
 export interface RoleOption {
@@ -18,15 +19,8 @@ export interface RoleOption {
   display_name: string;
 }
 
-export interface EmployeeOption {
-  id: number;
-  first_name: string;
-  last_name: string;
-}
-
 export interface UserFormOptions {
   roles: RoleOption[];
-  available_employees: EmployeeOption[];
 }
 
 export interface UserPayload {
@@ -34,7 +28,6 @@ export interface UserPayload {
   full_name: string;
   role: string;
   is_active: boolean;
-  employee_id?: number | null;
   password?: string;
   new_password?: string;
 }
@@ -49,4 +42,6 @@ export const usersApi = {
   update: (id: number, payload: Partial<UserPayload>) => api.put<{ success: boolean }>(`${BASE}/${id}`, payload),
   remove: (id: number) => api.del<{ success: boolean }>(`${BASE}/${id}`),
   toggleActive: (id: number) => api.put<{ success: boolean; is_active: boolean }>(`${BASE}/${id}/toggle-active`),
+  /** AUTH_5 manual-unlock side — superadmin only (routes/users/routes.py). */
+  unlock: (id: number) => api.put<{ success: boolean }>(`${BASE}/${id}/unlock`),
 };

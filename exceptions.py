@@ -46,6 +46,12 @@ class ConflictError(AppError):
     status_code = 409
 
 
+class GoneError(AppError):
+    """Referenced resource existed but is no longer valid (expired/revoked token)."""
+
+    status_code = 410
+
+
 class DatabaseConnectionError(AppError):
     """The database is unreachable or the connection died mid-request."""
 

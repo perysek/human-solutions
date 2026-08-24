@@ -4,15 +4,16 @@ import { Sidebar } from './Sidebar';
 
 /** Mirrors config/page_titles.py PAGE_TITLES, trimmed to this app's routes. */
 const PAGE_TITLES: [prefix: string, title: string][] = [
-  ['/employees/formy-zatrudnienia', 'Formy zatrudnienia'],
-  ['/employees/hierarchy', 'Hierarchia pracowników'],
-  ['/employees', 'Pracownicy'],
-  ['/absences/balances', 'Bilanse urlopowe'],
-  ['/absences/my', 'Moje nieobecności'],
-  ['/absences', 'Nieobecności'],
+  ['/workers', 'Pracownicy'],
+  ['/jobs', 'Stanowiska'],
+  ['/skills', 'Umiejętności'],
   ['/users', 'Użytkownicy'],
   ['/roles', 'Role'],
+  ['/alert-thresholds', 'Progi alertów'],
   ['/profile', 'Profil'],
+  // Catch-all — must stay last: every pathname starts with "/", so an
+  // earlier position would shadow every more specific prefix above.
+  ['/', 'Pulpit'],
 ];
 
 function pageTitleFor(pathname: string): string {
@@ -25,6 +26,11 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const isFirstRender = useRef(true);
   const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
+
+  function pathDepth(pathname: string): number {
+    return pathname.split('/').filter(Boolean).length;
+  }
 
   // SPA route-change focus management: a client-side navigation never fires
   // a browser "page load", so screen readers get no signal anything
@@ -35,8 +41,19 @@ export function AppShell() {
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      prevPathRef.current = location.pathname;
       return;
     }
+    // Directional cue for the #main-content view transition (components.css
+    // `:root[data-vt-direction]` rules): "drilling in" to a deeper route
+    // (e.g. /workers -> /workers/:id) slides one way, "backing out" slides
+    // the other — set before focus moves so it's already in place when the
+    // browser resolves the transition's "new" pseudo-element styles.
+    document.documentElement.setAttribute(
+      'data-vt-direction',
+      pathDepth(location.pathname) < pathDepth(prevPathRef.current) ? 'back' : 'forward',
+    );
+    prevPathRef.current = location.pathname;
     mainRef.current?.focus();
   }, [location.pathname]);
 
@@ -67,10 +84,10 @@ export function AppShell() {
             </svg>
           </button>
           <div className="lg:hidden flex items-center gap-2 min-w-0">
-            {/* logo-inline.webp is a purpose-built small export (494x143),
-                not the 3290x956 hero master downscaled 40x — the previous
-                aliasing culprit at this size. */}
-            <img src="/logo-inline.webp" alt="" className="h-7 w-auto object-contain" aria-hidden="true" />
+            {/* logo-inline.webp was MyWay Beauty Salon's wordmark (same issue
+                as Sidebar.tsx's brand header — see its comment) — no
+                replacement asset exists yet, so the condensed mobile header
+                is text-only for now. */}
             <span className="truncate text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               {pageTitleFor(location.pathname)}
             </span>
@@ -94,7 +111,7 @@ export function AppShell() {
             color: 'var(--color-ink-subtle)',
           }}
         >
-          &copy; {new Date().getFullYear()} MyWay Beauty Salon. Wszelkie prawa zastrzeżone.
+          &copy; {new Date().getFullYear()} System Kadrowy. Wszelkie prawa zastrzeżone.
         </footer>
       </div>
     </div>

@@ -5,6 +5,7 @@ Revises: e9f0a1b2c3d4, c1d2e3f4a5b6
 Create Date: 2026-03-31
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = 'g1h2i3j4k5l6'

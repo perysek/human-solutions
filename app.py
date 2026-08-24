@@ -17,16 +17,47 @@ _BASE_DIR = Path(__file__).parent
 load_dotenv(_BASE_DIR / '.env')
 load_dotenv(_BASE_DIR / '.env.local', override=True)
 
-from flask import Flask, jsonify
-from flask_login import LoginManager
+import uuid
 
-from config.database import DatabaseConnection, initialize_pool, assert_schema_current
+from flask import Flask, g, jsonify, request
+from flask_login import LoginManager
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+from config.database import DatabaseConnection, assert_schema_current, initialize_pool
+from config.logging_config import configure_logging
 from exceptions import AppError
+from extensions import limiter
 from repositories.users.user_repository import UserRepository
+
+# Runs once at import time (Python caches modules), so every create_app()
+# call — repeated across pytest fixtures, seed scripts, etc. — reuses the
+# same root-logger configuration rather than re-registering handlers.
+configure_logging(os.environ.get('LOG_LEVEL', 'INFO'))
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
+
+    # Nginx (DEPLOYMENT_VULTR.md) sits in front of Gunicorn and sets
+    # X-Forwarded-For/X-Real-IP correctly, but nothing in this app trusted
+    # them before — request.remote_addr was Nginx's own loopback address on
+    # every request. That was silently harmless while nothing read
+    # remote_addr; MOBILE_PRESENCE_CONFIRMATION_PLAN.md's public sign-in
+    # endpoints are the first thing that does (the presence-confirmation
+    # audit trail's ip_address column, and Flask-Limiter's per-IP key below)
+    # — both would be wrong/useless without this. x_for=1 trusts exactly one
+    # proxy hop, matching Nginx being the only proxy in front of Gunicorn.
+    # No-ops in dev (run_dev.py never sends X-Forwarded-For).
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    @app.before_request
+    def _assign_request_id():
+        g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+
+    @app.after_request
+    def _echo_request_id(response):
+        response.headers['X-Request-ID'] = g.get('request_id', '-')
+        return response
 
     secret_key = os.environ.get('SECRET_KEY', '')
     if not secret_key or len(secret_key) < 32:
@@ -66,6 +97,13 @@ def create_app() -> Flask:
         # Every consumer of this API is the SPA (fetch/XHR) — always JSON, never a redirect.
         return jsonify({'success': False, 'error': 'Wymagane logowanie.'}), 401
 
+    # --- Idle-timeout guard (AUTH_4) ---
+    from config.session_guard import register_idle_timeout
+    register_idle_timeout(app)
+
+    # --- Rate limiting (public sign-in endpoints, extensions.py) ---
+    limiter.init_app(app)
+
     # --- CSRF ---
     # No CSRF middleware here: every consumer is the SPA (frontend/), making
     # same-origin fetch/XHR calls with SESSION_COOKIE_SAMESITE='Lax' and an
@@ -75,16 +113,33 @@ def create_app() -> Flask:
     # CSRF) before this serves real traffic from an untrusted origin.
 
     # --- Blueprints ---
+    # employees_bp (salon domain) retired here — IMPLEMENTATION_PLAN.md §5.4.
     from routes.auth.routes import auth_bp
-    from routes.users.routes import users_bp
-    from routes.roles.routes import roles_bp
-    from routes.employees.routes import employees_bp
+    from routes.bhp.routes import bhp_bp
+    from routes.dashboard.routes import dashboard_bp
+    from routes.departments.routes import departments_bp
+    from routes.jobs.routes import jobs_bp
     from routes.main.routes import main_bp
+    from routes.medical.routes import medical_bp
+    from routes.public.routes import public_bp
+    from routes.roles.routes import roles_bp
+    from routes.skills.routes import skills_bp
+    from routes.trainings.routes import trainings_bp
+    from routes.users.routes import users_bp
+    from routes.workers.routes import workers_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(public_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)
-    app.register_blueprint(employees_bp)
+    app.register_blueprint(jobs_bp)
+    app.register_blueprint(departments_bp)
+    app.register_blueprint(skills_bp)
+    app.register_blueprint(workers_bp)
+    app.register_blueprint(medical_bp)
+    app.register_blueprint(bhp_bp)
+    app.register_blueprint(trainings_bp)
+    app.register_blueprint(dashboard_bp)
     app.register_blueprint(main_bp)
 
     # Singleton some routes reach via current_app.audit_repo (routes/users, routes/roles).

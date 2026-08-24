@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { Icon } from '@/lib/icons/Icon';
 
 interface SidebarSectionProps {
   id: string;
@@ -52,15 +53,7 @@ export function SidebarSection({ id, title, open, onToggle, children }: SidebarS
         onClick={onToggle}
       >
         {title}
-        <svg
-          className={`sidebar-chevron ml-auto w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          aria-hidden="true"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <Icon name="expand_more" size={14} className={`dropdown-chevron ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       <div
         ref={itemsRef}

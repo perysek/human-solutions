@@ -2,7 +2,7 @@
 Repository dla historii zmian (audit log)
 """
 import logging
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from repositories.base_repository import BaseRepository
 
@@ -19,7 +19,11 @@ class AuditRepository(BaseRepository):
         self,
         entity_type: str,
         action: str,
-        entity_id: Optional[int] = None,
+        # int for surrogate-key entities (invoices, users, ...), str for the
+        # Staamp domain's natural TEXT keys (jobs, skills, workers, ...) —
+        # audit_log.entity_id is TEXT (widened by
+        # e4f5a6b7c8d9_widen_audit_log_entity_id_to_text) precisely to hold both.
+        entity_id: Optional[Union[int, str]] = None,
         entity_label: Optional[str] = None,
         field_name: Optional[str] = None,
         old_value: Optional[str] = None,
@@ -91,6 +95,9 @@ class AuditRepository(BaseRepository):
         self,
         invoice_id: Optional[int] = None,
         entity_type: Optional[str] = None,
+        entity_id: Optional[Union[int, str]] = None,
+        field_name: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> List[dict]:
         """
         Pobierz historię zmian z opcjonalnym filtrowaniem.
@@ -106,6 +113,28 @@ class AuditRepository(BaseRepository):
         if entity_type:
             conditions.append("a.entity_type = %s")
             params.append(entity_type)
+
+        # entity_id is only meaningful paired with entity_type — audit_log's
+        # entity_id is TEXT and reused across entity types (a worker '1' and
+        # an action_plan '1' are different rows), so this is the first
+        # caller needing a *single instance's* history (action_plans' LUK_1
+        # audit trail) rather than every row for a whole entity_type.
+        if entity_id is not None:
+            conditions.append("a.entity_id = %s")
+            params.append(str(entity_id))
+
+        # field_name/label: worker_skills' rating history (SKL_5) is audited
+        # under entity_type='worker', entity_id=worker_id (see
+        # WorkerSkillRepository.set_rating) — a worker can have several
+        # skills, so isolating *one skill's* rating changes needs both the
+        # field ('current_rating') and the label (set_rating's
+        # label=skill_id) narrowed, not just the worker.
+        if field_name:
+            conditions.append("a.field_name = %s")
+            params.append(field_name)
+        if label:
+            conditions.append("a.entity_label = %s")
+            params.append(label)
 
         where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
@@ -151,83 +180,6 @@ class AuditRepository(BaseRepository):
             })
 
         return results
-
-    def get_for_employee_balance(self, employee_id: int) -> List[dict]:
-        """Historia zmian limitów i korekt dla konkretnego pracownika."""
-        query = """
-            SELECT
-                a.id, a.entity_type, a.entity_id, a.entity_label,
-                a.action, a.field_name, a.old_value, a.new_value,
-                a.user_id,
-                COALESCE(a.user_name, u.full_name) AS user_name,
-                a.changed_at
-            FROM audit_log a
-            LEFT JOIN users u ON u.id = a.user_id
-            WHERE (
-                (a.entity_type = 'absence_limit' AND a.entity_id IN (
-                    SELECT id FROM employee_absence_limits WHERE employee_id = %s
-                ))
-                OR
-                (a.entity_type = 'absence_adjustment' AND a.entity_id IN (
-                    SELECT id FROM absence_balance_adjustments WHERE employee_id = %s
-                ))
-            )
-            ORDER BY a.changed_at DESC, a.id DESC
-            LIMIT 200
-        """
-        rows = self._fetch_all(query, (employee_id, employee_id))
-        return [
-            {
-                'id': r['id'],
-                'entity_type': r['entity_type'],
-                'entity_id': r['entity_id'],
-                'entity_label': r['entity_label'],
-                'action': r['action'],
-                'field_name': r['field_name'],
-                'old_value': r['old_value'],
-                'new_value': r['new_value'],
-                'user_id': r['user_id'],
-                'user_name': r['user_name'],
-                'timestamp': r['changed_at'],
-            }
-            for r in rows
-        ]
-
-    def delete_for_employee_balance(self, employee_id: int) -> int:
-        """Usuń wpisy historii zmian dla bilansów konkretnego pracownika."""
-        query = """
-            DELETE FROM audit_log
-            WHERE (
-                (entity_type = 'absence_limit' AND entity_id IN (
-                    SELECT id FROM employee_absence_limits WHERE employee_id = %s
-                ))
-                OR
-                (entity_type = 'absence_adjustment' AND entity_id IN (
-                    SELECT id FROM absence_balance_adjustments WHERE employee_id = %s
-                ))
-            )
-        """
-        cursor = self._execute(query, (employee_id, employee_id))
-        return cursor.rowcount
-
-    def get_employee_ids_with_balance_history(self) -> List[int]:
-        """Zwróć listę ID pracowników mających wpisy w historii bilansów."""
-        query = """
-            SELECT DISTINCT emp_id FROM (
-                SELECT eal.employee_id AS emp_id
-                FROM audit_log a
-                JOIN employee_absence_limits eal ON a.entity_id = eal.id
-                WHERE a.entity_type = 'absence_limit'
-                UNION
-                SELECT aba.employee_id AS emp_id
-                FROM audit_log a
-                JOIN absence_balance_adjustments aba ON a.entity_id = aba.id
-                WHERE a.entity_type = 'absence_adjustment'
-            ) sub
-            WHERE emp_id IS NOT NULL
-        """
-        rows = self._fetch_all(query, ())
-        return [r['emp_id'] for r in rows]
 
     def get_details_by_ids(self, ids_list: List[int]) -> List[dict]:
         """Pobierz szczegóły zmian dla podanych ID"""

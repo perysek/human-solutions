@@ -12,8 +12,10 @@ Existing rows keep pdf_path for backward-compat; the view_pdf endpoint
 falls back to the filesystem path when pdf_data is NULL.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = 'l6m7n8o9p0q1'
 down_revision: Union[str, None] = 'k5l6m7n8o9p0'

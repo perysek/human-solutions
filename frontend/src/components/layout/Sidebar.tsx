@@ -8,9 +8,10 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 import { NAV_SECTIONS } from './navConfig';
 
 const ROLE_LABELS: Record<string, string> = {
-  superuser: 'Superadmin',
-  admin: 'Administrator',
-  receptionist: 'Recepcjonistka',
+  superadmin: 'Administrator systemu',
+  hr_manager: 'Kierownik HR',
+  trainer: 'Trener',
+  viewer: 'Obserwator',
 };
 
 interface SidebarProps {
@@ -20,18 +21,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarProps) {
-  const { user, isSupervisor, hasLinkedEmployee, hasModuleAccess, logout } = useAuth();
+  const { user, hasModuleAccess, logout } = useAuth();
   const location = useLocation();
   const asideRef = useRef<HTMLElement>(null);
 
   const visibleSections = useMemo(() => {
     if (!user) return [];
-    const ctx = { user, isSupervisor, hasLinkedEmployee, hasModuleAccess };
+    const ctx = { user, hasModuleAccess };
     return NAV_SECTIONS.map((section) => ({
       ...section,
       links: section.links.filter((link) => link.visible(ctx)),
     })).filter((section) => section.links.length > 0);
-  }, [user, isSupervisor, hasLinkedEmployee, hasModuleAccess]);
+  }, [user, hasModuleAccess]);
 
   const activeSectionId = useMemo(
     () => visibleSections.find((s) => s.links.some((l) => location.pathname.startsWith(l.to)))?.id ?? null,
@@ -76,19 +77,19 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
         style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)', boxShadow: 'var(--shadow-sidebar)' }}
       >
         <div
-          className="px-4 py-2 flex flex-col items-center gap-1"
+          className="px-4 py-3 flex flex-col items-center gap-1"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}
         >
-          {/* Deliberate clear space: a fixed width instead of w-full stretch,
-              so the mark doesn't crowd the sidebar's edges. */}
-          <img
-            src="/logo.webp"
-            alt="MyWay Nails &amp; Beauty"
-            className="w-[200px] max-w-full h-auto object-contain py-1"
-            style={{ filter: 'var(--sidebar-logo-filter)' }}
-          />
-          <p className="text-[13px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
-            Beauty Salon Management
+          {/* /logo.webp was MyWay Beauty Salon's wordmark baked into the
+              image pixels (alt="" alone doesn't fix a logo whose branding
+              IS the graphic, not just its alt text) — no replacement asset
+              exists yet, so the text caption is the whole brand mark for
+              now. Re-add an <img> here once a real logo exists. */}
+          <p className="text-lg font-semibold tracking-tight text-center" style={{ color: 'var(--sidebar-text-active)' }}>
+            System Kadrowy
+          </p>
+          <p className="text-[11px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
+            Zarządzanie kadrami
           </p>
         </div>
 

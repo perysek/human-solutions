@@ -12,9 +12,9 @@ Introduces:
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'o9p0q1r2s3t4'
 down_revision: Union[str, None] = 'n8o9p0q1r2s3'

@@ -1,4 +1,5 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { ChangeEvent, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { SearchableSelect } from './SearchableSelect';
 
 /**
  * Form field primitives — the React equivalent of templates/components/
@@ -64,7 +65,13 @@ interface SelectOption {
 }
 
 type SelectFieldProps = Omit<FieldWrapperProps, 'htmlFor' | 'children'> &
-  Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> & { name: string; options: SelectOption[]; placeholder?: string };
+  Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> & {
+    name: string;
+    options: SelectOption[];
+    placeholder?: string;
+    /** Forwarded to SearchableSelect — see its own docstring. */
+    autoOpen?: boolean;
+  };
 
 export function SelectField({
   label,
@@ -75,18 +82,22 @@ export function SelectField({
   fullWidth,
   options,
   placeholder,
-  ...rest
+  value,
+  onChange,
+  disabled,
+  autoOpen,
 }: SelectFieldProps) {
   return (
     <FieldWrapper label={label} htmlFor={name} required={required} error={error} helper={helper} fullWidth={fullWidth}>
-      <select id={name} name={name} required={required} className="form-select" {...rest}>
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <SearchableSelect
+        id={name}
+        options={options}
+        value={typeof value === 'string' ? value : String(value ?? '')}
+        onChange={(v) => onChange?.({ target: { name, value: v } } as unknown as ChangeEvent<HTMLSelectElement>)}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoOpen={autoOpen}
+      />
     </FieldWrapper>
   );
 }

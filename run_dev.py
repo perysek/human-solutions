@@ -11,6 +11,7 @@ Usage:
        python run_dev.py
 """
 import os
+
 from dotenv import load_dotenv
 
 # Load base .env first, then let .env.local override specific values.
@@ -20,7 +21,7 @@ load_dotenv('.env.local', override=True)
 
 # Verify the tunnel / database URL is configured before importing anything else.
 db_url = os.environ.get('DATABASE_URL', '')
-if not db_url in db_url:
+if db_url not in db_url:
     print()
     print("=" * 60)
     print("  ERROR: DATABASE_URL not configured in .env.local")

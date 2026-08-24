@@ -34,5 +34,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # Local dev parity for extensions.py's rate limiter (SCALING_PREP_PLAN.md
+  # Phase 4). Not used unless .env.local sets RATELIMIT_STORAGE_URI — the
+  # app defaults to in-process memory:// and works identically without this
+  # service running. Bring it up with `docker compose up -d redis`, then add
+  # to .env.local:
+  #   RATELIMIT_STORAGE_URI=redis://localhost:6379/0
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:

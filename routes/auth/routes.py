@@ -9,14 +9,15 @@ endpoint (Jinja had current_user directly).
 import secrets
 from datetime import datetime, timedelta
 
-from flask import Blueprint, request, session, jsonify
-from flask_login import login_user, logout_user, login_required, current_user
-from repositories.users.user_repository import UserRepository
-from repositories.audit_repository import AuditRepository
-from services.auth.auth_service import AuthService
+from flask import Blueprint, jsonify, request, session
+from flask_login import current_user, login_required, login_user, logout_user
+
+from config.auth_config import get_all_permission_flags
 from config.database import DatabaseConnection
 from config.ui_messages import msg
-from config.auth_config import get_all_permission_flags, is_supervisor, get_linked_employee
+from repositories.audit_repository import AuditRepository
+from repositories.users.user_repository import UserRepository
+from services.auth.auth_service import AuthService
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -30,25 +31,27 @@ def _user_json(user) -> dict:
         'role': user.role,
         'is_active': user.is_active,
         'last_login': user.last_login.isoformat() if user.last_login else None,
+        # Faza 5: exposed so the SPA can decide, without a round trip, whether
+        # the logged-in `trainer` is the owner of a given training (compare
+        # against its training_trainers set) — same worker_id the backend's
+        # own_data_worker_id() reads for the real enforcement.
+        'worker_id': getattr(user, 'worker_id', None),
     }
 
 
 @auth_bp.route('/me')
 def me():
     """Session-check for the SPA: who (if anyone) is logged in, plus their
-    module permissions / supervisor / linked-employee flags — the same
-    inputs the reference sidebar.html used server-side to decide what to
-    render, now shipped as data instead of computed per Jinja include."""
+    module permissions — the same inputs the reference sidebar.html used
+    server-side to decide what to render, now shipped as data instead of
+    computed per Jinja include."""
     if not current_user.is_authenticated:
         return jsonify({'authenticated': False})
 
-    linked_employee = get_linked_employee(current_user)
     return jsonify({
         'authenticated': True,
         'user': _user_json(current_user),
         'permissions': get_all_permission_flags(current_user.role),
-        'is_supervisor': is_supervisor(current_user),
-        'has_linked_employee': linked_employee is not None,
     })
 
 

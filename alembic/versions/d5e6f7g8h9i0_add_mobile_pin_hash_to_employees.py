@@ -8,8 +8,9 @@ Backs the employee-picker mobile app: each employee sets a short PIN on
 first use (bcrypt-hashed, never stored in plaintext) instead of the app
 relying on a per-appointment SMS token. NULL means "no PIN set yet".
 """
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = 'd5e6f7g8h9i0'
 down_revision = 'c4d5e6f7g8h9'

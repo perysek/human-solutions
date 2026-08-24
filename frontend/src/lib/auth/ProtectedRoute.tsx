@@ -5,8 +5,6 @@ import type { AuthUser } from './types';
 
 interface GuardCtx {
   user: AuthUser;
-  isSupervisor: boolean;
-  hasLinkedEmployee: boolean;
   hasModuleAccess: (moduleName: ModuleName | string) => boolean;
 }
 
@@ -30,7 +28,7 @@ interface ProtectedRouteProps {
  * session state is known.
  */
 export function ProtectedRoute({ requireModule, guard }: ProtectedRouteProps) {
-  const { user, isAuthenticated, isLoading, isSupervisor, hasLinkedEmployee, hasModuleAccess } = useAuth();
+  const { user, isAuthenticated, isLoading, hasModuleAccess } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -42,7 +40,7 @@ export function ProtectedRoute({ requireModule, guard }: ProtectedRouteProps) {
   }
 
   const allowed = guard
-    ? guard({ user, isSupervisor, hasLinkedEmployee, hasModuleAccess })
+    ? guard({ user, hasModuleAccess })
     : requireModule
       ? hasModuleAccess(requireModule)
       : true;

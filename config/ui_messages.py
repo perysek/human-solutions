@@ -62,6 +62,26 @@ MESSAGES = {
         'current':  'Wylogowano. Idź już, odpocznij od tych faktur.',
         'new':      'Wylogowano. Zmykaj — faktury poczekają do jutra.',
     },
+    # ── Auth: account lockout (AUTH_5) ───────────────────────────────────────
+    # "Nieprawidłowy email/hasło" attempts are user floppiness → savage. The
+    # lockout state itself is an automated response the user can't type their
+    # way out of (closer to "session expired" than "you fat-fingered a field")
+    # → calming, per the tone rule in this module's docstring.
+    'auth.login.bad_credentials_with_attempts': {
+        'previous': 'Nieprawidłowy email lub hasło. Pozostało prób: {remaining}.',
+        'current':  'Nieprawidłowy email lub hasło. Jeszcze {remaining} prób(y), zanim zatrzasnę drzwi.',
+        'new':      'Nieprawidłowy email lub hasło. Zostało Ci {remaining} prób(y) — licz się z nimi.',
+    },
+    'auth.login.newly_locked': {
+        'previous': 'Zbyt wiele nieudanych prób logowania. Konto zablokowane na {minutes} minut.',
+        'current':  'Zbyt wiele nieudanych prób. Konto zablokowane na {minutes} minut — ostudź się.',
+        'new':      'Zbyt wiele nieudanych prób. Konto zablokowane na {minutes} minut, żeby ktoś nie zgadywał dalej.',
+    },
+    'auth.login.account_locked': {
+        'previous': 'Konto zablokowane po zbyt wielu nieudanych próbach. Spróbuj ponownie za {minutes} minut.',
+        'current':  'Konto zablokowane. Wróć za {minutes} minut albo poproś administratora o odblokowanie.',
+        'new':      'Konto tymczasowo zablokowane. Wróć za {minutes} minut albo poproś administratora o wcześniejsze odblokowanie.',
+    },
     # ── Auth: change password (user floppiness → savage) ────────────────────
     'auth.change_password.missing_fields': {
         'previous': 'Wszystkie pola są wymagane',

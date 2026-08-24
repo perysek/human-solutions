@@ -9,9 +9,9 @@ Addon services (service_type='addon') do not belong to any category.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'a3f2e1d9b5c7'
 down_revision: Union[str, None] = 'ba16fcdbb066'
