@@ -13,14 +13,16 @@ export function RoleEditPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader title="Edytuj rolę" subtitle={role?.display_name} />
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !role ? (
-        <EmptyState icon="error" title="Nie znaleziono roli" message={error ?? undefined} />
-      ) : (
-        <RoleForm mode="edit" initial={role} onSaved={(savedId) => navigate(`/roles/${savedId}`)} onCancel={() => navigate('/roles')} />
-      )}
+      <div className="form-page-shell">
+        <PageHeader title="Edytuj rolę" subtitle={role?.display_name} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !role ? (
+          <EmptyState icon="error" title="Nie znaleziono roli" message={error ?? undefined} />
+        ) : (
+          <RoleForm mode="edit" initial={role} onSaved={(savedId) => navigate(`/roles/${savedId}`)} onCancel={() => navigate('/roles')} />
+        )}
+      </div>
     </div>
   );
 }

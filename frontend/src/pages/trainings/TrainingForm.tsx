@@ -59,7 +59,7 @@ export function TrainingForm({ mode, initial, onSaved, onCancel }: TrainingFormP
       {error && <div className="flash-message flash-error">{error}</div>}
 
       <FormSection title="Szkolenie">
-        <TextField label="Nazwa" name="description" value={description} onChange={(e) => setDescription(e.target.value)} required fullWidth />
+        <TextField label="Nazwa" name="description" value={description} onChange={(e) => setDescription(e.target.value)} required />
         <TextField label="Data szkolenia" name="training_date" type="date" value={trainingDate} onChange={(e) => setTrainingDate(e.target.value)} />
         <TextareaField label="Uwagi" name="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} fullWidth />
         <TextareaField

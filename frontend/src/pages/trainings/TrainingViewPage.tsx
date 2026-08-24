@@ -111,7 +111,7 @@ export function TrainingViewPage() {
         <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
       ) : (
         <div className="space-y-4">
-          <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
+          <div className="form-card animate-fade-up" style={{ maxWidth: '64rem' }}>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nazwa" value={training.description} />
               <Field label="Data szkolenia" value={training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
@@ -32,6 +32,15 @@ function fmt(d: string | null) {
   return d ? new Date(d).toLocaleDateString('pl-PL') : '—';
 }
 
+/** Comparison-only normalization — mirrors handleSaveRow's own
+ * `remarks.trim()` so a draft that only differs from the last-saved
+ * participant by leading/trailing whitespace doesn't read as "dirty"
+ * forever (the server never echoes back the untrimmed value, so a raw
+ * draft/participant comparison would never resolve to equal). */
+function normalizeForCompare(d: RowDraft): RowDraft {
+  return { ...d, remarks: d.remarks.trim() };
+}
+
 interface ParticipantsTableProps {
   trainingId: number;
   participants: TrainingParticipant[];
@@ -63,6 +72,20 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [drafts, setDrafts] = useState<Record<number, RowDraft>>({});
   const [saving, setSaving] = useState(false);
+  // Brief "just saved" flash on a row's Save icon, cleared either by the
+  // timeout below or immediately by the row's next edit (updateDraft) —
+  // whichever comes first. Separate from isDirty (computed per-row further
+  // down by comparing the draft to the current participant) since a flash
+  // and "unsaved changes" are mutually exclusive but neither implies the
+  // other structurally.
+  const [savedFlash, setSavedFlash] = useState<Record<number, boolean>>({});
+  const flashTimeouts = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  useEffect(() => {
+    const timeouts = flashTimeouts.current;
+    return () => {
+      Object.values(timeouts).forEach(clearTimeout);
+    };
+  }, []);
 
   const workerOptions = useMemo(
     () => (workersData?.workers ?? []).map((w) => ({ value: w.id, label: `${w.surname} ${w.firstname}` })),
@@ -87,6 +110,7 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
 
   function updateDraft(id: number, patch: Partial<RowDraft>) {
     setDrafts((cur) => ({ ...cur, [id]: { ...cur[id], ...patch } }));
+    setSavedFlash((cur) => (cur[id] ? { ...cur, [id]: false } : cur));
   }
 
   function startAdd() {
@@ -149,6 +173,11 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
       });
       toast.success('Uczestnik zaktualizowany.');
       reload();
+      setSavedFlash((cur) => ({ ...cur, [participantId]: true }));
+      clearTimeout(flashTimeouts.current[participantId]);
+      flashTimeouts.current[participantId] = setTimeout(() => {
+        setSavedFlash((cur) => ({ ...cur, [participantId]: false }));
+      }, 2000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się zaktualizować uczestnika.');
     } finally {
@@ -157,7 +186,7 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
+    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem' }}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
           Uczestnicy
@@ -190,6 +219,14 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
           <tbody>
             {participants.map((p) => {
               const d = drafts[p.id] ?? draftFromParticipant(p);
+              // Compares the live draft against the participant as last
+              // confirmed from the server (not a separate "original"
+              // snapshot) — see the drafts-seeding effect above for why
+              // that's the right baseline: it only overwrites a row's draft
+              // when there wasn't one yet, so `p` itself stays the
+              // source of truth for "last saved" between edits.
+              const isDirty = JSON.stringify(normalizeForCompare(d)) !== JSON.stringify(normalizeForCompare(draftFromParticipant(p)));
+              const saveStatus: 'saved' | 'dirty' | 'idle' = savedFlash[p.id] ? 'saved' : isDirty ? 'dirty' : 'idle';
               return (
                 <tr key={p.id}>
                   <td>{p.worker_name}</td>
@@ -274,9 +311,9 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
                         </button>
                         <button
                           type="button"
-                          className="action-icon-btn"
-                          title="Zapisz"
-                          aria-label={`Zapisz uczestnika ${p.worker_name}`}
+                          className={`action-icon-btn${saveStatus === 'idle' ? '' : ` save-status-${saveStatus}`}`}
+                          title={saveStatus === 'dirty' ? 'Niezapisane zmiany — zapisz' : saveStatus === 'saved' ? 'Zapisano' : 'Zapisz'}
+                          aria-label={`Zapisz uczestnika ${p.worker_name}${saveStatus === 'dirty' ? ' (niezapisane zmiany)' : ''}`}
                           onClick={() => handleSaveRow(p.id)}
                           disabled={saving}
                         >

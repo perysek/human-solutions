@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useServerSort } from '@/lib/useServerSort';
@@ -62,7 +63,11 @@ export function WorkersListPage() {
   }
 
   function goToView(worker: WorkerListItem) {
-    navigate(`/workers/${encodeURIComponent(worker.id)}`);
+    // viewTransition: true — pairs with the matching view-transition-name on
+    // the name cell below and on WorkerViewPage's PageHeader subtitle, so
+    // the clicked row's name morphs into the detail page's heading instead
+    // of hard-cutting to it.
+    navigate(`/workers/${encodeURIComponent(worker.id)}`, { viewTransition: true });
   }
 
   return (
@@ -147,13 +152,13 @@ export function WorkersListPage() {
                       style={{ cursor: 'pointer', animationDelay: `${Math.min(i, 7) * 30}ms` }}
                       aria-label={`Zobacz pracownika ${w.full_name}`}
                     >
-                      <td>{w.surname} {w.firstname}</td>
+                      <td style={{ viewTransitionName: `worker-name-${w.id}` } as React.CSSProperties}>{w.surname} {w.firstname}</td>
                       <td>{w.job_description ?? '—'}</td>
                       <td>{w.boss_name ?? '—'}</td>
                       <td>{GENDER_LABELS[w.gender] ?? w.gender}</td>
                       <td>{w.hire_date ? new Date(w.hire_date).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>
-                        <span className={`status-badge ${w.is_active ? 'active' : 'inactive'}`}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</span>
+                        <StatusBadge status={w.is_active ? 'active' : 'inactive'}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>
                       </td>
                       {canWrite && (
                         <td>

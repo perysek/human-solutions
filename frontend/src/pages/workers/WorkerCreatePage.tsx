@@ -6,8 +6,10 @@ export function WorkerCreatePage() {
   const navigate = useNavigate();
   return (
     <div className="refined-page">
-      <PageHeader title="Nowy pracownik" subtitle="Dodaj pracownika" />
-      <WorkerForm mode="create" onSaved={(id) => navigate(`/workers/${encodeURIComponent(id)}`)} onCancel={() => navigate('/workers')} />
+      <div className="form-page-shell">
+        <PageHeader title="Nowy pracownik" subtitle="Dodaj pracownika" />
+        <WorkerForm mode="create" onSaved={(id) => navigate(`/workers/${encodeURIComponent(id)}`)} onCancel={() => navigate('/workers')} />
+      </div>
     </div>
   );
 }

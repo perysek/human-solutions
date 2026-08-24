@@ -2,6 +2,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -72,6 +73,7 @@ export function WorkerViewPage() {
       <PageHeader
         title="Pracownik"
         subtitle={worker?.full_name}
+        subtitleViewTransitionName={worker ? `worker-name-${worker.id}` : undefined}
         actions={
           <>
             <Button variant="secondary" onClick={() => navigate('/workers')}>
@@ -130,7 +132,7 @@ export function WorkerViewPage() {
               }
             />
             <Field label="Płeć" value={GENDER_LABELS[worker.gender] ?? worker.gender} />
-            <Field label="Status" value={<span className={`status-badge ${worker.is_active ? 'active' : 'inactive'}`}>{worker.is_active ? 'Aktywny' : 'Nieaktywny'}</span>} />
+            <Field label="Status" value={<StatusBadge status={worker.is_active ? 'active' : 'inactive'}>{worker.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>} />
             <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />
             <Field label="Data zwolnienia" value={worker.fire_date ? new Date(worker.fire_date).toLocaleDateString('pl-PL') : '—'} />
           </Section>

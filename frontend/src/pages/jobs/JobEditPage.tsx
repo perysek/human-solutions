@@ -12,19 +12,21 @@ export function JobEditPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader title="Edytuj stanowisko" subtitle={job?.id} />
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !job ? (
-        <EmptyState icon="error" title="Nie znaleziono stanowiska" message={error ?? undefined} />
-      ) : (
-        <JobForm
-          mode="edit"
-          initial={job}
-          onSaved={(savedId) => navigate(`/jobs/${encodeURIComponent(savedId)}`)}
-          onCancel={() => navigate('/jobs')}
-        />
-      )}
+      <div className="form-page-shell">
+        <PageHeader title="Edytuj stanowisko" subtitle={job?.id} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !job ? (
+          <EmptyState icon="error" title="Nie znaleziono stanowiska" message={error ?? undefined} />
+        ) : (
+          <JobForm
+            mode="edit"
+            initial={job}
+            onSaved={(savedId) => navigate(`/jobs/${encodeURIComponent(savedId)}`)}
+            onCancel={() => navigate('/jobs')}
+          />
+        )}
+      </div>
     </div>
   );
 }

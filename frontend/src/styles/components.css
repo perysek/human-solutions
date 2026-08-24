@@ -509,6 +509,11 @@
 .status-badge.on-leave { background: var(--color-orange-bg); color: var(--color-orange); }
 .status-badge.terminated { background: rgba(155, 44, 44, 0.08); color: var(--color-error); }
 .status-badge.inactive { background: rgba(107, 114, 128, 0.08); color: var(--color-ink-muted); }
+/* Pops (StatusBadge component) whenever a badge's status changes in place
+   (e.g. deactivating a worker) — reuses .permission-tile's tile-check-pop
+   keyframe below so in-place status flips get the same "that registered"
+   feedback a full page reload gets for free. */
+.status-badge-pulse { animation: tile-check-pop 0.25s var(--ease-out-quart); }
 
 .action-icons {
   display: flex;
@@ -549,6 +554,22 @@
   pointer-events: auto;
 }
 .action-icon-btn.danger-reveal:hover { color: var(--color-error); background: rgba(155, 44, 44, 0.1); }
+
+/* Always-visible delete buttons (TrainingJobsSection/TrainingSkillsSection —
+   one action per row, nothing to "reveal") that still want the same red
+   hover cue as .danger-reveal, minus the opacity/translateX entrance since
+   there's no row-hover gating here. */
+.action-icon-btn.danger-hover { transition: color 0.2s ease, background 0.2s ease, transform 0.15s var(--ease-out-quart); }
+.action-icon-btn.danger-hover:hover { color: var(--color-error); background: rgba(155, 44, 44, 0.1); transform: scale(1.08); }
+
+/* ParticipantsTable's per-row Save icon — color communicates whether the
+   row's draft differs from the last-saved participant (see
+   ParticipantsTable.tsx's isDirty/saveStatus). Idle (nothing typed since
+   load/save) stays the default .action-icon-btn muted color. */
+.action-icon-btn.save-status-dirty { color: var(--color-warning); }
+.action-icon-btn.save-status-dirty:hover { color: var(--color-warning); background: rgba(154, 103, 0, 0.1); }
+.action-icon-btn.save-status-saved { color: var(--color-success); animation: tile-check-pop 0.3s var(--ease-out-quart); }
+.action-icon-btn.save-status-saved:hover { color: var(--color-success); background: rgba(45, 106, 79, 0.1); }
 
 .empty-state { padding: 3rem 2rem; text-align: center; }
 .empty-icon { font-size: 4rem; color: var(--color-ink-subtle); opacity: 0.3; margin-bottom: 1rem; }
@@ -625,13 +646,22 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Form pages sit at the top of .refined-page's own width — unlike the
-   40-48rem caps this replaced, .form-shell only bounds the form on very
-   wide monitors so inputs don't stretch to unreadable widths; on normal
-   desktop viewports it uses the full width .page-header already uses,
-   which is what lets .form-grid below fit more fields per row instead of
-   stacking them. */
+/* Wraps PageHeader + the form together on every Create/Edit page (see
+   .form-page-shell below) so the title and the form share one column —
+   .form-shell itself just bounds the field grid's own width inside that
+   column; on every Create/Edit page today the parent is already narrower
+   than 80rem, so this only matters if a future form-shell consumer isn't
+   wrapped in .form-page-shell. */
 .form-shell { width: 100%; max-width: 80rem; }
+
+/* Centers a Create/Edit page's title + form as one comfortably-narrow
+   column instead of the title sitting flush-left while the form card
+   stretches to .refined-page's full width — the mismatch that made
+   small forms (one or two fields in an 80rem-wide card) look like they
+   were floating in a sea of empty space. 60rem still gives .form-grid
+   below room for 3-4 columns, so dense forms (WorkerForm) don't regress
+   to single-column stacking. */
+.form-page-shell { width: 100%; max-width: 60rem; margin: 0 auto; }
 
 /* Auto-fit (not a fixed column count, and not auto-fill): each field
    claims a column only while there's >=220px of room for it, so the same
@@ -716,6 +746,7 @@
   .permission-tile { transition: border-color 0.15s ease, background 0.15s ease; }
   .permission-tile:active { transform: none; }
   .permission-tile:has(input:checked) { animation: none; }
+  .status-badge-pulse { animation: none; }
 }
 .permission-tile input { accent-color: var(--color-accent); flex-shrink: 0; width: 1rem; height: 1rem; }
 .form-btn-primary {
@@ -954,6 +985,21 @@
 #main-content { view-transition-name: main-content; }
 ::view-transition-new(main-content) { animation: sidebar-vt-in 0.2s var(--ease-out-expo) both; }
 ::view-transition-old(main-content) { animation: sidebar-vt-out 0.15s ease-in both; }
+
+/* Directional variant — AppShell sets data-vt-direction on <html> before
+   focus moves on every navigation, based on route-depth comparison
+   (/workers -> /workers/:id = forward/deeper, the reverse = back). The
+   attribute-qualified selectors below outrank the plain fallback above, so
+   "drilling in" and "backing out" read as opposite motions instead of the
+   same flat cross-fade for every navigation. */
+:root[data-vt-direction='forward']::view-transition-new(main-content) { animation: vt-slide-in-right 0.22s var(--ease-out-expo) both; }
+:root[data-vt-direction='forward']::view-transition-old(main-content) { animation: vt-slide-out-left 0.18s ease-in both; }
+:root[data-vt-direction='back']::view-transition-new(main-content) { animation: vt-slide-in-left 0.22s var(--ease-out-expo) both; }
+:root[data-vt-direction='back']::view-transition-old(main-content) { animation: vt-slide-out-right 0.18s ease-in both; }
+@keyframes vt-slide-in-right { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes vt-slide-out-left { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-16px); } }
+@keyframes vt-slide-in-left { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes vt-slide-out-right { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(16px); } }
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar-link--active,

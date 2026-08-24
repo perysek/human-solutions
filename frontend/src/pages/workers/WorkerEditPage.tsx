@@ -12,19 +12,21 @@ export function WorkerEditPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader title="Edytuj pracownika" subtitle={worker?.full_name} />
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !worker ? (
-        <EmptyState icon="error" title="Nie znaleziono pracownika" message={error ?? undefined} />
-      ) : (
-        <WorkerForm
-          mode="edit"
-          initial={worker}
-          onSaved={(savedId) => navigate(`/workers/${encodeURIComponent(savedId)}`)}
-          onCancel={() => navigate('/workers')}
-        />
-      )}
+      <div className="form-page-shell">
+        <PageHeader title="Edytuj pracownika" subtitle={worker?.full_name} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !worker ? (
+          <EmptyState icon="error" title="Nie znaleziono pracownika" message={error ?? undefined} />
+        ) : (
+          <WorkerForm
+            mode="edit"
+            initial={worker}
+            onSaved={(savedId) => navigate(`/workers/${encodeURIComponent(savedId)}`)}
+            onCancel={() => navigate('/workers')}
+          />
+        )}
+      </div>
     </div>
   );
 }

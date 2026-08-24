@@ -26,6 +26,11 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const isFirstRender = useRef(true);
   const location = useLocation();
+  const prevPathRef = useRef(location.pathname);
+
+  function pathDepth(pathname: string): number {
+    return pathname.split('/').filter(Boolean).length;
+  }
 
   // SPA route-change focus management: a client-side navigation never fires
   // a browser "page load", so screen readers get no signal anything
@@ -36,8 +41,19 @@ export function AppShell() {
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      prevPathRef.current = location.pathname;
       return;
     }
+    // Directional cue for the #main-content view transition (components.css
+    // `:root[data-vt-direction]` rules): "drilling in" to a deeper route
+    // (e.g. /workers -> /workers/:id) slides one way, "backing out" slides
+    // the other — set before focus moves so it's already in place when the
+    // browser resolves the transition's "new" pseudo-element styles.
+    document.documentElement.setAttribute(
+      'data-vt-direction',
+      pathDepth(location.pathname) < pathDepth(prevPathRef.current) ? 'back' : 'forward',
+    );
+    prevPathRef.current = location.pathname;
     mainRef.current?.focus();
   }, [location.pathname]);
 

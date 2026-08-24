@@ -6,8 +6,10 @@ export function JobCreatePage() {
   const navigate = useNavigate();
   return (
     <div className="refined-page">
-      <PageHeader title="Nowe stanowisko" subtitle="Dodaj stanowisko do słownika" />
-      <JobForm mode="create" onSaved={(id) => navigate(`/jobs/${encodeURIComponent(id)}`)} onCancel={() => navigate('/jobs')} />
+      <div className="form-page-shell">
+        <PageHeader title="Nowe stanowisko" subtitle="Dodaj stanowisko do słownika" />
+        <JobForm mode="create" onSaved={(id) => navigate(`/jobs/${encodeURIComponent(id)}`)} onCancel={() => navigate('/jobs')} />
+      </div>
     </div>
   );
 }

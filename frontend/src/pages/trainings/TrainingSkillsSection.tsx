@@ -97,7 +97,7 @@ export function TrainingSkillsSection({ trainingId, skillLinks: links, loading, 
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
+    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem' }}>
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Powiązane umiejętności
       </h2>
@@ -121,7 +121,7 @@ export function TrainingSkillsSection({ trainingId, skillLinks: links, loading, 
                 <td className="text-right">
                   <button
                     type="button"
-                    className="action-icon-btn"
+                    className="action-icon-btn danger-hover"
                     title="Usuń"
                     aria-label={`Usuń powiązanie ${l.skill_description}`}
                     onClick={() => handleRemove(l.skill_id, l.skill_description)}

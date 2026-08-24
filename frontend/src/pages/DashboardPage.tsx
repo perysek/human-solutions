@@ -75,12 +75,13 @@ export function DashboardPage() {
         <EmptyState icon="error" title="Nie udało się wczytać podsumowania" message={summaryError} />
       ) : (
         <div className="stats-grid">
-          <StatCard label="Aktywni pracownicy" value={summaryLoading ? '…' : (summary?.active_workers ?? 0)} icon="people" color="blue" />
+          <StatCard label="Aktywni pracownicy" value={summaryLoading ? '…' : (summary?.active_workers ?? 0)} icon="people" color="blue" index={0} />
           <StatCard
             label="Szkolenia w tym miesiącu"
             value={summaryLoading ? '…' : (summary?.trainings_this_month ?? 0)}
             icon="event"
             color="green"
+            index={1}
           />
         </div>
       )}

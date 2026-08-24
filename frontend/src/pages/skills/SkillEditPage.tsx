@@ -12,14 +12,16 @@ export function SkillEditPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader title="Edytuj umiejętność" subtitle={skill?.id} />
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !skill ? (
-        <EmptyState icon="error" title="Nie znaleziono umiejętności" message={error ?? undefined} />
-      ) : (
-        <SkillForm mode="edit" initial={skill} onSaved={() => navigate('/skills')} onCancel={() => navigate('/skills')} />
-      )}
+      <div className="form-page-shell">
+        <PageHeader title="Edytuj umiejętność" subtitle={skill?.id} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !skill ? (
+          <EmptyState icon="error" title="Nie znaleziono umiejętności" message={error ?? undefined} />
+        ) : (
+          <SkillForm mode="edit" initial={skill} onSaved={() => navigate('/skills')} onCancel={() => navigate('/skills')} />
+        )}
+      </div>
     </div>
   );
 }

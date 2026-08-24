@@ -13,19 +13,21 @@ export function TrainingEditPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader title="Edytuj szkolenie" subtitle={training?.description} />
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !training ? (
-        <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
-      ) : (
-        <TrainingForm
-          mode="edit"
-          initial={training}
-          onSaved={(savedId) => navigate(`/trainings/${savedId}`)}
-          onCancel={() => navigate('/trainings')}
-        />
-      )}
+      <div className="form-page-shell">
+        <PageHeader title="Edytuj szkolenie" subtitle={training?.description} />
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !training ? (
+          <EmptyState icon="error" title="Nie znaleziono szkolenia" message={error ?? undefined} />
+        ) : (
+          <TrainingForm
+            mode="edit"
+            initial={training}
+            onSaved={(savedId) => navigate(`/trainings/${savedId}`)}
+            onCancel={() => navigate('/trainings')}
+          />
+        )}
+      </div>
     </div>
   );
 }

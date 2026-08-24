@@ -89,60 +89,62 @@ export function AlertThresholdsPage() {
 
   return (
     <div className="refined-page">
-      <PageHeader title="Progi alertów" subtitle="Konfiguracja progów wygasających terminów (DSH_5)" />
+      <div className="form-page-shell">
+        <PageHeader title="Progi alertów" subtitle="Konfiguracja progów wygasających terminów (DSH_5)" />
 
-      {loading ? (
-        <p className="page-subtitle">Ładowanie…</p>
-      ) : error || !data ? (
-        <EmptyState icon="error" title="Nie udało się wczytać progów" message={error ?? undefined} />
-      ) : (
-        <form onSubmit={handleSubmit} className="form-shell space-y-3">
-          {formError && <div className="flash-message flash-error">{formError}</div>}
+        {loading ? (
+          <p className="page-subtitle">Ładowanie…</p>
+        ) : error || !data ? (
+          <EmptyState icon="error" title="Nie udało się wczytać progów" message={error ?? undefined} />
+        ) : (
+          <form onSubmit={handleSubmit} className="form-shell space-y-3">
+            {formError && <div className="flash-message flash-error">{formError}</div>}
 
-          {data.thresholds.map((t) => {
-            const row = rows[t.module] ?? { critical_days: '', warning_days: '', notice_days: '' };
-            return (
-              <div key={t.module} className="form-card">
-                <fieldset className="form-fieldset">
-                  <legend className="form-legend">{MODULE_LABELS[t.module]}</legend>
-                  <p className="form-fieldset-description">{MODULE_HELP[t.module]}</p>
-                  <div className="form-grid">
-                    <TextField
-                      label="Pilne (dni)"
-                      name={`${t.module}-critical`}
-                      type="number"
-                      min={1}
-                      value={row.critical_days}
-                      onChange={(e) => updateField(t.module, 'critical_days', e.target.value)}
-                      required
-                    />
-                    <TextField
-                      label="Zbliża się (dni)"
-                      name={`${t.module}-warning`}
-                      type="number"
-                      min={1}
-                      value={row.warning_days}
-                      onChange={(e) => updateField(t.module, 'warning_days', e.target.value)}
-                      required
-                    />
-                    <TextField
-                      label="Do obserwacji (dni)"
-                      name={`${t.module}-notice`}
-                      type="number"
-                      min={1}
-                      value={row.notice_days}
-                      onChange={(e) => updateField(t.module, 'notice_days', e.target.value)}
-                      required
-                    />
-                  </div>
-                </fieldset>
-              </div>
-            );
-          })}
+            {data.thresholds.map((t) => {
+              const row = rows[t.module] ?? { critical_days: '', warning_days: '', notice_days: '' };
+              return (
+                <div key={t.module} className="form-card">
+                  <fieldset className="form-fieldset">
+                    <legend className="form-legend">{MODULE_LABELS[t.module]}</legend>
+                    <p className="form-fieldset-description">{MODULE_HELP[t.module]}</p>
+                    <div className="form-grid">
+                      <TextField
+                        label="Pilne (dni)"
+                        name={`${t.module}-critical`}
+                        type="number"
+                        min={1}
+                        value={row.critical_days}
+                        onChange={(e) => updateField(t.module, 'critical_days', e.target.value)}
+                        required
+                      />
+                      <TextField
+                        label="Zbliża się (dni)"
+                        name={`${t.module}-warning`}
+                        type="number"
+                        min={1}
+                        value={row.warning_days}
+                        onChange={(e) => updateField(t.module, 'warning_days', e.target.value)}
+                        required
+                      />
+                      <TextField
+                        label="Do obserwacji (dni)"
+                        name={`${t.module}-notice`}
+                        type="number"
+                        min={1}
+                        value={row.notice_days}
+                        onChange={(e) => updateField(t.module, 'notice_days', e.target.value)}
+                        required
+                      />
+                    </div>
+                  </fieldset>
+                </div>
+              );
+            })}
 
-          <FormActions submitLabel="Zapisz progi" onCancel={() => navigate('/')} isLoading={submitting} />
-        </form>
-      )}
+            <FormActions submitLabel="Zapisz progi" onCancel={() => navigate('/')} isLoading={submitting} />
+          </form>
+        )}
+      </div>
     </div>
   );
 }

@@ -157,7 +157,7 @@ export function TrainingJobsSection({
   }
 
   return (
-    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem', margin: '0 auto' }}>
+    <div className="form-card animate-fade-up" style={{ maxWidth: '64rem' }}>
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Powiązane stanowiska
       </h2>
@@ -181,7 +181,7 @@ export function TrainingJobsSection({
                 <td className="text-right">
                   <button
                     type="button"
-                    className="action-icon-btn"
+                    className="action-icon-btn danger-hover"
                     title="Usuń"
                     aria-label={`Usuń powiązanie ${l.job_description ?? l.job_id}`}
                     onClick={() => handleRemove(l.job_id, l.job_description ?? l.job_id)}
