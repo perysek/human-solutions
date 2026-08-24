@@ -4,7 +4,9 @@ Modele danych (dataclasses)
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
+
 from flask_login import UserMixin
+
 
 @dataclass
 class User(UserMixin):

@@ -23,9 +23,9 @@ this distinction.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'c9d0e1f2a3b4'
 down_revision: Union[str, None] = '6cedd0e86dde'

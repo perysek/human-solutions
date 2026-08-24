@@ -7,12 +7,12 @@ dla podziału odpowiedzialności względem services/bhp_service.py.
 """
 import logging
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
+import services.bhp_service as bhp_service
 from config.auth_config import module_permission_required
 from exceptions import AppError, ValidationError
-import services.bhp_service as bhp_service
 from services.alert_service import get_expiring_bhp
 
 bhp_bp = Blueprint('bhp', __name__, url_prefix='/bhp')

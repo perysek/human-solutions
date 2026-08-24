@@ -42,8 +42,8 @@ load_dotenv(_BASE_DIR / '.env.local', override=True)
 if os.environ.get('FLASK_ENV') == 'production':
     raise SystemExit('Refusing to run the mock data seeder with FLASK_ENV=production.')
 
-from app import create_app
 import services.worker_service as worker_service
+from app import create_app
 from repositories.bhp.bhp_training_repository import BhpTrainingRepository
 from repositories.jobs.job_repository import JobRepository
 from repositories.jobs.job_skill_repository import JobSkillRepository

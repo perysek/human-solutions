@@ -13,9 +13,9 @@ business rules (5 attempts, 30-minute lockout) live in
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'b1c2d3e4f5a6'
 down_revision: Union[str, None] = 'ea828d25e3db'

@@ -25,9 +25,9 @@ the admin-editable enrollment record (`start_date`/`remarks`/`trainer_id`/
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'a658de63e223'

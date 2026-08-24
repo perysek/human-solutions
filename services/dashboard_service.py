@@ -5,9 +5,9 @@ Rola-świadomy punkt wejścia dla pulpitu (DSH_1-4): decyduje, KTÓRE panele
 dana rola widzi, nie JAK pojedynczy panel liczy swoje kubełki (to wciąż
 services/alert_service.py, cross-cutting decision #4).
 """
-from config.auth_config import own_data_worker_id
 import services.alert_service as alert_service
 import services.worker_service as worker_service
+from config.auth_config import own_data_worker_id
 from repositories.jobs.job_repository import JobRepository
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.workers.worker_repository import WorkerRepository

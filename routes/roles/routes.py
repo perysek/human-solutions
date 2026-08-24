@@ -4,11 +4,11 @@ Dostępne tylko dla: superadmin
 """
 import logging
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from config.auth_config import role_required
-from exceptions import AppError, ValidationError, NotFoundError, ConflictError
+from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.roles.role_repository import RoleRepository
 
 roles_bp = Blueprint('roles', __name__, url_prefix='/system/roles')
@@ -45,7 +45,7 @@ def api_list():
         return jsonify({'roles': roles_data, 'count': len(roles_data)})
     except AppError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception('Unexpected error in api_list (roles)')
         raise AppError('Wystapil blad serwera')
 
@@ -73,7 +73,7 @@ def api_create():
         return jsonify({'success': True, 'role_id': role_id}), 201
     except AppError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception('Unexpected error in api_create (roles)')
         raise AppError('Wystapil blad serwera')
 
@@ -101,7 +101,7 @@ def api_update(role_id):
         return jsonify({'success': True})
     except AppError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception('Unexpected error in api_update (roles)')
         raise AppError('Wystapil blad serwera')
 
@@ -127,6 +127,6 @@ def api_delete(role_id):
         raise AppError('Nie udalo sie usunac roli')
     except AppError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception('Unexpected error in api_delete (roles)')
         raise AppError('Wystapil blad serwera')

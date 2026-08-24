@@ -8,12 +8,12 @@ MedicalExamRepository — trasa zajmuje się wyłącznie kształtem
 """
 import logging
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
+import services.medical_service as medical_service
 from config.auth_config import module_permission_required
 from exceptions import AppError, ValidationError
-import services.medical_service as medical_service
 from services.alert_service import get_expiring_medical
 
 medical_bp = Blueprint('medical', __name__, url_prefix='/medical')

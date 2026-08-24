@@ -9,8 +9,8 @@ from typing import Optional
 
 import psycopg2
 import psycopg2.extras
-from psycopg2.pool import ThreadedConnectionPool
 from flask import g
+from psycopg2.pool import ThreadedConnectionPool
 
 logger = logging.getLogger(__name__)
 

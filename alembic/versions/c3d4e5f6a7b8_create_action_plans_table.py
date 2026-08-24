@@ -33,9 +33,9 @@ was built for — see repositories/workers/action_plan_repository.py.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'c3d4e5f6a7b8'
 down_revision: Union[str, None] = '9c1d2e3f4a5b'

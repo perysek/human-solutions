@@ -8,14 +8,14 @@ routes/users/routes.py, którego UserRepository nie ma mixina.
 import logging
 from typing import Optional
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
+import services.competency_service as competency_service
 from config.auth_config import module_permission_required
-from exceptions import AppError, ValidationError, NotFoundError, ConflictError
+from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.jobs.job_repository import JobRepository
 from repositories.jobs.job_skill_repository import JobSkillRepository
-import services.competency_service as competency_service
 
 jobs_bp = Blueprint('jobs', __name__, url_prefix='/jobs')
 

@@ -18,9 +18,9 @@ human-readable code (there is no separate `name` column).
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'd3e4f5a6b7c8'
 down_revision: Union[str, None] = 'c2d3e4f5a6b7'

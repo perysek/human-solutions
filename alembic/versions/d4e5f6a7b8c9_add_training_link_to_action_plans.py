@@ -34,9 +34,9 @@ Five columns, all nullable/defaulted so existing rows and the plain
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'd4e5f6a7b8c9'
 down_revision: Union[str, None] = 'c3d4e5f6a7b8'

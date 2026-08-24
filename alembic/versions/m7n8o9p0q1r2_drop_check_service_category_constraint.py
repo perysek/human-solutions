@@ -16,7 +16,6 @@ the submitted category name exists in service_categories before writing.
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 revision: str = 'm7n8o9p0q1r2'
 down_revision: Union[str, None] = 'l6m7n8o9p0q1'

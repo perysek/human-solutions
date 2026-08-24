@@ -26,20 +26,20 @@ pracownika — lista NIE jest ukrywana ani redukowana do samej liczby.
 import logging
 import os
 
-from flask import Blueprint, Response, request, jsonify
-from flask_login import login_required, current_user
+from flask import Blueprint, Response, jsonify, request
+from flask_login import current_user, login_required
 
+import services.csv_export_service as csv_export_service
+import services.training_presence_service as training_presence_service
+import services.training_service as training_service
 from config.auth_config import is_read_only, module_permission_required, role_required
 from exceptions import AppError, NotFoundError, PermissionDeniedError, ValidationError
-import services.training_service as training_service
-import services.training_presence_service as training_presence_service
-import services.csv_export_service as csv_export_service
-from repositories.trainings.training_repository import TrainingRepository
-from repositories.trainings.training_participant_repository import TrainingParticipantRepository
 from repositories.trainings.training_job_repository import TrainingJobRepository
+from repositories.trainings.training_participant_repository import TrainingParticipantRepository
+from repositories.trainings.training_presence_repository import TrainingPresenceRepository
+from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_skill_repository import TrainingSkillRepository
 from repositories.trainings.training_trainer_repository import TrainingTrainerRepository
-from repositories.trainings.training_presence_repository import TrainingPresenceRepository
 
 trainings_bp = Blueprint('trainings', __name__, url_prefix='/trainings')
 
@@ -542,6 +542,7 @@ def _qr_png_base64(url: str) -> str:
     needed to render the code (plan §2)."""
     import base64
     import io
+
     import qrcode
 
     img = qrcode.make(url)

@@ -10,9 +10,9 @@ the password and automatically unlocks the PDF for OCR processing.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'c1d2e3f4a5b6'
 down_revision: Union[str, None] = 'b0c1d2e3f4a5'

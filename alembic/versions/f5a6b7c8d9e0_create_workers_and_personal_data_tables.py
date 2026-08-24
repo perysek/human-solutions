@@ -27,9 +27,9 @@ which reads as the controlling rule over that one omission.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'f5a6b7c8d9e0'
 down_revision: Union[str, None] = 'e4f5a6b7c8d9'

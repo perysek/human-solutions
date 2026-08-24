@@ -13,22 +13,21 @@ kształtem żądania/odpowiedzi.
 import logging
 from datetime import date
 
-from flask import Blueprint, request, jsonify
-
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
+import services.action_plan_service as action_plan_service
+import services.competency_service as competency_service
+import services.worker_onboarding_service as worker_onboarding_service
+import services.worker_service as worker_service
 from config.auth_config import module_permission_required
 from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.audit_repository import AuditRepository
 from repositories.skills.skill_repository import SkillRepository
 from repositories.workers.action_plan_repository import ActionPlanRepository
 from repositories.workers.worker_repository import WorkerRepository
-from repositories.workers.worker_skill_repository import WorkerSkillRepository
 from repositories.workers.worker_skill_remark_repository import WorkerSkillRemarkRepository
-import services.action_plan_service as action_plan_service
-import services.competency_service as competency_service
-import services.worker_service as worker_service
-import services.worker_onboarding_service as worker_onboarding_service
+from repositories.workers.worker_skill_repository import WorkerSkillRepository
 from services.alert_service import get_expiring_foreigner_docs
 
 # LUK_1/LUK_2 — the 4 status values the "plan działania" modal + tracking

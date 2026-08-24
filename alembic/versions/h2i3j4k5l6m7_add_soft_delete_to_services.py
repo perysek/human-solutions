@@ -8,8 +8,10 @@ The e9f0a1b2c3d4 migration added is_deleted/deleted_at to invoices, appointments
 and clients. This migration extends the same pattern to the services table.
 """
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = 'h2i3j4k5l6m7'
 down_revision: Union[str, None] = 'g1h2i3j4k5l6'

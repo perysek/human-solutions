@@ -9,14 +9,15 @@ endpoint (Jinja had current_user directly).
 import secrets
 from datetime import datetime, timedelta
 
-from flask import Blueprint, request, session, jsonify
-from flask_login import login_user, logout_user, login_required, current_user
-from repositories.users.user_repository import UserRepository
-from repositories.audit_repository import AuditRepository
-from services.auth.auth_service import AuthService
+from flask import Blueprint, jsonify, request, session
+from flask_login import current_user, login_required, login_user, logout_user
+
+from config.auth_config import get_all_permission_flags
 from config.database import DatabaseConnection
 from config.ui_messages import msg
-from config.auth_config import get_all_permission_flags
+from repositories.audit_repository import AuditRepository
+from repositories.users.user_repository import UserRepository
+from services.auth.auth_service import AuthService
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')

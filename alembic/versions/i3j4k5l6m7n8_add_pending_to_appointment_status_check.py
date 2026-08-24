@@ -9,6 +9,7 @@ omitting 'pending'. AppointmentStatus enum has 7 values. This migration aligns t
 database constraint with the Python enum.
 """
 from typing import Sequence, Union
+
 from alembic import op
 
 revision: str = 'i3j4k5l6m7n8'

@@ -21,7 +21,7 @@ from flask import Flask, jsonify
 from flask_login import LoginManager
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config.database import DatabaseConnection, initialize_pool, assert_schema_current
+from config.database import DatabaseConnection, assert_schema_current, initialize_pool
 from exceptions import AppError
 from extensions import limiter
 from repositories.users.user_repository import UserRepository
@@ -98,18 +98,18 @@ def create_app() -> Flask:
     # --- Blueprints ---
     # employees_bp (salon domain) retired here — IMPLEMENTATION_PLAN.md §5.4.
     from routes.auth.routes import auth_bp
-    from routes.users.routes import users_bp
-    from routes.roles.routes import roles_bp
-    from routes.jobs.routes import jobs_bp
-    from routes.departments.routes import departments_bp
-    from routes.skills.routes import skills_bp
-    from routes.workers.routes import workers_bp
-    from routes.medical.routes import medical_bp
     from routes.bhp.routes import bhp_bp
-    from routes.trainings.routes import trainings_bp
     from routes.dashboard.routes import dashboard_bp
+    from routes.departments.routes import departments_bp
+    from routes.jobs.routes import jobs_bp
     from routes.main.routes import main_bp
+    from routes.medical.routes import medical_bp
     from routes.public.routes import public_bp
+    from routes.roles.routes import roles_bp
+    from routes.skills.routes import skills_bp
+    from routes.trainings.routes import trainings_bp
+    from routes.users.routes import users_bp
+    from routes.workers.routes import workers_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(public_bp)

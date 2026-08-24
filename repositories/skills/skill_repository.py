@@ -9,8 +9,6 @@ from exceptions import ConflictError
 from repositories.auditable import AuditableMixin
 from repositories.base_repository import BaseRepository
 
-
-
 # task2 — "Powiązanych stanowisk" / "Pracowników z luką kompetencji" columns
 # on SkillsListPage. Two correlated-subquery aggregates, only pulled in by
 # get_all (the list view); get_by_id stays on the plain `_columns` — the

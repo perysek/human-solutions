@@ -4,7 +4,7 @@ Shared database utility helpers for repository row parsing.
 PostgreSQL (via psycopg2) returns datetime/date/time columns as Python objects,
 while SQLite returns them as strings. These helpers handle both transparently.
 """
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 
 
 def parse_dt(val) -> datetime | None:

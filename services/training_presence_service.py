@@ -13,13 +13,13 @@ training_service.py.
 from datetime import date, datetime
 from typing import Optional
 
+import services.training_service as training_service
 from config.database import managed_transaction
 from exceptions import ConflictError, GoneError, NotFoundError, ValidationError
-from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
-from repositories.trainings.training_sign_in_repository import TrainingSignInRepository
 from repositories.trainings.training_presence_repository import TrainingPresenceRepository
-import services.training_service as training_service
+from repositories.trainings.training_repository import TrainingRepository
+from repositories.trainings.training_sign_in_repository import TrainingSignInRepository
 
 DEFAULT_TTL_HOURS = 12
 

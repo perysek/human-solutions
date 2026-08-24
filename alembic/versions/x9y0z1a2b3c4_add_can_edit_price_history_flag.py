@@ -13,8 +13,9 @@ and admin on the 'services' module so price-history editing works out of the box
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = 'x9y0z1a2b3c4'
 down_revision: Union[str, None] = 'w8x9y0z1a2b3'

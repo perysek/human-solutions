@@ -5,13 +5,13 @@ uzasadnienie wzorca (audyt wewnątrz repozytorium, nie w trasie).
 """
 import logging
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
 from config.auth_config import module_permission_required
-from exceptions import AppError, ValidationError, NotFoundError, ConflictError
-from repositories.skills.skill_repository import SkillRepository
+from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.jobs.job_skill_repository import JobSkillRepository
+from repositories.skills.skill_repository import SkillRepository
 
 skills_bp = Blueprint('skills', __name__, url_prefix='/skills')
 

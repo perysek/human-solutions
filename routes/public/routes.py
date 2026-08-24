@@ -15,11 +15,11 @@ przy tamtej decyzji), a ten blueprint łamie to założenie.
 """
 import logging
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
 
+import services.training_presence_service as training_presence_service
 from exceptions import AppError
 from extensions import limiter
-import services.training_presence_service as training_presence_service
 
 public_bp = Blueprint('public', __name__, url_prefix='/public')
 

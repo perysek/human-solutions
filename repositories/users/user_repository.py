@@ -3,6 +3,7 @@ Repository dla użytkowników (user accounts)
 """
 from datetime import datetime
 from typing import Any, Optional
+
 import bcrypt
 
 from config.database import get_db_connection

@@ -25,9 +25,9 @@ index" the feature was specced with.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'm2n3o4p5q6r7'
 down_revision: Union[str, None] = 'k1l2m3n4o5p6'

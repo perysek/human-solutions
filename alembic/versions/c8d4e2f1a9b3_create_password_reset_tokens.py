@@ -9,9 +9,9 @@ directly on screen (no email required) for 1 hour and is invalidated after use.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'c8d4e2f1a9b3'

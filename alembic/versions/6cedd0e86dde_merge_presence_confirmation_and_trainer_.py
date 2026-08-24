@@ -26,10 +26,6 @@ past this point.
 """
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
-
-
 # revision identifiers, used by Alembic.
 revision: str = '6cedd0e86dde'
 down_revision: Union[str, None] = ('a658de63e223', 'b8c9d0e1f2a3')

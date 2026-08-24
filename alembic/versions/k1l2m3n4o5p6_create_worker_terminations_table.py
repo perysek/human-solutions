@@ -25,9 +25,9 @@ training participants (a7b8c9d0e1f2).
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'k1l2m3n4o5p6'
 down_revision: Union[str, None] = 'f3a4b5c6d7e8'

@@ -21,9 +21,9 @@ instead of a 409, so this index is a pure safety net, not the primary UX.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'f3a4b5c6d7e8'
 down_revision: Union[str, None] = 'e2f3a4b5c6d7'

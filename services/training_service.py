@@ -10,13 +10,13 @@ trener, zanim cokolwiek trafi do repozytorium.
 from datetime import date
 from typing import List, Optional
 
+import services.action_plan_service as action_plan_service
+import services.worker_onboarding_service as worker_onboarding_service
 from config.auth_config import own_data_worker_id
 from config.database import managed_transaction
 from exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
-import services.action_plan_service as action_plan_service
-import services.worker_onboarding_service as worker_onboarding_service
-from repositories.trainings.training_repository import TrainingRepository
 from repositories.trainings.training_participant_repository import TrainingParticipantRepository
+from repositories.trainings.training_repository import TrainingRepository
 from repositories.workers.worker_repository import WorkerRepository
 
 

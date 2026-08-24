@@ -12,9 +12,9 @@ Both default to FALSE so existing rows are unchanged (full access behaviour pres
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'p0q1r2s3t4u5'
 down_revision: Union[str, None] = 'o9p0q1r2s3t4'

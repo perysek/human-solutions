@@ -10,13 +10,13 @@ by accident, unlike every other module in this app.
 import logging
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify, current_app
-from flask_login import login_required, current_user
+from flask import Blueprint, current_app, jsonify, request
+from flask_login import current_user, login_required
 
 from config.auth_config import role_required
-from exceptions import AppError, ValidationError, NotFoundError, ConflictError
-from repositories.users.user_repository import UserRepository
+from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.roles.role_repository import RoleRepository
+from repositories.users.user_repository import UserRepository
 
 users_bp = Blueprint('users', __name__, url_prefix='/system/users')
 

@@ -17,9 +17,9 @@ this pattern, action_plans is just its first real user.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'e5f6a7b8c9d0'
 down_revision: Union[str, None] = 'd4e5f6a7b8c9'

@@ -22,9 +22,9 @@ convention (AUD_2).
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'a6b7c8d9e0f1'
 down_revision: Union[str, None] = 'f5a6b7c8d9e0'

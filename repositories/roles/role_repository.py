@@ -2,6 +2,7 @@
 Repository dla ról i uprawnień modułów
 """
 from typing import Any, Optional
+
 from config.database import get_db_connection
 
 # All known modules (must match auth_config.MODULE_PERMISSIONS keys).

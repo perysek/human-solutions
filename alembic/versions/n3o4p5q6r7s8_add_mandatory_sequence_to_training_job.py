@@ -23,9 +23,9 @@ opted into ordering, so two unordered links for the same job never conflict.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = 'n3o4p5q6r7s8'
 down_revision: Union[str, None] = 'm2n3o4p5q6r7'

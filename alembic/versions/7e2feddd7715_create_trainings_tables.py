@@ -25,9 +25,9 @@ enrollment record of everyone they ever trained, just blank out who ran it.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '7e2feddd7715'

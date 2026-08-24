@@ -8,12 +8,12 @@ routes/bhp/routes.py.
 """
 import logging
 
-from flask import Blueprint, request, jsonify
-from flask_login import login_required, current_user
+from flask import Blueprint, jsonify, request
+from flask_login import current_user, login_required
 
+import services.dashboard_service as dashboard_service
 from config.auth_config import module_permission_required, role_required
 from exceptions import AppError, ValidationError
-import services.dashboard_service as dashboard_service
 from repositories.dashboard.alert_threshold_repository import AlertThresholdRepository
 
 dashboard_bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')

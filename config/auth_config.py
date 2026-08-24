@@ -5,8 +5,9 @@ Role-based access control (RBAC) configuration
 from functools import wraps
 from typing import Optional
 
-from flask import request, jsonify
+from flask import jsonify, request
 from flask_login import current_user
+
 from config.ui_messages import msg
 
 # HTTP methods that mutate state. A role flagged read_only for a module may reach

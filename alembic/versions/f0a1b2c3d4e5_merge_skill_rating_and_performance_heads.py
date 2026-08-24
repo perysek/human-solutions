@@ -5,7 +5,6 @@ Revises: b7c8d9e0f1a2, e9f0a1b2c3d4
 Create Date: 2026-03-15
 """
 from typing import Sequence, Union
-from alembic import op
 
 revision: str = 'f0a1b2c3d4e5'
 down_revision: Union[str, None] = ('b7c8d9e0f1a2', 'e9f0a1b2c3d4')
