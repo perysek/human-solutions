@@ -7,6 +7,10 @@ export interface JobListItem {
   department_id: number | null;
   department_name: string | null;
   is_managerial: boolean;
+  is_director: boolean;
+  supervisor_job_id: string | null;
+  supervisor_job_description: string | null;
+  worker_count: number;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -16,6 +20,7 @@ export interface JobPayload {
   description?: string | null;
   department_id?: number | null;
   is_managerial?: boolean;
+  is_director?: boolean;
 }
 
 export interface JobSkillRequirement {
@@ -43,9 +48,9 @@ export const jobsApi = {
   list: (search?: string) =>
     api.get<{ jobs: JobListItem[]; count: number }>(search ? `${BASE}?search=${encodeURIComponent(search)}` : BASE),
   get: (id: string) => api.get<JobListItem>(`${BASE}/${encodeURIComponent(id)}`),
-  create: (payload: JobPayload) => api.post<{ success: boolean; id: string }>(BASE, payload),
+  create: (payload: JobPayload) => api.post<{ success: boolean; id: string; warning?: string | null }>(BASE, payload),
   update: (id: string, payload: Omit<JobPayload, 'id'>) =>
-    api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, payload),
+    api.put<{ success: boolean; warning?: string | null }>(`${BASE}/${encodeURIComponent(id)}`, payload),
   remove: (id: string) => api.del<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`),
 
   // Competency matrix (JOB_2/4/5/6, Phase 3)

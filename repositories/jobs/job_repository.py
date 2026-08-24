@@ -22,27 +22,36 @@ class JobRepository(AuditableMixin, BaseRepository):
     # department_name via LEFT JOIN — jobs.department_id jest opcjonalne
     # (task1: "Optional"), więc INNER JOIN wykluczałby stanowiska bez działu.
     #
-    # supervisor_job_* — "stanowisko przełożone" nie jest osobną kolumną:
-    # tak jak "kierownik działu" (DepartmentRepository), wyliczane jest z
-    # istniejącej reguły "co najwyżej jedno stanowisko kierownicze na dział"
-    # (idx_jobs_one_manager_per_department) — przełożonym stanowiska jest
-    # stanowisko kierownicze tego samego działu (jeśli istnieje i nie jest
-    # tym samym stanowiskiem — kierownicze stanowisko nie jest przełożonym
-    # samego siebie).
+    # supervisor_job_* — "stanowisko przełożone" nie jest osobną kolumną,
+    # wyliczane jest z dwóch poziomów hierarchii (dwa niezależne "co najwyżej
+    # jeden X" guardy — idx_jobs_one_manager_per_department i
+    # idx_jobs_one_director):
+    #   - zwykłe stanowisko -> przełożonym jest stanowisko kierownicze (sj)
+    #     tego samego działu (jeśli istnieje, i nie jest samym sobą);
+    #   - stanowisko kierownicze -> przełożonym jest stanowisko Dyrektora
+    #     zakładu (dj), jeśli takie istnieje w firmie (`is_director=TRUE`),
+    #     NIE przełożony lokalny — dyrektor jest zwierzchnikiem najwyższego
+    #     szczebla nad wszystkimi kierownikami działów;
+    #   - stanowisko Dyrektora zakładu -> brak przełożonego (szczyt
+    #     hierarchii).
     #
     # worker_count — liczba aktywnych pracowników (fire_date IS NULL) na tym
     # stanowisku, ta sama definicja "aktywny" co DepartmentRepository's
     # worker_count/manager_names.
     _columns = (
         'j.id, j.description, j.department_id, d.name AS department_name, '
-        'j.is_managerial, j.created_at, j.updated_at, '
-        'sj.id AS supervisor_job_id, sj.description AS supervisor_job_description, '
+        'j.is_managerial, j.is_director, j.created_at, j.updated_at, '
+        'CASE WHEN j.is_director THEN NULL '
+        'WHEN j.is_managerial THEN dj.id ELSE sj.id END AS supervisor_job_id, '
+        'CASE WHEN j.is_director THEN NULL '
+        'WHEN j.is_managerial THEN dj.description ELSE sj.description END AS supervisor_job_description, '
         '(SELECT COUNT(*) FROM workers w WHERE w.job_id = j.id AND w.fire_date IS NULL) AS worker_count'
     )
     _FROM = (
         'FROM jobs j LEFT JOIN departments d ON d.id = j.department_id '
         'LEFT JOIN jobs sj ON sj.department_id = j.department_id '
-        'AND sj.is_managerial = TRUE AND sj.id != j.id'
+        'AND sj.is_managerial = TRUE AND sj.id != j.id '
+        'LEFT JOIN jobs dj ON dj.is_director = TRUE AND dj.id != j.id'
     )
 
     def __init__(self):
@@ -76,30 +85,58 @@ class JobRepository(AuditableMixin, BaseRepository):
         clause, params = self._in_clause(job_ids)
         return self._fetch_all(f"SELECT {self._columns} {self._FROM} WHERE j.id IN {clause}", params)
 
-    def create(self, job_id: str, description: Optional[str], department_id: Optional[int] = None, is_managerial: bool = False) -> str:
+    def create(
+        self, job_id: str, description: Optional[str], department_id: Optional[int] = None,
+        is_managerial: bool = False, is_director: bool = False,
+    ) -> str:
         """Utwórz stanowisko. Wywołujący (route) odpowiada za sprawdzenie
         unikalności id przed wywołaniem — patrz routes/jobs/routes.py."""
-        query = "INSERT INTO jobs (id, description, department_id, is_managerial) VALUES (%s, %s, %s, %s)"
-        self._execute(query, (job_id, description, department_id, is_managerial))
+        query = "INSERT INTO jobs (id, description, department_id, is_managerial, is_director) VALUES (%s, %s, %s, %s, %s)"
+        self._execute(query, (job_id, description, department_id, is_managerial, is_director))
         self._audit('CREATE', job_id, label=description or job_id)
         return job_id
 
-    def update(self, job_id: str, description: Optional[str], department_id: Optional[int] = None, is_managerial: bool = False) -> None:
+    def update(
+        self, job_id: str, description: Optional[str], department_id: Optional[int] = None,
+        is_managerial: bool = False, is_director: bool = False,
+    ) -> None:
         """Zaktualizuj stanowisko. Audytuje zmianę pola description,
         żeby historia zmian pokazywała starą i nową wartość, nie tylko fakt
-        edycji — department_id/is_managerial nie są osobno audytowane
-        (drugorzędne wobec description, jak gender w WorkerRepository)."""
+        edycji — department_id/is_managerial/is_director nie są osobno
+        audytowane (drugorzędne wobec description, jak gender w
+        WorkerRepository) — poza samym przejęciem flagi is_director, patrz
+        clear_director() poniżej."""
         existing = self.get_by_id(job_id)
         old_description = existing['description'] if existing else None
         query = (
-            "UPDATE jobs SET description = %s, department_id = %s, is_managerial = %s, "
+            "UPDATE jobs SET description = %s, department_id = %s, is_managerial = %s, is_director = %s, "
             "updated_at = CURRENT_TIMESTAMP WHERE id = %s"
         )
-        self._execute(query, (description, department_id, is_managerial, job_id))
+        self._execute(query, (description, department_id, is_managerial, is_director, job_id))
         self._audit(
             'UPDATE', job_id, label=description or job_id,
             field_name='description', old=old_description, new=description,
         )
+
+    def get_director_job(self) -> Optional[Any]:
+        """'Co najwyżej jeden Dyrektor zakładu w firmie' — firmowy
+        odpowiednik get_managerial_job (DepartmentRepository), ale bez
+        zawężenia do działu. Twarda gwarancja to partial unique index
+        idx_jobs_one_director (migracja f3a4b5c6d7e8); w przeciwieństwie do
+        reguły "jeden kierownik na dział" to NIE jest blokujący pre-check —
+        routes/jobs/routes.py woła clear_director() na dotychczasowym
+        posiadaczu flagi zamiast odrzucać zapis ConflictError."""
+        return self._fetch_one("SELECT id, description FROM jobs WHERE is_director = TRUE")
+
+    def clear_director(self, job_id: str) -> None:
+        """Zdejmuje flagę is_director z dotychczasowego Dyrektora zakładu —
+        wywoływane, gdy inne stanowisko przejmuje tę rolę (może ją mieć
+        tylko jedno stanowisko naraz, patrz get_director_job)."""
+        self._execute(
+            "UPDATE jobs SET is_director = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+            (job_id,),
+        )
+        self._audit('UPDATE', job_id, field_name='is_director', old='True', new='False')
 
     def get_orphan_jobs(self) -> List[Any]:
         """Task 2 (Pulpit alerts) — stanowiska bez przypisanego działu

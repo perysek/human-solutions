@@ -1,5 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { CheckboxField, FormActions, FormSection, SelectField, TextField, TextareaField } from '@/components/ui/form';
+import { CheckboxField, FormActions, FormSection, TextField, TextareaField } from '@/components/ui/form';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { Icon } from '@/lib/icons/Icon';
 import { jobsApi, type JobListItem } from '@/lib/api/jobs';
 import { departmentsApi } from '@/lib/api/departments';
 import { useApiData } from '@/lib/api/useApiData';
@@ -35,6 +37,7 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
   const [description, setDescription] = useState(initial?.description ?? '');
   const [departmentId, setDepartmentId] = useState(initial?.department_id != null ? String(initial.department_id) : '');
   const [isManagerial, setIsManagerial] = useState(initial?.is_managerial ?? false);
+  const [isDirector, setIsDirector] = useState(initial?.is_director ?? false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,16 +52,20 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
           description: description.trim() || null,
           department_id: departmentId ? Number(departmentId) : null,
           is_managerial: isManagerial,
+          is_director: isDirector,
         });
         toast.success('Stanowisko utworzone.');
+        if (result.warning) toast.warning(result.warning);
         onSaved(result.id);
       } else if (initial) {
-        await jobsApi.update(initial.id, {
+        const result = await jobsApi.update(initial.id, {
           description: description.trim() || null,
           department_id: departmentId ? Number(departmentId) : null,
           is_managerial: isManagerial,
+          is_director: isDirector,
         });
         toast.success('Zmiany zapisane.');
+        if (result.warning) toast.warning(result.warning);
         onSaved(initial.id);
       }
     } catch (err) {
@@ -85,15 +92,33 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
         ) : (
           <TextField label="Identyfikator (kod)" name="id" value={initial?.id ?? ''} readOnly disabled />
         )}
-        <SelectField
-          label="Dział"
-          name="department_id"
-          value={departmentId}
-          onChange={(e) => setDepartmentId(e.target.value)}
-          options={departmentOptions}
-          placeholder="Brak"
-          autoOpen={autoFocusDepartment}
-        />
+        <div>
+          <label htmlFor="department_id" className="form-label">
+            Dział
+          </label>
+          <div className="flex items-center gap-2">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SearchableSelect
+                id="department_id"
+                options={departmentOptions}
+                value={departmentId}
+                onChange={setDepartmentId}
+                placeholder="Brak"
+                autoOpen={autoFocusDepartment}
+              />
+            </div>
+            <button
+              type="button"
+              className="action-icon-btn"
+              title="Wyczyść dział"
+              aria-label="Wyczyść wybrany dział"
+              onClick={() => setDepartmentId('')}
+              disabled={!departmentId}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+        </div>
         <TextareaField
           label="Opis"
           name="description"
@@ -101,7 +126,14 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
           onChange={(e) => setDescription(e.target.value)}
           fullWidth
         />
-        <div className="form-field-full">
+        <div className="form-field-full space-y-2">
+          <CheckboxField
+            name="is_director"
+            label="Dyrektor zakładu"
+            description="Pracownik na tym stanowisku jest przełożonym wszystkich stanowisk kierowniczych — zwierzchnik najwyższego szczebla, ponad kierownikami działów."
+            checked={isDirector}
+            onChange={(e) => setIsDirector(e.target.checked)}
+          />
           <CheckboxField
             name="is_managerial"
             label="Stanowisko kierownicze"

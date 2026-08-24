@@ -31,6 +31,10 @@ def _job_json(row) -> dict:
         'department_id': row.get('department_id'),
         'department_name': row.get('department_name'),
         'is_managerial': bool(row.get('is_managerial')),
+        'is_director': bool(row.get('is_director')),
+        'supervisor_job_id': row.get('supervisor_job_id'),
+        'supervisor_job_description': row.get('supervisor_job_description'),
+        'worker_count': row.get('worker_count') or 0,
         'created_at': row['created_at'].isoformat() if row['created_at'] else None,
         'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
     }
@@ -103,6 +107,27 @@ def _check_single_manager(department_id: Optional[int], is_managerial: bool, job
         )
 
 
+def _apply_director_flag(repo: JobRepository, is_director: bool, job_id: Optional[str] = None) -> Optional[str]:
+    """'At most one Dyrektor zakładu' — unlike _check_single_manager above,
+    this does NOT block the save. If another job-position already holds the
+    flag, it's silently demoted (JobRepository.clear_director) and a
+    non-blocking warning string is returned for the route to surface as a
+    toast instead of a 409 — the product decision here is "let the newest
+    save win, tell the user what happened", not "reject the write".
+    `job_id` is the job being saved (None at create) so re-saving the
+    current director doesn't demote itself."""
+    if not is_director:
+        return None
+    existing = repo.get_director_job()
+    if not existing or existing['id'] == job_id:
+        return None
+    repo.clear_director(existing['id'])
+    return (
+        f'Poprzednie stanowisko Dyrektora zakładu ("{existing["id"]}") '
+        'zostało zastąpione tym stanowiskiem — może istnieć tylko jeden dyrektor naraz.'
+    )
+
+
 @jobs_bp.route('/api', methods=['POST'])
 @login_required
 @module_permission_required('jobs')
@@ -113,6 +138,7 @@ def api_create():
     description = (data.get('description') or '').strip() or None
     department_id = _parse_department_id(data)
     is_managerial = bool(data.get('is_managerial'))
+    is_director = bool(data.get('is_director'))
 
     if not job_id:
         raise ValidationError('Identyfikator stanowiska jest wymagany')
@@ -121,10 +147,11 @@ def api_create():
     if repo.get_by_id(job_id):
         raise ConflictError(f'Stanowisko o identyfikatorze "{job_id}" już istnieje')
     _check_single_manager(department_id, is_managerial)
+    warning = _apply_director_flag(repo, is_director)
 
     try:
-        repo.create(job_id, description, department_id, is_managerial)
-        return jsonify({'success': True, 'id': job_id}), 201
+        repo.create(job_id, description, department_id, is_managerial, is_director)
+        return jsonify({'success': True, 'id': job_id, 'warning': warning}), 201
     except AppError:
         raise
     except Exception:
@@ -145,11 +172,13 @@ def api_update(job_id):
     description = (data.get('description') or '').strip() or None
     department_id = _parse_department_id(data)
     is_managerial = bool(data.get('is_managerial'))
+    is_director = bool(data.get('is_director'))
     _check_single_manager(department_id, is_managerial, job_id=job_id)
+    warning = _apply_director_flag(repo, is_director, job_id=job_id)
 
     try:
-        repo.update(job_id, description, department_id, is_managerial)
-        return jsonify({'success': True})
+        repo.update(job_id, description, department_id, is_managerial, is_director)
+        return jsonify({'success': True, 'warning': warning})
     except AppError:
         raise
     except Exception:

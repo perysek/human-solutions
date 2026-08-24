@@ -24,6 +24,8 @@ function getSortValue(row: JobListItem, key: string): string | number | null {
       return row.department_name;
     case 'is_managerial':
       return row.is_managerial ? 1 : 0;
+    case 'worker_count':
+      return row.worker_count;
     default:
       return null;
   }
@@ -95,7 +97,7 @@ export function JobsListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={5} />
+          <TableSkeleton cols={6} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : sorted.length === 0 ? (
@@ -107,9 +109,10 @@ export function JobsListPage() {
                 <thead>
                   <tr>
                     <SortableTh label="Kod" sortKey="id" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
-                    <SortableTh label="Dział" sortKey="department_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
-                    <SortableTh label="Typ stanowiska" sortKey="is_managerial" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Opis" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Typ stanowiska" sortKey="is_managerial" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Pracowników" sortKey="worker_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Dział" sortKey="department_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
@@ -126,9 +129,10 @@ export function JobsListPage() {
                       aria-label={`Zobacz stanowisko ${j.id}`}
                     >
                       <td>{j.id}</td>
-                      <td>{j.department_name ?? '—'}</td>
-                      <td>{j.is_managerial ? 'Kierownicze' : 'Nie-kierownicze'}</td>
                       <td>{j.description ?? '—'}</td>
+                      <td>{j.is_managerial ? 'Kierownicze' : 'Nie-kierownicze'}</td>
+                      <td>{j.worker_count}</td>
+                      <td>{j.department_name ?? '—'}</td>
                       <td>
                         {canWrite && (
                           <div className="action-icons">

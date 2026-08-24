@@ -31,7 +31,7 @@ export function JobViewPage() {
       <div className="form-page-shell">
         <PageHeader
           title="Stanowisko"
-          subtitle={job?.id}
+          subtitle={job?.description ?? job?.id}
           actions={
             <>
               <Button variant="secondary" onClick={() => navigate('/jobs')}>
@@ -68,6 +68,18 @@ export function JobViewPage() {
                   }
                 />
                 <Field label="Typ stanowiska" value={job.is_managerial ? 'Kierownicze' : 'Nie-kierownicze'} />
+                <Field
+                  label="Stanowisko przełożone"
+                  value={
+                    job.supervisor_job_id ? (
+                      <Link to={`/jobs/${encodeURIComponent(job.supervisor_job_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
+                        {job.supervisor_job_description ?? job.supervisor_job_id}
+                      </Link>
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
                 <Field label="Opis" value={job.description ?? '—'} />
                 <Field label="Utworzono" value={job.created_at ? new Date(job.created_at).toLocaleString('pl-PL') : '—'} />
                 <Field label="Zaktualizowano" value={job.updated_at ? new Date(job.updated_at).toLocaleString('pl-PL') : '—'} />

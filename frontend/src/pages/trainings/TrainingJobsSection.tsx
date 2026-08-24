@@ -26,6 +26,10 @@ async function fetchJobsRequiredBySkills(skillIds: string[]): Promise<JobListIte
           department_id: null,
           department_name: null,
           is_managerial: false,
+          is_director: false,
+          supervisor_job_id: null,
+          supervisor_job_description: null,
+          worker_count: 0,
           created_at: null,
           updated_at: null,
         });
