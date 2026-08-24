@@ -111,7 +111,7 @@ export function RolesListPage() {
                     <SortableTh label="Nazwa" sortKey="display_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Moduły z dostępem" sortKey="access_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Chroniona" sortKey="is_protected" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
-                    <th className="text-right">Akcje</th>
+                    <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -208,7 +208,7 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
               <th>Data zakończenia</th>
               <th>Skuteczność</th>
               <th>Uwagi</th>
-              {canManage && <th className="text-right">Akcje</th>}
+              {canManage && <th className="text-right"><span className="sr-only">Akcje</span></th>}
             </tr>
           </thead>
           <tbody>

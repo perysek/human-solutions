@@ -24,6 +24,10 @@ def _skill_json(row) -> dict:
     return {
         'id': row['id'],
         'description': row['description'],
+        # Only present on rows from SkillRepository.get_all (api_list) —
+        # get_by_id (api_get) doesn't compute them, so these read as 0.
+        'job_count': row.get('job_count', 0),
+        'gap_worker_count': row.get('gap_worker_count', 0),
         'created_at': row['created_at'].isoformat() if row['created_at'] else None,
         'updated_at': row['updated_at'].isoformat() if row['updated_at'] else None,
     }

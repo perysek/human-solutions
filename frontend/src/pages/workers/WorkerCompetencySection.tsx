@@ -199,7 +199,7 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
               <th>Umiejętność</th>
               <th>Ocena</th>
               <th>Aktualizacja</th>
-              <th className="text-right">Akcje</th>
+              <th className="text-right"><span className="sr-only">Akcje</span></th>
             </tr>
           </thead>
           <tbody>

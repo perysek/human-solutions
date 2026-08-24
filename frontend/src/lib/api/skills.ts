@@ -3,6 +3,11 @@ import { api } from './client';
 export interface SkillListItem {
   id: string;
   description: string;
+  /** Job-positions requiring this skill (job_skills) — task2, list-only. */
+  job_count: number;
+  /** Active workers with a competency gap (required - current >= 1) for
+   * this skill — same definition as LUK_1's gap report. List-only. */
+  gap_worker_count: number;
   created_at: string | null;
   updated_at: string | null;
 }

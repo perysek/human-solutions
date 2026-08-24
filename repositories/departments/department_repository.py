@@ -66,6 +66,19 @@ class DepartmentRepository(AuditableMixin, BaseRepository):
         the dropdown never needs."""
         return self._fetch_all("SELECT id, name FROM departments ORDER BY name")
 
+    def get_managerial_job(self, department_id: int) -> Optional[Any]:
+        """'At most one kierownicze (managerial) job-position per dział'
+        guard — the department's current managerial job-position, if any.
+        Backed by the partial unique index idx_jobs_one_manager_per_department
+        (migration d1e2f3a4b5c6), which is the actual hard guarantee; this
+        method is what lets routes/jobs/routes.py and
+        routes/departments/routes.py give a friendly Polish ConflictError
+        instead of only surfacing a raw IntegrityError on a race."""
+        return self._fetch_one(
+            "SELECT id, description FROM jobs WHERE department_id = %s AND is_managerial = TRUE",
+            (department_id,),
+        )
+
     def create(self, name: str, description: Optional[str]) -> int:
         new_id = self._execute_insert(
             "INSERT INTO departments (name, description) VALUES (%s, %s)",

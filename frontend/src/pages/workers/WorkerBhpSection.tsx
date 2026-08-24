@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
@@ -6,6 +6,20 @@ import { useApiData } from '@/lib/api/useApiData';
 import { bhpApi, type BhpTraining } from '@/lib/api/bhp';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
+import {
+  EXPIRY_STATUS_BADGE_CLASS,
+  EXPIRY_STATUS_LABELS,
+  expiryRowStatus,
+  shouldHighlightAddButton,
+  tableHasValidRow,
+} from '@/lib/expiryStatus';
+
+// task3 — same rule as WorkerMedicalSection's own copy (see its comment).
+const URGENT_ADD_BTN_STYLE: React.CSSProperties = {
+  background: 'rgba(155, 44, 44, 0.08)',
+  color: 'var(--color-error)',
+  borderColor: 'rgba(155, 44, 44, 0.3)',
+};
 
 const KIND_OPTIONS: { value: BhpTraining['kind']; label: string }[] = [
   { value: 'Initial', label: 'Wstępne' },
@@ -33,7 +47,11 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
   const toast = useToast();
   const confirm = useConfirm();
 
-  const trainings = data?.trainings ?? [];
+  const trainings = useMemo(() => data?.trainings ?? [], [data]);
+  const hasValidTraining = useMemo(() => tableHasValidRow(trainings), [trainings]);
+  const highlightAdd = useMemo(() => shouldHighlightAddButton(trainings), [trainings]);
+  // See WorkerMedicalSection's identical comment — zero rows must stay addable.
+  const addEnabled = trainings.length === 0 || highlightAdd;
 
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
@@ -114,7 +132,7 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
   }
 
   return (
-    <div className="form-card animate-fade-up">
+    <div id="worker-bhp-section" className="form-card animate-fade-up">
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Szkolenia BHP
       </h2>
@@ -132,7 +150,8 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
               <th>Rodzaj</th>
               <th>Data szkolenia</th>
               <th>Ważne do</th>
-              {canWrite && <th className="text-right">Akcje</th>}
+              <th>Status</th>
+              {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
             </tr>
           </thead>
           <tbody>
@@ -169,6 +188,11 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
                       aria-label="Ważne do"
                     />
                   </td>
+                  <td>
+                    <span className={`refined-badge ${EXPIRY_STATUS_BADGE_CLASS[expiryRowStatus(training.valid_until, hasValidTraining)]}`}>
+                      {EXPIRY_STATUS_LABELS[expiryRowStatus(training.valid_until, hasValidTraining)]}
+                    </span>
+                  </td>
                   <td className="text-right">
                     <div className="action-icons">
                       <Button type="button" variant="secondary" small onClick={() => handleSaveEdit(training.id)} disabled={saving || !editDraft.training_date}>
@@ -185,6 +209,11 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
                   <td>{KIND_LABELS[training.kind]}</td>
                   <td>{fmt(training.training_date)}</td>
                   <td>{fmt(training.valid_until)}</td>
+                  <td>
+                    <span className={`refined-badge ${EXPIRY_STATUS_BADGE_CLASS[expiryRowStatus(training.valid_until, hasValidTraining)]}`}>
+                      {EXPIRY_STATUS_LABELS[expiryRowStatus(training.valid_until, hasValidTraining)]}
+                    </span>
+                  </td>
                   {canWrite && (
                     <td className="text-right">
                       <div className="action-icons">
@@ -235,7 +264,14 @@ export function WorkerBhpSection({ workerId, canWrite }: { workerId: string; can
       )}
 
       {canWrite && !adding && (
-        <Button type="button" variant="secondary" onClick={startAdd}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={startAdd}
+          disabled={!addEnabled}
+          style={highlightAdd ? URGENT_ADD_BTN_STYLE : undefined}
+          title={addEnabled ? undefined : 'Aktualne szkolenie jest wciąż ważne'}
+        >
           <Icon name="add" size={16} />
           Dodaj szkolenie
         </Button>

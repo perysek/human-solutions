@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
@@ -6,6 +6,21 @@ import { useApiData } from '@/lib/api/useApiData';
 import { medicalApi, type MedicalExam } from '@/lib/api/medical';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
+import {
+  EXPIRY_STATUS_BADGE_CLASS,
+  EXPIRY_STATUS_LABELS,
+  expiryRowStatus,
+  shouldHighlightAddButton,
+  tableHasValidRow,
+} from '@/lib/expiryStatus';
+
+// task3 — light-red highlight on "Dodaj badanie" when it's actually urgent
+// (see shouldHighlightAddButton); otherwise the button stays disabled.
+const URGENT_ADD_BTN_STYLE: React.CSSProperties = {
+  background: 'rgba(155, 44, 44, 0.08)',
+  color: 'var(--color-error)',
+  borderColor: 'rgba(155, 44, 44, 0.3)',
+};
 
 const KIND_OPTIONS: { value: MedicalExam['kind']; label: string }[] = [
   { value: 'Preliminary', label: 'Wstępne' },
@@ -32,7 +47,15 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
   const toast = useToast();
   const confirm = useConfirm();
 
-  const exams = data?.exams ?? [];
+  const exams = useMemo(() => data?.exams ?? [], [data]);
+  const hasValidExam = useMemo(() => tableHasValidRow(exams), [exams]);
+  const highlightAdd = useMemo(() => shouldHighlightAddButton(exams), [exams]);
+  // task3's rule can never be true with zero rows (nothing to be red or
+  // overdue yet) — without this exception a worker with no medical exams on
+  // file could never get their first one added. Only the urgency styling
+  // (highlightAdd) stays scoped to the literal rule; plain "add the first
+  // record" is always allowed.
+  const addEnabled = exams.length === 0 || highlightAdd;
 
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
@@ -116,7 +139,7 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
   }
 
   return (
-    <div className="form-card animate-fade-up">
+    <div id="worker-medical-section" className="form-card animate-fade-up">
       <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
         Badania lekarskie
       </h2>
@@ -135,7 +158,8 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
               <th>Data badania</th>
               <th>Ważne do</th>
               <th>Opis</th>
-              {canWrite && <th className="text-right">Akcje</th>}
+              <th>Status</th>
+              {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
             </tr>
           </thead>
           <tbody>
@@ -182,6 +206,11 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
                       aria-label="Opis"
                     />
                   </td>
+                  <td>
+                    <span className={`refined-badge ${EXPIRY_STATUS_BADGE_CLASS[expiryRowStatus(exam.valid_until, hasValidExam)]}`}>
+                      {EXPIRY_STATUS_LABELS[expiryRowStatus(exam.valid_until, hasValidExam)]}
+                    </span>
+                  </td>
                   <td className="text-right">
                     <div className="action-icons">
                       <Button type="button" variant="secondary" small onClick={() => handleSaveEdit(exam.id)} disabled={saving || !editDraft.performed_on}>
@@ -199,6 +228,11 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
                   <td>{fmt(exam.performed_on)}</td>
                   <td>{fmt(exam.valid_until)}</td>
                   <td>{exam.description ?? '—'}</td>
+                  <td>
+                    <span className={`refined-badge ${EXPIRY_STATUS_BADGE_CLASS[expiryRowStatus(exam.valid_until, hasValidExam)]}`}>
+                      {EXPIRY_STATUS_LABELS[expiryRowStatus(exam.valid_until, hasValidExam)]}
+                    </span>
+                  </td>
                   {canWrite && (
                     <td className="text-right">
                       <div className="action-icons">
@@ -253,7 +287,14 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
       )}
 
       {canWrite && !adding && (
-        <Button type="button" variant="secondary" onClick={startAdd}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={startAdd}
+          disabled={!addEnabled}
+          style={highlightAdd ? URGENT_ADD_BTN_STYLE : undefined}
+          title={addEnabled ? undefined : 'Aktualne badanie jest wciąż ważne'}
+        >
           <Icon name="add" size={16} />
           Dodaj badanie
         </Button>

@@ -23,12 +23,23 @@ function getSortValue(row: DepartmentListItem, key: string): string | number | n
       return row.manager_names;
     case 'description':
       return row.description;
-    case 'headcount':
+    case 'worker_count':
       return row.worker_count;
+    case 'job_count':
+      return row.job_count;
     default:
       return null;
   }
 }
+
+// Narrow numeric columns — an explicit width lets the header wrap onto 2
+// lines instead of the browser widening the whole column to fit "Ilość
+// pracowników" on one line, the way unconstrained <th>s do. Wide enough to
+// fit the longer of the two words ("PRACOWNIKÓW", uppercased by
+// .refined-table th) on its own line — overflow-wrap (not word-break) so
+// it only splits mid-word as a last resort, keeping it to 2 clean lines
+// ("ILOŚĆ" / "PRACOWNIKÓW") rather than breaking every few characters.
+const NARROW_COUNT_TH_STYLE: React.CSSProperties = { width: '7.5rem', whiteSpace: 'normal', overflowWrap: 'break-word' };
 
 /** "Działy firmy" — task1. No dedicated view page (same call as
  * SkillsListPage: two editable fields plus computed columns that only make
@@ -102,7 +113,7 @@ export function DepartmentsListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={5} />
+          <TableSkeleton cols={6} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : sorted.length === 0 ? (
@@ -116,7 +127,24 @@ export function DepartmentsListPage() {
                     <SortableTh label="Nazwa działu" sortKey="name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Kierownik działu" sortKey="manager_names" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Opis" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
-                    <SortableTh label="Ilość pracowników / ilość stanowisk" sortKey="headcount" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh
+                      label="Ilość pracowników"
+                      sortKey="worker_count"
+                      currentSort={sortKey}
+                      currentOrder={sortOrder}
+                      onSort={onSort}
+                      align="center"
+                      style={NARROW_COUNT_TH_STYLE}
+                    />
+                    <SortableTh
+                      label="Ilość stanowisk"
+                      sortKey="job_count"
+                      currentSort={sortKey}
+                      currentOrder={sortOrder}
+                      onSort={onSort}
+                      align="center"
+                      style={NARROW_COUNT_TH_STYLE}
+                    />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
@@ -135,7 +163,8 @@ export function DepartmentsListPage() {
                       <td>{d.name}</td>
                       <td>{d.manager_names ?? '—'}</td>
                       <td>{d.description ?? '—'}</td>
-                      <td>{d.worker_count} / {d.job_count}</td>
+                      <td className="text-center">{d.worker_count}</td>
+                      <td className="text-center">{d.job_count}</td>
                       <td>
                         {canWrite && (
                           <div className="action-icons">

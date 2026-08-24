@@ -43,6 +43,7 @@ export function WorkerForm({ mode, initial, onSaved, onCancel }: WorkerFormProps
   const [firstname, setFirstname] = useState(initial?.firstname ?? '');
   const [surname, setSurname] = useState(initial?.surname ?? '');
   const [jobId, setJobId] = useState(initial?.job_id ?? '');
+  const selectedJob = useMemo(() => (jobsData?.jobs ?? []).find((j) => j.id === jobId), [jobsData, jobId]);
   const [bossId, setBossId] = useState(initial?.boss_id ?? '');
   const [gender, setGender] = useState<string>(initial?.gender ?? 'UNKNOWN');
   const [hireDate, setHireDate] = useState(initial?.hire_date ?? '');
@@ -121,7 +122,19 @@ export function WorkerForm({ mode, initial, onSaved, onCancel }: WorkerFormProps
         <FormFieldset title="Dane podstawowe">
           <TextField label="Imię" name="firstname" value={firstname} onChange={(e) => setFirstname(e.target.value)} required />
           <TextField label="Nazwisko" name="surname" value={surname} onChange={(e) => setSurname(e.target.value)} required />
-          <SelectField label="Stanowisko" name="job_id" value={jobId} onChange={(e) => setJobId(e.target.value)} options={jobOptions} placeholder="Brak" />
+          <SelectField
+            label="Stanowisko"
+            name="job_id"
+            value={jobId}
+            onChange={(e) => setJobId(e.target.value)}
+            options={jobOptions}
+            placeholder="Brak"
+            helper={
+              selectedJob?.is_managerial && selectedJob.department_name
+                ? `kierownik działu ${selectedJob.department_name}`
+                : undefined
+            }
+          />
           <SelectField label="Przełożony" name="boss_id" value={bossId} onChange={(e) => setBossId(e.target.value)} options={bossOptions} placeholder="Brak" />
           <SelectField label="Płeć" name="gender" value={gender} onChange={(e) => setGender(e.target.value)} options={GENDER_OPTIONS} required />
           <TextField label="Data zatrudnienia" name="hire_date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />

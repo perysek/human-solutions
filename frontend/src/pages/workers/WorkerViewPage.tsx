@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { WorkerAttentionSection } from './WorkerAttentionSection';
 import { WorkerCompetencySection } from './WorkerCompetencySection';
 import { WorkerMedicalSection } from './WorkerMedicalSection';
 import { WorkerBhpSection } from './WorkerBhpSection';
@@ -120,6 +121,9 @@ export function WorkerViewPage() {
                   )
                 }
               />
+              {worker.job_is_managerial && worker.department_name && (
+                <Field label="Kierownik działu" value={`kierownik działu ${worker.department_name}`} />
+              )}
               <Field
                 label="Przełożony"
                 value={
@@ -137,6 +141,13 @@ export function WorkerViewPage() {
               <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />
               <Field label="Data zwolnienia" value={worker.fire_date ? new Date(worker.fire_date).toLocaleDateString('pl-PL') : '—'} />
             </Section>
+
+            <WorkerAttentionSection
+              workerId={worker.id}
+              workerName={worker.full_name}
+              canSeeMedical={hasModuleAccess('medical')}
+              canSeeBhp={hasModuleAccess('bhp')}
+            />
 
             <Section title="Dane urodzenia">
               <Field label="Data urodzenia" value={worker.birth.birth_date ? new Date(worker.birth.birth_date).toLocaleDateString('pl-PL') : '—'} />

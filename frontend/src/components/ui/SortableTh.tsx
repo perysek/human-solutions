@@ -17,6 +17,11 @@ interface SortableThProps {
   align?: 'left' | 'center' | 'right';
   /** Badge-value columns (e.g. Status) get a multi-select filter popover alongside sort. */
   filter?: ColumnFilterConfig;
+  /** Applied to the <th> itself — e.g. a narrow `width` + `wordBreak:
+   * 'break-word'` so a short numeric column's header wraps onto 2 lines
+   * instead of forcing the whole column wide to fit one unbroken line
+   * (DepartmentsListPage's "Ilość pracowników"/"Ilość stanowisk"). */
+  style?: React.CSSProperties;
 }
 
 /**
@@ -25,14 +30,14 @@ interface SortableThProps {
  * inside it (Enter/Space work), a ▲/▼ glyph. Kept in sync on click, so
  * aria-sort never goes stale the way an unmanaged client-sort can.
  */
-export function SortableTh({ label, sortKey, currentSort, currentOrder, onSort, align = 'left', filter }: SortableThProps) {
+export function SortableTh({ label, sortKey, currentSort, currentOrder, onSort, align = 'left', filter, style }: SortableThProps) {
   const isActive = currentSort === sortKey;
   const ariaSort = isActive ? (currentOrder === 'asc' ? 'ascending' : 'descending') : 'none';
   const glyph = isActive ? (currentOrder === 'asc' ? '▲' : '▼') : '▲';
   const alignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
 
   return (
-    <th className={`th-sortable ${isActive ? 'sort-active' : ''} ${alignClass}`} aria-sort={ariaSort} id={`th-${sortKey}`}>
+    <th className={`th-sortable ${isActive ? 'sort-active' : ''} ${alignClass}`} aria-sort={ariaSort} id={`th-${sortKey}`} style={style}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
         <button type="button" className="th-sort-btn" onClick={() => onSort(sortKey)}>
           <span>{label}</span>

@@ -160,9 +160,28 @@ def api_add_jobs(department_id):
     if not job_ids:
         raise ValidationError('Nie wybrano żadnego stanowiska')
 
+    from repositories.jobs.job_repository import JobRepository
+    job_repo = JobRepository()
+
+    # task — 'at most one kierownicze job-position per dział' guard, bulk
+    # form: block the whole batch if it would push the department past one
+    # manager, whether that's >=2 managerial jobs in this one batch, or one
+    # managerial job in the batch on top of a DIFFERENT managerial job the
+    # department already has (a job already listed as the department's own
+    # manager, re-selected in the same batch, is not a conflict with itself).
+    incoming_managerial = [j['id'] for j in job_repo.get_by_ids(job_ids) if j['is_managerial']]
+    if len(incoming_managerial) > 1:
+        raise ConflictError('Można przypisać do działu co najwyżej jedno stanowisko kierownicze naraz.')
+    if incoming_managerial:
+        existing_manager = _repo().get_managerial_job(department_id)
+        if existing_manager and existing_manager['id'] not in incoming_managerial:
+            raise ConflictError(
+                f'Dział ma już przypisanego kierownika (stanowisko "{existing_manager["id"]}") '
+                '— najpierw usuń je z działu.'
+            )
+
     try:
-        from repositories.jobs.job_repository import JobRepository
-        updated = JobRepository().assign_department(job_ids, department_id)
+        updated = job_repo.assign_department(job_ids, department_id)
         return jsonify({'success': True, 'updated': updated})
     except AppError:
         raise

@@ -10,6 +10,26 @@ from repositories.auditable import AuditableMixin
 from repositories.base_repository import BaseRepository
 
 
+
+# task2 — "Powiązanych stanowisk" / "Pracowników z luką kompetencji" columns
+# on SkillsListPage. Two correlated-subquery aggregates, only pulled in by
+# get_all (the list view); get_by_id stays on the plain `_columns` — the
+# edit form has no use for either count. `gap_worker_count` mirrors
+# WorkerSkillRepository.filter_by_gap's own definition of "gap" (active
+# workers only, required_rating - COALESCE(current_rating, 0) >= 1) so the
+# number on this page always agrees with LUK_1's gap report for the same skill.
+_LIST_SELECT = """
+    SELECT s.id, s.description, s.created_at, s.updated_at,
+           (SELECT COUNT(*) FROM job_skills js WHERE js.skill_id = s.id) AS job_count,
+           (SELECT COUNT(*) FROM workers w
+              JOIN job_skills js ON js.job_id = w.job_id AND js.skill_id = s.id
+              LEFT JOIN worker_skills ws ON ws.worker_id = w.id AND ws.skill_id = s.id
+              WHERE w.fire_date IS NULL
+                AND (js.required_rating - COALESCE(ws.current_rating, 0)) >= 1) AS gap_worker_count
+    FROM skills s
+"""
+
+
 class SkillRepository(AuditableMixin, BaseRepository):
     """Repository dla umiejętności. Klucz naturalny TEXT (id = kod
     umiejętności, np. "0002", dziedziczony z legacy SQLite)."""
@@ -22,13 +42,13 @@ class SkillRepository(AuditableMixin, BaseRepository):
 
     def get_all(self, search: Optional[str] = None) -> List[Any]:
         """Lista umiejętności, opcjonalnie filtrowana po id/opisie (SKL_1)."""
-        query = f"SELECT {self._columns} FROM skills"
+        query = _LIST_SELECT
         params: tuple = ()
         if search:
-            query += " WHERE id ILIKE %s OR description ILIKE %s"
+            query += " WHERE s.id ILIKE %s OR s.description ILIKE %s"
             like = f"%{search}%"
             params = (like, like)
-        query += " ORDER BY id"
+        query += " ORDER BY s.id"
         return self._fetch_all(query, params)
 
     def create(self, skill_id: str, description: str) -> str:

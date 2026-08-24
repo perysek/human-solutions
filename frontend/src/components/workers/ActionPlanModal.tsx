@@ -404,19 +404,17 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
             {!isEdit && isTraining ? (
               <div className="form-grid">
                 <div className="form-field-full">
-                  <div className="flex items-end gap-2">
-                    <div style={{ flex: 1 }}>
-                      <SearchableSelect
-                        id="action-plan-training"
-                        label="Szkolenie"
-                        required
-                        options={trainingOptions}
-                        value={trainingId}
-                        onChange={handleTrainingSelect}
-                        placeholder="Wybierz szkolenie…"
-                        searchPlaceholder="Szukaj szkolenia…"
-                      />
-                    </div>
+                  <SearchableSelect
+                    id="action-plan-training"
+                    label="Szkolenie"
+                    required
+                    options={trainingOptions}
+                    value={trainingId}
+                    onChange={handleTrainingSelect}
+                    placeholder="Wybierz szkolenie…"
+                    searchPlaceholder="Szukaj szkolenia…"
+                  />
+                  <div className="mt-2">
                     <Button type="button" variant="secondary" onClick={() => setShowCreateTraining(true)}>
                       <Icon name="add" size={16} />
                       Nowe

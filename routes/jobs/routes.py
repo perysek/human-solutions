@@ -86,6 +86,23 @@ def _parse_department_id(data: dict) -> Optional[int]:
     return department_id
 
 
+def _check_single_manager(department_id: Optional[int], is_managerial: bool, job_id: Optional[str] = None) -> None:
+    """'At most one kierownicze job-position per dział' guard — friendly
+    pre-check backing the partial unique index idx_jobs_one_manager_per_department
+    (migration d1e2f3a4b5c6). `job_id` is the job being saved (None at
+    create) so editing/re-saving the department's own existing manager
+    doesn't conflict with itself."""
+    if not is_managerial or department_id is None:
+        return
+    from repositories.departments.department_repository import DepartmentRepository
+    existing = DepartmentRepository().get_managerial_job(department_id)
+    if existing and existing['id'] != job_id:
+        raise ConflictError(
+            f'Dział ma już przypisane stanowisko kierownicze ("{existing["id"]}") '
+            '— dział może mieć tylko jedno stanowisko kierownicze naraz.'
+        )
+
+
 @jobs_bp.route('/api', methods=['POST'])
 @login_required
 @module_permission_required('jobs')
@@ -103,6 +120,7 @@ def api_create():
     repo = _repo()
     if repo.get_by_id(job_id):
         raise ConflictError(f'Stanowisko o identyfikatorze "{job_id}" już istnieje')
+    _check_single_manager(department_id, is_managerial)
 
     try:
         repo.create(job_id, description, department_id, is_managerial)
@@ -127,6 +145,7 @@ def api_update(job_id):
     description = (data.get('description') or '').strip() or None
     department_id = _parse_department_id(data)
     is_managerial = bool(data.get('is_managerial'))
+    _check_single_manager(department_id, is_managerial, job_id=job_id)
 
     try:
         repo.update(job_id, description, department_id, is_managerial)

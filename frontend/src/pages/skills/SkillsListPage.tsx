@@ -20,6 +20,10 @@ function getSortValue(row: SkillListItem, key: string): string | number | null {
       return row.id;
     case 'description':
       return row.description;
+    case 'job_count':
+      return row.job_count;
+    case 'gap_worker_count':
+      return row.gap_worker_count;
     default:
       return null;
   }
@@ -94,7 +98,7 @@ export function SkillsListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={3} />
+          <TableSkeleton cols={5} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : sorted.length === 0 ? (
@@ -107,7 +111,9 @@ export function SkillsListPage() {
                   <tr>
                     <SortableTh label="Kod" sortKey="id" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Opis" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
-                    <th className="text-right">Akcje</th>
+                    <SortableTh label="Powiązanych stanowisk" sortKey="job_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Pracowników z luką kompetencji" sortKey="gap_worker_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -124,6 +130,8 @@ export function SkillsListPage() {
                     >
                       <td>{s.id}</td>
                       <td>{s.description}</td>
+                      <td>{s.job_count}</td>
+                      <td>{s.gap_worker_count}</td>
                       <td>
                         {canWrite && (
                           <div className="action-icons">

@@ -248,7 +248,7 @@ export function ActionPlansPage() {
                         onChange: setStatusFilter,
                       }}
                     />
-                    <th className="text-right">Akcje</th>
+                    <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -94,7 +94,7 @@ export function TrainingTrainersSection({ trainingId, trainerLinks: links, loadi
           <thead>
             <tr>
               <th>Prowadzący</th>
-              <th className="text-right">Akcje</th>
+              <th className="text-right"><span className="sr-only">Akcje</span></th>
             </tr>
           </thead>
           <tbody>

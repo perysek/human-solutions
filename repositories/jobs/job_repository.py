@@ -48,6 +48,16 @@ class JobRepository(AuditableMixin, BaseRepository):
         query = f"SELECT {self._columns} {self._FROM} WHERE j.id = %s"
         return self._fetch_one(query, (job_id,))
 
+    def get_by_ids(self, job_ids: List[str]) -> List[Any]:
+        """Bulk get, `is_managerial` included — used by
+        routes/departments/routes.py's api_add_jobs to pre-check the
+        'at most one manager per department' rule against a whole batch
+        of incoming job_ids in one query."""
+        if not job_ids:
+            return []
+        clause, params = self._in_clause(job_ids)
+        return self._fetch_all(f"SELECT {self._columns} {self._FROM} WHERE j.id IN {clause}", params)
+
     def create(self, job_id: str, description: Optional[str], department_id: Optional[int] = None, is_managerial: bool = False) -> str:
         """Utwórz stanowisko. Wywołujący (route) odpowiada za sprawdzenie
         unikalności id przed wywołaniem — patrz routes/jobs/routes.py."""

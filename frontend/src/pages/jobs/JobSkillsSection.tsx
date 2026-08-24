@@ -84,7 +84,7 @@ export function JobSkillsSection({ jobId, canWrite }: { jobId: string; canWrite:
             <tr>
               <th>Umiejętność</th>
               <th>Wymagana ocena</th>
-              {canWrite && <th className="text-right">Akcje</th>}
+              {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
             </tr>
           </thead>
           <tbody>

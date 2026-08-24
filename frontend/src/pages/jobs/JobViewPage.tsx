@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -55,6 +55,19 @@ export function JobViewPage() {
             <div className="form-card animate-fade-up">
               <div className="form-grid">
                 <Field label="Kod" value={job.id} />
+                <Field
+                  label="Dział"
+                  value={
+                    job.department_id ? (
+                      <Link to="/departments" style={{ color: 'var(--color-focus-ring)' }}>
+                        {job.department_name ?? job.department_id}
+                      </Link>
+                    ) : (
+                      '—'
+                    )
+                  }
+                />
+                <Field label="Typ stanowiska" value={job.is_managerial ? 'Kierownicze' : 'Nie-kierownicze'} />
                 <Field label="Opis" value={job.description ?? '—'} />
                 <Field label="Utworzono" value={job.created_at ? new Date(job.created_at).toLocaleString('pl-PL') : '—'} />
                 <Field label="Zaktualizowano" value={job.updated_at ? new Date(job.updated_at).toLocaleString('pl-PL') : '—'} />

@@ -26,16 +26,72 @@ _SORT_COLUMNS = {
 _DEFAULT_SORT = 'surname'
 
 # Joins firstname/surname of both the worker and their boss, plus the job's
-# description, in one query — this is the shared SELECT base for both
-# get_all (list, WRK_1/WRK_11) and get_by_id (profile header, WRK_2).
-_SELECT_BASE = """
-    SELECT w.id, w.firstname, w.surname, w.job_id, j.description AS job_description,
-           w.boss_id, b.firstname AS boss_firstname, b.surname AS boss_surname,
-           w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at
+# description and (task1) its department/is_managerial flag, in one query —
+# this is the shared SELECT base for both get_all (list, WRK_1/WRK_11) and
+# get_by_id (profile header, WRK_2). department_name/is_managerial feed
+# WorkerViewPage's "kierownik działu xxxxx" label — a worker is shown as
+# managing a department when their own job.is_managerial is true AND that
+# job has a department_id (see routes/workers/routes.py's _worker_json).
+#
+# Split into columns/FROM (rather than one opaque string) so get_all can
+# splice in `_NEEDS_ATTENTION_SQL` as one more selected column without
+# duplicating the join list — see get_all's own query below.
+_BASE_COLUMNS = """
+    w.id, w.firstname, w.surname, w.job_id, j.description AS job_description,
+    j.is_managerial AS job_is_managerial, j.department_id, d.name AS department_name,
+    w.boss_id, b.firstname AS boss_firstname, b.surname AS boss_surname,
+    w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at
+"""
+_FROM_CLAUSE = """
     FROM workers w
     LEFT JOIN jobs j ON j.id = w.job_id
+    LEFT JOIN departments d ON d.id = j.department_id
     LEFT JOIN workers b ON b.id = w.boss_id
 """
+_SELECT_BASE = f"SELECT {_BASE_COLUMNS} {_FROM_CLAUSE}"
+
+# task3 — WorkersListPage's "needs attention" badge/filter/stat-cards.
+# Three independent per-category boolean expressions (no alias — spliced
+# into a SELECT column list with "AS ..." by callers, or into a WHERE/
+# FILTER clause directly) so get_all's row flag and
+# count_needs_attention_by_category's per-category totals can never drift
+# apart by sharing one definition each:
+#  - competence gap: the worker's job has >=1 required skill they don't
+#    currently meet (required_rating - current_rating >= 1, unassessed
+#    counts as 0) — same definition as WorkerSkillRepository.filter_by_gap
+#    and competency_service.get_gap_analysis.
+#  - bhp/medical "expired": the worker HAS at least one record of that
+#    kind, but NONE of them is currently valid (valid_until IS NULL is
+#    "never expires", same as alert_service's get_expiring NULL handling).
+#    A worker with zero records of a kind is not flagged — nothing has
+#    expired if nothing was ever recorded.
+_GAP_EXISTS_SQL = """
+    EXISTS (
+        SELECT 1 FROM job_skills js
+        LEFT JOIN worker_skills ws ON ws.worker_id = w.id AND ws.skill_id = js.skill_id
+        WHERE js.job_id = w.job_id AND (js.required_rating - COALESCE(ws.current_rating, 0)) >= 1
+    )
+"""
+_BHP_EXPIRED_SQL = """
+    (
+        EXISTS (SELECT 1 FROM bhp_trainings bt WHERE bt.worker_id = w.id)
+        AND NOT EXISTS (
+            SELECT 1 FROM bhp_trainings bt
+            WHERE bt.worker_id = w.id AND (bt.valid_until IS NULL OR bt.valid_until >= CURRENT_DATE)
+        )
+    )
+"""
+_MEDICAL_EXPIRED_SQL = """
+    (
+        EXISTS (SELECT 1 FROM medical_exams me WHERE me.worker_id = w.id)
+        AND NOT EXISTS (
+            SELECT 1 FROM medical_exams me
+            WHERE me.worker_id = w.id AND (me.valid_until IS NULL OR me.valid_until >= CURRENT_DATE)
+        )
+    )
+"""
+_NEEDS_ATTENTION_EXPR = f"({_GAP_EXISTS_SQL} OR {_BHP_EXPIRED_SQL} OR {_MEDICAL_EXPIRED_SQL})"
+_NEEDS_ATTENTION_SQL = f"{_NEEDS_ATTENTION_EXPR} AS needs_attention"
 
 
 class WorkerRepository(AuditableMixin, BaseRepository):
@@ -80,13 +136,18 @@ class WorkerRepository(AuditableMixin, BaseRepository):
 
     def get_all(
         self, *, status: Optional[str] = None, search: Optional[str] = None,
+        needs_attention: Optional[str] = None,
         sort: Optional[str] = None, order: str = 'asc',
         page: int = 1, page_size: int = 25,
     ) -> Tuple[List[Any], int]:
         """Paginated, filtered, sorted worker list (WRK_1/WRK_11). Returns
         (rows_for_this_page, total_matching_count) — the frontend's
         PaginatedTable needs the total to render page controls even though
-        it only receives one page's worth of rows."""
+        it only receives one page's worth of rows.
+
+        `needs_attention`: 'yes' | 'no' | None/'all' — task3's "Wymaga
+        uwagi" filter dropdown, reusing `_NEEDS_ATTENTION_EXPR` so the
+        filter always agrees with the badge each row gets."""
         conditions = []
         params: list = []
 
@@ -101,6 +162,12 @@ class WorkerRepository(AuditableMixin, BaseRepository):
             conditions.append('(w.firstname ILIKE %s OR w.surname ILIKE %s OR j.description ILIKE %s OR w.job_id ILIKE %s)')
             params.extend([like, like, like, like])
 
+        if needs_attention == 'yes':
+            conditions.append(_NEEDS_ATTENTION_EXPR)
+        elif needs_attention == 'no':
+            conditions.append(f'NOT {_NEEDS_ATTENTION_EXPR}')
+        # needs_attention in (None, 'all') -> no filter
+
         where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ''
 
         sort_column = _SORT_COLUMNS.get(sort or _DEFAULT_SORT, _SORT_COLUMNS[_DEFAULT_SORT])
@@ -110,7 +177,11 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         total = self._fetch_one(count_query, tuple(params))['total']
 
         offset = max(page - 1, 0) * page_size
-        list_query = _SELECT_BASE + where_clause + f" ORDER BY {sort_column} {order_sql}, w.id ASC LIMIT %s OFFSET %s"
+        list_query = (
+            f"SELECT {_BASE_COLUMNS}, {_NEEDS_ATTENTION_SQL} {_FROM_CLAUSE}"
+            + where_clause
+            + f" ORDER BY {sort_column} {order_sql}, w.id ASC LIMIT %s OFFSET %s"
+        )
         rows = self._fetch_all(list_query, tuple(params) + (page_size, offset))
 
         return rows, total
@@ -144,6 +215,27 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         przypisanych do danego przełożonego")."""
         query = _SELECT_BASE + " WHERE w.boss_id = %s ORDER BY w.surname, w.firstname"
         return self._fetch_all(query, (boss_id,))
+
+    def count_needs_attention_by_category(self) -> dict:
+        """task2 — WorkersListPage's stat cards. Active-worker (fire_date
+        IS NULL, same "aktywny" scope as count_active) counts per 'needs
+        attention' category, using the exact same three expressions
+        get_all's row-level flag and the 'yes'/'no' filter use, so the
+        cards' numbers always agree with which rows the badge/filter show."""
+        query = f"""
+            SELECT
+                COUNT(*) FILTER (WHERE {_GAP_EXISTS_SQL}) AS gap_count,
+                COUNT(*) FILTER (WHERE {_MEDICAL_EXPIRED_SQL}) AS medical_count,
+                COUNT(*) FILTER (WHERE {_BHP_EXPIRED_SQL}) AS bhp_count
+            FROM workers w
+            WHERE w.fire_date IS NULL
+        """
+        row = self._fetch_one(query)
+        return {
+            'gap_count': row['gap_count'],
+            'medical_count': row['medical_count'],
+            'bhp_count': row['bhp_count'],
+        }
 
     def count_active(self) -> int:
         """DSH_1 — liczba aktywnych pracowników (fire_date IS NULL) dla

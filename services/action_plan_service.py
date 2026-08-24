@@ -58,6 +58,16 @@ def _create_training_action_plan(
         raise NotFoundError('Szkolenie nie znalezione')
     if TrainingParticipantRepository().exists_active(training_id, worker_id):
         raise ConflictError('Ten pracownik jest już zapisany na to szkolenie')
+    # task — 'at most one OPEN plan per (worker, skill)' guard (this branch
+    # always creates status='defined', i.e. open) — checked before the
+    # transaction below so a conflict never leaves an orphaned
+    # training_participants enrollment behind.
+    conflict = ActionPlanRepository().get_open_plan(worker_id, skill_id)
+    if conflict:
+        raise ConflictError(
+            f'Pracownik ma już otwarty plan działania dla tej umiejętności ("{conflict["description"]}") '
+            '— najpierw go zakończ lub usuń.'
+        )
 
     # Auto-derived, since the training-mode form collects only the training
     # + planned date + expected increase — description still has to satisfy

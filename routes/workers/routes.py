@@ -18,7 +18,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required
 
 from config.auth_config import module_permission_required
-from exceptions import AppError, NotFoundError, ValidationError
+from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.audit_repository import AuditRepository
 from repositories.skills.skill_repository import SkillRepository
 from repositories.workers.action_plan_repository import ActionPlanRepository
@@ -34,6 +34,11 @@ from services.alert_service import get_expiring_foreigner_docs
 # page allow. Kept as the raw enum strings the frontend already uses (no
 # translation layer) — see ActionPlanModal.tsx's ActionPlanStatus type.
 _ACTION_PLAN_STATUSES = {'defined', 'in_progress', 'completed', 'effective'}
+# task — 'at most one OPEN plan per (worker, skill)' guard: which of the 4
+# statuses above count as "still open" (matches
+# ActionPlanRepository.get_open_plan's own SQL and the partial unique
+# index's predicate, migration d1e2f3a4b5c6).
+_OPEN_ACTION_PLAN_STATUSES = {'defined', 'in_progress'}
 
 
 def _parse_date(value, *, field_label: str):
@@ -63,6 +68,12 @@ def _worker_json(row) -> dict:
         'full_name': f"{row['firstname']} {row['surname']}",
         'job_id': row['job_id'],
         'job_description': row.get('job_description'),
+        'job_is_managerial': bool(row.get('job_is_managerial')),
+        'department_id': row.get('department_id'),
+        'department_name': row.get('department_name'),
+        # Only present on rows from WorkerRepository.get_all (api_list, task3) —
+        # get_by_id/get_subordinates/get_by_job don't compute it.
+        'needs_attention': bool(row.get('needs_attention', False)),
         'boss_id': row['boss_id'],
         'boss_name': boss_name,
         'gender': row['gender'],
@@ -98,18 +109,19 @@ def _profile_json(profile: dict) -> dict:
 @login_required
 @module_permission_required('workers')
 def api_list():
-    """GET /workers/api?status=&search=&sort=&order=&page=&page_size= — WRK_1/WRK_11."""
+    """GET /workers/api?status=&search=&needs_attention=&sort=&order=&page=&page_size= — WRK_1/WRK_11."""
     try:
         status = request.args.get('status') or None
         search = request.args.get('search') or None
+        needs_attention = request.args.get('needs_attention') or None
         sort = request.args.get('sort') or None
         order = request.args.get('order') or 'asc'
         page = max(int(request.args.get('page', 1)), 1)
         page_size = min(max(int(request.args.get('page_size', 25)), 1), 200)
 
         rows, total = WorkerRepository().get_all(
-            status=status, search=search, sort=sort, order=order,
-            page=page, page_size=page_size,
+            status=status, search=search, needs_attention=needs_attention,
+            sort=sort, order=order, page=page, page_size=page_size,
         )
         return jsonify({
             'workers': [_worker_json(r) for r in rows],
@@ -123,6 +135,26 @@ def api_list():
         raise ValidationError('Nieprawidłowe parametry paginacji')
     except Exception:
         logging.exception('Unexpected error in api_list (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/needs-attention-summary', methods=['GET'])
+@login_required
+@module_permission_required('workers')
+def api_needs_attention_summary():
+    """GET /workers/api/needs-attention-summary — task2's stat cards atop
+    WorkersListPage. `total` is the literal sum of the three category
+    counts (a worker in two categories at once counts toward `total`
+    twice, same as it counts toward two separate cards) — this is a sum of
+    issues, not a count of distinct flagged workers."""
+    try:
+        counts = WorkerRepository().count_needs_attention_by_category()
+        counts['total'] = counts['gap_count'] + counts['medical_count'] + counts['bhp_count']
+        return jsonify(counts)
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_needs_attention_summary (workers)')
         raise AppError('Wystąpił błąd serwera')
 
 
@@ -604,6 +636,13 @@ def api_create_action_plan():
         raise NotFoundError('Umiejętność nie znaleziona')
     if not WorkerRepository().get_by_id(responsible_id):
         raise NotFoundError('Odpowiedzialny pracownik nie znaleziony')
+    if status in _OPEN_ACTION_PLAN_STATUSES:
+        conflict = ActionPlanRepository().get_open_plan(worker_id, skill_id)
+        if conflict:
+            raise ConflictError(
+                f'Pracownik ma już otwarty plan działania dla tej umiejętności ("{conflict["description"]}") '
+                '— najpierw go zakończ lub usuń.'
+            )
 
     try:
         new_id = ActionPlanRepository().create(
@@ -660,6 +699,13 @@ def api_update_action_plan(action_plan_id):
         raise ValidationError('Data oceny skuteczności nie może być wcześniejsza niż data zakończenia')
     if not WorkerRepository().get_by_id(responsible_id):
         raise NotFoundError('Odpowiedzialny pracownik nie znaleziony')
+    if status in _OPEN_ACTION_PLAN_STATUSES:
+        conflict = ActionPlanRepository().get_open_plan(existing['worker_id'], existing['skill_id'], exclude_id=action_plan_id)
+        if conflict:
+            raise ConflictError(
+                f'Pracownik ma już inny otwarty plan działania dla tej umiejętności ("{conflict["description"]}") '
+                '— najpierw go zakończ lub usuń.'
+            )
 
     try:
         ActionPlanRepository().update(

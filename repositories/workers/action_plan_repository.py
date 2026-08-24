@@ -80,6 +80,25 @@ class ActionPlanRepository(AuditableMixin, BaseRepository):
         rows = self._fetch_all(_SELECT + " WHERE ap.id = %s AND NOT ap.is_deleted", (action_plan_id,))
         return rows[0] if rows else None
 
+    def get_open_plan(self, worker_id: str, skill_id: str, exclude_id: Optional[int] = None) -> Optional[Any]:
+        """'At most one OPEN plan per (worker, skill)' guard — 'open' means
+        status not yet completed/effective (defined/in_progress). A worker
+        can accumulate any number of RESOLVED historical plans for the same
+        skill over time (that's the audit trail LUK_2 was built for); only
+        one may be actively in flight. Backed by the partial unique index
+        idx_action_plans_one_open_per_worker_skill (migration d1e2f3a4b5c6)
+        — this method is what lets the route give a friendly Polish
+        ConflictError instead of only surfacing a raw IntegrityError."""
+        query = (
+            "SELECT id, description FROM action_plans WHERE worker_id = %s AND skill_id = %s "
+            "AND NOT is_deleted AND status IN ('defined', 'in_progress')"
+        )
+        params: list = [worker_id, skill_id]
+        if exclude_id is not None:
+            query += " AND id != %s"
+            params.append(exclude_id)
+        return self._fetch_one(query, tuple(params))
+
     def delete(self, action_plan_id: int) -> bool:
         """Soft-delete (BaseRepository.delete() with _soft_delete=True sets
         is_deleted/deleted_at rather than removing the row) + an explicit

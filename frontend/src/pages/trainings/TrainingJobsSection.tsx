@@ -19,7 +19,16 @@ async function fetchJobsRequiredBySkills(skillIds: string[]): Promise<JobListIte
   const byJobId = new Map<string, JobListItem>();
   for (const { jobs } of perSkill) {
     for (const j of jobs) {
-      if (!byJobId.has(j.job_id)) byJobId.set(j.job_id, { id: j.job_id, description: j.job_description, created_at: null, updated_at: null });
+      if (!byJobId.has(j.job_id))
+        byJobId.set(j.job_id, {
+          id: j.job_id,
+          description: j.job_description,
+          department_id: null,
+          department_name: null,
+          is_managerial: false,
+          created_at: null,
+          updated_at: null,
+        });
     }
   }
   return [...byJobId.values()];
@@ -171,7 +180,7 @@ export function TrainingJobsSection({
           <thead>
             <tr>
               <th>Stanowisko</th>
-              <th className="text-right">Akcje</th>
+              <th className="text-right"><span className="sr-only">Akcje</span></th>
             </tr>
           </thead>
           <tbody>

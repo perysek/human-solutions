@@ -7,6 +7,14 @@ export interface WorkerListItem {
   full_name: string;
   job_id: string | null;
   job_description: string | null;
+  /** True when the worker's own job-position is 'kierownicze' — combined
+   * with department_name to render "kierownik działu xxxxx" (task1). */
+  job_is_managerial: boolean;
+  department_id: number | null;
+  department_name: string | null;
+  /** task3 — competence gap, or no currently-valid BHP training/medical
+   * exam despite having records of that kind. List-only (api_list). */
+  needs_attention: boolean;
   boss_id: string | null;
   boss_name: string | null;
   gender: 'Male' | 'Female' | 'UNKNOWN';
@@ -46,6 +54,8 @@ export interface WorkerPayload {
 export interface WorkersListParams {
   status?: 'active' | 'inactive' | 'all';
   search?: string;
+  /** task3 — WorkersListPage's "Wymaga uwagi" filter dropdown. */
+  needs_attention?: 'yes' | 'no' | 'all';
   sort?: string;
   order?: 'asc' | 'desc';
   page?: number;
@@ -119,6 +129,7 @@ function buildQuery(params: WorkersListParams): string {
   const usp = new URLSearchParams();
   if (params.status) usp.set('status', params.status);
   if (params.search) usp.set('search', params.search);
+  if (params.needs_attention && params.needs_attention !== 'all') usp.set('needs_attention', params.needs_attention);
   if (params.sort) usp.set('sort', params.sort);
   if (params.order) usp.set('order', params.order);
   if (params.page) usp.set('page', String(params.page));
@@ -127,10 +138,20 @@ function buildQuery(params: WorkersListParams): string {
   return qs ? `${BASE}?${qs}` : BASE;
 }
 
+export interface NeedsAttentionSummary {
+  gap_count: number;
+  medical_count: number;
+  bhp_count: number;
+  /** Literal sum of the three counts above — a worker in two categories
+   * at once counts toward `total` twice, not a distinct-worker count. */
+  total: number;
+}
+
 export const workersApi = {
   list: (params: WorkersListParams = {}) =>
     api.get<{ workers: WorkerListItem[]; count: number; page: number; page_size: number }>(buildQuery(params)),
   get: (id: string) => api.get<WorkerProfile>(`${BASE}/${encodeURIComponent(id)}`),
+  needsAttentionSummary: () => api.get<NeedsAttentionSummary>(`${BASE}/needs-attention-summary`),
   create: (payload: WorkerPayload) => api.post<{ success: boolean; id: string }>(BASE, payload),
   update: (id: string, payload: WorkerPayload) => api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, payload),
   deactivate: (id: string) => api.put<{ success: boolean; already_inactive: boolean }>(`${BASE}/${encodeURIComponent(id)}/deactivate`),

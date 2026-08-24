@@ -141,7 +141,7 @@ export function UsersListPage() {
                       filter={{ options: STATUS_OPTIONS, selected: statusFilter, onChange: setStatusFilter }}
                     />
                     <th>Blokada</th>
-                    <th className="text-right">Akcje</th>
+                    <th className="text-right"><span className="sr-only">Akcje</span></th>
                   </tr>
                 </thead>
                 <tbody>
