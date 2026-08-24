@@ -3,6 +3,7 @@ import { Icon } from '@/lib/icons/Icon';
 import { Button } from '@/components/ui/Button';
 import { CheckboxField, SelectField, TextareaField, TextField } from '@/components/ui/form';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { CreateTrainingModal } from '@/components/trainings/CreateTrainingModal';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
 import { trainingsApi } from '@/lib/api/trainings';
@@ -26,12 +27,17 @@ function todayStr(): string {
  * in any browser, which the "colored status-items" requirement needs. */
 function StatusSelect({ value, onChange }: { value: ActionPlanStatus; onChange: (v: ActionPlanStatus) => void }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const wrapRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const current = ACTION_PLAN_STATUS_OPTIONS.find((o) => o.value === value) ?? ACTION_PLAN_STATUS_OPTIONS[0];
+  const filtered = ACTION_PLAN_STATUS_OPTIONS.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase()));
   useEscapeClaim(open);
 
   useEffect(() => {
     if (!open) return;
+    setQuery('');
+    const focusTimer = window.setTimeout(() => searchRef.current?.focus(), 0);
     function onClickOutside(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     }
@@ -41,6 +47,7 @@ function StatusSelect({ value, onChange }: { value: ActionPlanStatus; onChange: 
     document.addEventListener('mousedown', onClickOutside);
     document.addEventListener('keydown', onEscape);
     return () => {
+      window.clearTimeout(focusTimer);
       document.removeEventListener('mousedown', onClickOutside);
       document.removeEventListener('keydown', onEscape);
     };
@@ -72,25 +79,44 @@ function StatusSelect({ value, onChange }: { value: ActionPlanStatus; onChange: 
         // since overflow clips absolutely-positioned descendants at the
         // nearest scrolling ancestor. Flowing inline instead just grows
         // the modal body's scroll area, which is fine in a short form.
-        <div role="listbox" aria-labelledby="action-plan-status-label" className="col-filter-menu" style={{ position: 'static', marginTop: '0.375rem' }}>
-          {ACTION_PLAN_STATUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={opt.value === value}
-              className="col-filter-item"
-              style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-              onClick={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
-            >
-              <span className="refined-badge" style={{ background: opt.background, color: opt.color }}>
-                {opt.label}
-              </span>
-            </button>
-          ))}
+        <div
+          role="listbox"
+          aria-labelledby="action-plan-status-label"
+          className="col-filter-menu"
+          style={{ position: 'static', marginTop: '0.375rem', display: 'flex', flexDirection: 'column', width: '100%' }}
+        >
+          <input
+            ref={searchRef}
+            type="text"
+            className="refined-input"
+            style={{ marginBottom: '0.375rem' }}
+            placeholder="Szukaj…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Szukaj — Status"
+          />
+          {filtered.length === 0 ? (
+            <p style={{ padding: '0.375rem 0.5rem', fontSize: '0.8125rem', color: 'var(--color-ink-subtle)' }}>Brak wyników</p>
+          ) : (
+            filtered.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="option"
+                aria-selected={opt.value === value}
+                className="col-filter-item"
+                style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+              >
+                <span className="refined-badge" style={{ background: opt.background, color: opt.color }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -157,6 +183,7 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
   const [trainingStartDate, setTrainingStartDate] = useState('');
   const [expectedIncrease, setExpectedIncrease] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [showCreateTraining, setShowCreateTraining] = useState(false);
 
   const { data: workersData } = useApiData(() => workersApi.list({ status: 'active', page_size: 500 }), []);
   const responsibleOptions = useMemo(
@@ -170,7 +197,7 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
   // Scoped to seed.skillId — only trainings already linked (training_skills)
   // to the gap's own skill are offered, so a training-linked plan can't
   // point at a training unrelated to the gap it's meant to close.
-  const { data: trainingsData } = useApiData(
+  const { data: trainingsData, reload: reloadTrainings } = useApiData(
     () => trainingsApi.list({ page_size: 200, sort: 'training_date', order: 'desc', skill_id: seed.skillId }),
     [seed.skillId],
   );
@@ -191,6 +218,24 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
     if (!trainingStartDate) {
       const picked = trainingsData?.trainings.find((t) => String(t.id) === value);
       if (picked?.training_date) setTrainingStartDate(picked.training_date);
+    }
+  }
+
+  /** "+ Nowe" flow: the created training starts with no skill links, so it
+   * wouldn't show up in `trainingOptions` (scoped to seed.skillId — see the
+   * comment on trainingsData above) — link it to the gap's own skill first,
+   * then reload so the picker's option list includes it before selecting. */
+  async function handleTrainingCreated(id: number) {
+    setShowCreateTraining(false);
+    try {
+      await trainingsApi.setSkillLinks(id, [seed.skillId]);
+      const created = await trainingsApi.get(id);
+      reloadTrainings();
+      setTrainingId(String(id));
+      if (!trainingStartDate && created.training_date) setTrainingStartDate(created.training_date);
+      toast.success('Szkolenie utworzone i wybrane.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Szkolenie utworzone, ale nie udało się go powiązać z umiejętnością.');
     }
   }
 
@@ -359,16 +404,24 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
             {!isEdit && isTraining ? (
               <div className="form-grid">
                 <div className="form-field-full">
-                  <SearchableSelect
-                    id="action-plan-training"
-                    label="Szkolenie"
-                    required
-                    options={trainingOptions}
-                    value={trainingId}
-                    onChange={handleTrainingSelect}
-                    placeholder="Wybierz szkolenie…"
-                    searchPlaceholder="Szukaj szkolenia…"
-                  />
+                  <div className="flex items-end gap-2">
+                    <div style={{ flex: 1 }}>
+                      <SearchableSelect
+                        id="action-plan-training"
+                        label="Szkolenie"
+                        required
+                        options={trainingOptions}
+                        value={trainingId}
+                        onChange={handleTrainingSelect}
+                        placeholder="Wybierz szkolenie…"
+                        searchPlaceholder="Szukaj szkolenia…"
+                      />
+                    </div>
+                    <Button type="button" variant="secondary" onClick={() => setShowCreateTraining(true)}>
+                      <Icon name="add" size={16} />
+                      Nowe
+                    </Button>
+                  </div>
                 </div>
                 <TextField
                   label="Planowana data szkolenia"
@@ -474,6 +527,7 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
           </div>
         </form>
       </div>
+      {showCreateTraining && <CreateTrainingModal onClose={() => setShowCreateTraining(false)} onCreated={handleTrainingCreated} />}
     </div>
   );
 }

@@ -9,7 +9,13 @@ export interface SearchableSelectOption {
 
 interface SearchableSelectProps {
   id: string;
-  label: string;
+  /** Visible label above the trigger (renders a .form-field block). Omit for
+   * a label-less usage (compact table-cell selects, filter-bar/pagination
+   * pickers) — pass `ariaLabel` instead so it's still announced, or rely on
+   * an external <label htmlFor={id}> (the trigger button carries `id`). */
+  label?: string;
+  /** Accessible name when `label` is omitted. Ignored if `label` is set. */
+  ariaLabel?: string;
   options: SearchableSelectOption[];
   value: string;
   onChange: (value: string) => void;
@@ -17,17 +23,30 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   required?: boolean;
   disabled?: boolean;
+  /** Default true: block, 100%-width (matches .form-select). false: shrinks
+   * to content, inline-block — for compact filter-bar/pagination pickers
+   * sitting next to other controls in a flex row. */
+  fullWidth?: boolean;
+  /** Trigger button class — default 'form-select'. Pass 'refined-select' for
+   * the search-card/table-footer compact filter look. */
+  triggerClassName?: string;
+  /** Extra inline style merged onto the trigger button — e.g. the smaller
+   * padding/font-size table-cell selects use. */
+  triggerStyle?: React.CSSProperties;
 }
 
 /** Single-select combobox with a type-to-filter search box in the popover —
  * built for the "Szkolenie" picker in ActionPlanModal (dozens of internal
- * trainings, picked by name), but generic enough for any long option list.
+ * trainings, picked by name), but generic enough for any long option list —
+ * every native <select> in the app now goes through this (see form.tsx's
+ * SelectField) or a direct label-less usage for compact/filter contexts.
  * Reuses ColumnFilterDropdown/StatusSelect's trigger-button + inline-popover
  * shape (not position:absolute — see StatusSelect's comment on why: an
  * absolute overlay gets clipped by the modal body's own overflow-y:auto). */
 export function SearchableSelect({
   id,
   label,
+  ariaLabel,
   options,
   value,
   onChange,
@@ -35,6 +54,9 @@ export function SearchableSelect({
   searchPlaceholder = 'Szukaj…',
   required,
   disabled,
+  fullWidth = true,
+  triggerClassName = 'form-select',
+  triggerStyle,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -71,23 +93,39 @@ export function SearchableSelect({
   }, [options, query]);
 
   return (
-    <div className="form-field" ref={wrapRef}>
-      <label className="form-label" id={labelId}>
-        {label}
-        {required && (
-          <span style={{ color: 'var(--color-error)' }} aria-hidden="true">
-            {' '}
-            *
-          </span>
-        )}
-      </label>
+    <div
+      className={label ? 'form-field' : undefined}
+      style={!fullWidth ? { display: 'inline-block', width: 'auto' } : undefined}
+      ref={wrapRef}
+    >
+      {label && (
+        <label className="form-label" id={labelId}>
+          {label}
+          {required && (
+            <span style={{ color: 'var(--color-error)' }} aria-hidden="true">
+              {' '}
+              *
+            </span>
+          )}
+        </label>
+      )}
       <button
         type="button"
-        className="form-select"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', cursor: disabled ? 'default' : 'pointer' }}
+        id={id}
+        className={triggerClassName}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
+          width: fullWidth ? '100%' : 'auto',
+          cursor: disabled ? 'default' : 'pointer',
+          ...triggerStyle,
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-labelledby={labelId}
+        aria-labelledby={label ? labelId : undefined}
+        aria-label={!label ? ariaLabel : undefined}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
       >
@@ -107,9 +145,10 @@ export function SearchableSelect({
       {open && (
         <div
           role="listbox"
-          aria-labelledby={labelId}
+          aria-labelledby={label ? labelId : undefined}
+          aria-label={!label ? (ariaLabel ?? searchPlaceholder) : undefined}
           className="col-filter-menu"
-          style={{ position: 'static', marginTop: '0.375rem', display: 'flex', flexDirection: 'column', width: '100%' }}
+          style={{ position: 'static', marginTop: '0.375rem', display: 'flex', flexDirection: 'column', width: fullWidth ? '100%' : 'max-content' }}
         >
           <input
             ref={searchRef}
@@ -119,7 +158,7 @@ export function SearchableSelect({
             placeholder={searchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label={`${searchPlaceholder} — ${label}`}
+            aria-label={label ? `${searchPlaceholder} — ${label}` : (ariaLabel ? `${searchPlaceholder} — ${ariaLabel}` : searchPlaceholder)}
           />
           <div style={{ maxHeight: '12rem', overflowY: 'auto' }}>
             {filtered.length === 0 ? (

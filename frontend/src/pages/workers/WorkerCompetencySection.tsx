@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
@@ -209,22 +209,15 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                   <td>{r.skill_description}</td>
                   <td>
                     {canWrite ? (
-                      <SelectWrap>
-                        <select
-                          className="form-select"
-                          style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                          value={r.current_rating ?? ''}
-                          onChange={(e) => handleUpdateRating(r.skill_id, Number(e.target.value))}
-                          disabled={saving}
-                          aria-label={`Ocena — ${r.skill_description}`}
-                        >
-                          {RATING_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                      </SelectWrap>
+                      <SearchableSelect
+                        id={`competency-rating-${r.skill_id}`}
+                        ariaLabel={`Ocena — ${r.skill_description}`}
+                        triggerStyle={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                        options={RATING_OPTIONS.map((opt) => ({ value: String(opt), label: String(opt) }))}
+                        value={String(r.current_rating ?? '')}
+                        onChange={(v) => handleUpdateRating(r.skill_id, Number(v))}
+                        disabled={saving}
+                      />
                     ) : (
                       (r.current_rating ?? '—')
                     )}
@@ -326,29 +319,23 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
       {canWrite && (
         <div className="flex items-end gap-2">
           <div style={{ flex: 1 }}>
-            <label className="form-label">Dodaj ocenę</label>
-            <SelectWrap>
-              <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
-                <option value="">Wybierz umiejętność…</option>
-                {availableSkills.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.id} — {s.description}
-                  </option>
-                ))}
-              </select>
-            </SelectWrap>
+            <SearchableSelect
+              id="competency-add-skill"
+              label="Dodaj ocenę"
+              placeholder="Wybierz umiejętność…"
+              options={availableSkills.map((s) => ({ value: s.id, label: `${s.id} — ${s.description}` }))}
+              value={newSkillId}
+              onChange={setNewSkillId}
+            />
           </div>
           <div>
-            <label className="form-label">Ocena</label>
-            <SelectWrap>
-              <select className="form-select" value={newRating} onChange={(e) => setNewRating(Number(e.target.value))}>
-                {RATING_OPTIONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </SelectWrap>
+            <SearchableSelect
+              id="competency-add-rating"
+              label="Ocena"
+              options={RATING_OPTIONS.map((r) => ({ value: String(r), label: String(r) }))}
+              value={String(newRating)}
+              onChange={(v) => setNewRating(Number(v))}
+            />
           </div>
           <Button type="button" variant="secondary" onClick={handleAddRating} disabled={!newSkillId || saving}>
             <Icon name="add" size={16} />

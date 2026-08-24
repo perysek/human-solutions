@@ -1,5 +1,5 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
-import { SelectWrap } from './SelectWrap';
+import type { ChangeEvent, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { SearchableSelect } from './SearchableSelect';
 
 /**
  * Form field primitives — the React equivalent of templates/components/
@@ -76,20 +76,20 @@ export function SelectField({
   fullWidth,
   options,
   placeholder,
-  ...rest
+  value,
+  onChange,
+  disabled,
 }: SelectFieldProps) {
   return (
     <FieldWrapper label={label} htmlFor={name} required={required} error={error} helper={helper} fullWidth={fullWidth}>
-      <SelectWrap>
-        <select id={name} name={name} required={required} className="form-select" {...rest}>
-          {placeholder && <option value="">{placeholder}</option>}
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </SelectWrap>
+      <SearchableSelect
+        id={name}
+        options={options}
+        value={typeof value === 'string' ? value : String(value ?? '')}
+        onChange={(v) => onChange?.({ target: { name, value: v } } as unknown as ChangeEvent<HTMLSelectElement>)}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
     </FieldWrapper>
   );
 }

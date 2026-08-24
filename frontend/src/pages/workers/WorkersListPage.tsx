@@ -6,7 +6,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useServerSort } from '@/lib/useServerSort';
@@ -94,23 +94,18 @@ export function WorkersListPage() {
               }}
             />
           </div>
-          <SelectWrap inline>
-            <select
-              className="refined-select"
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value as 'active' | 'inactive' | 'all');
-                resetToFirstPage();
-              }}
-              aria-label="Filtruj po statusie"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </SelectWrap>
+          <SearchableSelect
+            id="workers-status-filter"
+            ariaLabel="Filtruj po statusie"
+            fullWidth={false}
+            triggerClassName="refined-select"
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(v) => {
+              setStatus(v as 'active' | 'inactive' | 'all');
+              resetToFirstPage();
+            }}
+          />
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingJobLink } from '@/lib/api/trainings';
@@ -203,17 +203,13 @@ export function TrainingJobsSection({
       ) : (
       <div className="flex items-end gap-2">
         <div style={{ flex: 1 }}>
-          <label className="form-label">Dodaj stanowisko</label>
-          <SelectWrap>
-            <select className="form-select" value={newJobId} onChange={(e) => setNewJobId(e.target.value)}>
-              <option value="">Wybierz…</option>
-              {availableJobs.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.id} — {j.description}
-                </option>
-              ))}
-            </select>
-          </SelectWrap>
+          <SearchableSelect
+            id="training-jobs-add-job"
+            label="Dodaj stanowisko"
+            options={availableJobs.map((j) => ({ value: j.id, label: `${j.id} — ${j.description}` }))}
+            value={newJobId}
+            onChange={setNewJobId}
+          />
         </div>
         <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newJobId || saving}>
           <Icon name="add" size={16} />

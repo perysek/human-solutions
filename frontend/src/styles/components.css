@@ -594,20 +594,29 @@
 .form-input:disabled, .form-input[readonly] { background: var(--color-surface); cursor: not-allowed; }
 .form-select { appearance: none; cursor: pointer; padding-right: 2.5rem; }
 
-/* Every native <select> in the app is wrapped in .select-wrap so it can carry
-   a right-aligned expand_more icon — static, not animated. A native <select>
-   never exposes real open/closed state to the DOM, so any rotation tied to
-   it is only ever a heuristic; it looked broken in practice (stuck "open"
-   after picking an option, or after dismissing without changing the value),
-   so this is a plain dropdown affordance instead, unlike the custom popover
-   dropdowns (SidebarSection/ColumnFilterDropdown/ThemeSwitcher) which have a
-   real open/closed state to animate. */
-.select-wrap { position: relative; display: block; width: 100%; }
-.select-wrap.select-wrap-inline { display: inline-block; width: auto; }
-.select-wrap .select-wrap-chevron {
-  position: absolute; top: 50%; right: 0.75rem; transform: translateY(-50%);
-  pointer-events: none; color: var(--color-ink-subtle);
+/* Always-on inline table-cell editing (ParticipantsTable's "Uczestnicy"
+   roster — click straight into a cell, Tab to the next, nothing commits
+   until the row's Save icon). Flat + a background one step darker than the
+   table's own surface (var(--color-surface), the same token
+   .form-input:disabled already uses for "sits on the surface, not raised
+   off it") so an editable cell reads as distinct from static table text
+   without a heavier bordered/shadowed look — verified against
+   --color-ink/-muted text in every theme for contrast. */
+.cell-edit-input {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+.cell-edit-input::placeholder { color: var(--color-ink-subtle); }
+.cell-edit-input:focus { border-color: var(--color-ink-muted); box-shadow: var(--shadow-focus); }
+.cell-edit-input:disabled { cursor: not-allowed; opacity: 0.7; }
 .form-card {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);

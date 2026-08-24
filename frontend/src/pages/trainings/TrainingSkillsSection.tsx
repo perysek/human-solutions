@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingSkillLink } from '@/lib/api/trainings';
@@ -145,17 +145,13 @@ export function TrainingSkillsSection({ trainingId, skillLinks: links, loading, 
       ) : (
         <div className="flex items-end gap-2">
           <div style={{ flex: 1 }}>
-            <label className="form-label">Dodaj umiejętność</label>
-            <SelectWrap>
-              <select className="form-select" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)}>
-                <option value="">Wybierz…</option>
-                {availableSkills.map((s) => (
-                  <option key={s.skill_id} value={s.skill_id}>
-                    {s.skill_id} — {s.skill_description}
-                  </option>
-                ))}
-              </select>
-            </SelectWrap>
+            <SearchableSelect
+              id="training-skills-add-skill"
+              label="Dodaj umiejętność"
+              options={availableSkills.map((s) => ({ value: s.skill_id, label: `${s.skill_id} — ${s.skill_description}` }))}
+              value={newSkillId}
+              onChange={setNewSkillId}
+            />
           </div>
           <Button type="button" variant="secondary" onClick={handleAdd} disabled={!newSkillId || saving}>
             <Icon name="add" size={16} />

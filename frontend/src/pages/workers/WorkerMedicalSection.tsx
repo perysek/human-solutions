@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { medicalApi, type MedicalExam } from '@/lib/api/medical';
@@ -143,21 +143,14 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
               editingId === exam.id ? (
                 <tr key={exam.id}>
                   <td>
-                    <SelectWrap>
-                      <select
-                        className="form-select"
-                        style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                        value={editDraft.kind}
-                        onChange={(e) => setEditDraft((d) => ({ ...d, kind: e.target.value as MedicalExam['kind'] }))}
-                        aria-label="Rodzaj badania"
-                      >
-                        {KIND_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </SelectWrap>
+                    <SearchableSelect
+                      id={`medical-edit-kind-${exam.id}`}
+                      ariaLabel="Rodzaj badania"
+                      triggerStyle={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
+                      options={KIND_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                      value={editDraft.kind}
+                      onChange={(v) => setEditDraft((d) => ({ ...d, kind: v as MedicalExam['kind'] }))}
+                    />
                   </td>
                   <td>
                     <input
@@ -228,16 +221,13 @@ export function WorkerMedicalSection({ workerId, canWrite }: { workerId: string;
       {canWrite && adding && (
         <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr auto', alignItems: 'end' }}>
           <div>
-            <label className="form-label">Rodzaj</label>
-            <SelectWrap>
-              <select className="form-select" value={draft.kind} onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as MedicalExam['kind'] }))}>
-                {KIND_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </SelectWrap>
+            <SearchableSelect
+              id="medical-add-kind"
+              label="Rodzaj"
+              options={KIND_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              value={draft.kind}
+              onChange={(v) => setDraft((d) => ({ ...d, kind: v as MedicalExam['kind'] }))}
+            />
           </div>
           <div>
             <label className="form-label">Data badania</label>

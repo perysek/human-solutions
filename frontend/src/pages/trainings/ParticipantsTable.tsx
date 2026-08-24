@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { trainingsApi, type TrainingParticipant } from '@/lib/api/trainings';
@@ -9,6 +9,24 @@ import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
 const EMPTY_DRAFT = { worker_id: '', trainer_id: '', start_date: '', finish_date: '', remarks: '' };
+
+interface RowDraft {
+  trainer_id: string;
+  start_date: string;
+  finish_date: string;
+  remarks: string;
+  effectiveness_date: string;
+}
+
+function draftFromParticipant(p: TrainingParticipant): RowDraft {
+  return {
+    trainer_id: p.trainer_id ?? '',
+    start_date: p.start_date ?? '',
+    finish_date: p.finish_date ?? '',
+    remarks: p.remarks ?? '',
+    effectiveness_date: p.effectiveness_date ?? '',
+  };
+}
 
 function fmt(d: string | null) {
   return d ? new Date(d).toLocaleDateString('pl-PL') : '—';
@@ -25,7 +43,15 @@ interface ParticipantsTableProps {
 /** TRN_5/8/9/11 — a training's roster. `canManage` is computed by the
  * caller (TrainingViewPage) from the same participants list this component
  * renders — both need it (the page's Edit button, this table's add/edit
- * controls), so it's fetched once and shared rather than duplicated here. */
+ * controls), so it's fetched once and shared rather than duplicated here.
+ *
+ * Cells are always editable (click straight in, Tab to the next) rather
+ * than needing a separate "enter edit mode" step — one local draft per row,
+ * keyed by participant id, keeps typed-but-unsaved values across re-renders
+ * (including the reload() a *different* row's save triggers) without
+ * clobbering them; nothing reaches the server until that row's own Save
+ * icon is clicked. Viewers (`!canManage`) still get the old read-only text
+ * cells — there's nothing for them to edit. */
 export function ParticipantsTable({ trainingId, participants, loading, reload, canManage }: ParticipantsTableProps) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -35,14 +61,33 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
 
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState(EMPTY_DRAFT);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState({ trainer_id: '', start_date: '', finish_date: '', remarks: '', effectiveness_date: '' });
+  const [drafts, setDrafts] = useState<Record<number, RowDraft>>({});
   const [saving, setSaving] = useState(false);
 
   const workerOptions = useMemo(
     () => (workersData?.workers ?? []).map((w) => ({ value: w.id, label: `${w.surname} ${w.firstname}` })),
     [workersData],
   );
+  const trainerOptions = useMemo(() => [{ value: '', label: '—' }, ...workerOptions], [workerOptions]);
+
+  // Seed a draft for every participant that doesn't have one yet (new rows,
+  // or the very first render) — never overwrite one that already exists, so
+  // a reload() from adding/deleting/saving a *different* row can't wipe out
+  // this row's in-progress, unsaved edits. Rows whose participant is gone
+  // (deleted) are dropped since they're simply not in `participants` anymore.
+  useEffect(() => {
+    setDrafts((cur) => {
+      const next: Record<number, RowDraft> = {};
+      for (const p of participants) {
+        next[p.id] = cur[p.id] ?? draftFromParticipant(p);
+      }
+      return next;
+    });
+  }, [participants]);
+
+  function updateDraft(id: number, patch: Partial<RowDraft>) {
+    setDrafts((cur) => ({ ...cur, [id]: { ...cur[id], ...patch } }));
+  }
 
   function startAdd() {
     setDraft(EMPTY_DRAFT);
@@ -70,17 +115,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
     }
   }
 
-  function startEdit(p: TrainingParticipant) {
-    setEditingId(p.id);
-    setEditDraft({
-      trainer_id: p.trainer_id ?? '',
-      start_date: p.start_date ?? '',
-      finish_date: p.finish_date ?? '',
-      remarks: p.remarks ?? '',
-      effectiveness_date: p.effectiveness_date ?? '',
-    });
-  }
-
   async function handleDelete(p: TrainingParticipant) {
     const ok = await confirm({
       title: 'Usunąć uczestnika?',
@@ -93,7 +127,6 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
     try {
       await trainingsApi.removeParticipant(p.id);
       toast.success('Uczestnik usunięty.');
-      if (editingId === p.id) setEditingId(null);
       reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć uczestnika.');
@@ -102,19 +135,20 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
     }
   }
 
-  async function handleSaveEdit(participantId: number) {
+  async function handleSaveRow(participantId: number) {
+    const d = drafts[participantId];
+    if (!d) return;
     setSaving(true);
     try {
       await trainingsApi.updateParticipant(participantId, {
-        trainer_id: editDraft.trainer_id || null,
-        start_date: editDraft.start_date || null,
-        finish_date: editDraft.finish_date || null,
-        remarks: editDraft.remarks.trim() || null,
-        effectiveness_date: editDraft.effectiveness_date || null,
+        trainer_id: d.trainer_id || null,
+        start_date: d.start_date || null,
+        finish_date: d.finish_date || null,
+        remarks: d.remarks.trim() || null,
+        effectiveness_date: d.effectiveness_date || null,
       });
       toast.success('Uczestnik zaktualizowany.');
       reload();
-      setEditingId(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się zaktualizować uczestnika.');
     } finally {
@@ -154,87 +188,77 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
             </tr>
           </thead>
           <tbody>
-            {participants.map((p) =>
-              editingId === p.id ? (
+            {participants.map((p) => {
+              const d = drafts[p.id] ?? draftFromParticipant(p);
+              return (
                 <tr key={p.id}>
                   <td>{p.worker_name}</td>
                   <td>
-                    <input
-                      type="date"
-                      className="form-input"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.start_date}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, start_date: e.target.value }))}
-                      aria-label="Data rozpoczęcia"
-                    />
+                    {canManage ? (
+                      <input
+                        type="date"
+                        className="cell-edit-input"
+                        value={d.start_date}
+                        onChange={(e) => updateDraft(p.id, { start_date: e.target.value })}
+                        aria-label={`Data rozpoczęcia — ${p.worker_name}`}
+                      />
+                    ) : (
+                      fmt(p.start_date)
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="date"
-                      className="form-input"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.finish_date}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, finish_date: e.target.value }))}
-                      aria-label="Data zakończenia"
-                    />
+                    {canManage ? (
+                      <input
+                        type="date"
+                        className="cell-edit-input"
+                        value={d.finish_date}
+                        onChange={(e) => updateDraft(p.id, { finish_date: e.target.value })}
+                        aria-label={`Data zakończenia — ${p.worker_name}`}
+                      />
+                    ) : (
+                      fmt(p.finish_date)
+                    )}
                   </td>
                   <td>
-                    <SelectWrap>
-                      <select
-                        className="form-select"
-                        style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                        value={editDraft.trainer_id}
-                        onChange={(e) => setEditDraft((d) => ({ ...d, trainer_id: e.target.value }))}
-                        aria-label="Trener"
-                      >
-                        <option value="">—</option>
-                        {workerOptions.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </SelectWrap>
+                    {canManage ? (
+                      <SearchableSelect
+                        id={`participant-trainer-${p.id}`}
+                        ariaLabel={`Trener — ${p.worker_name}`}
+                        triggerClassName="cell-edit-input"
+                        options={trainerOptions}
+                        value={d.trainer_id}
+                        onChange={(v) => updateDraft(p.id, { trainer_id: v })}
+                      />
+                    ) : (
+                      (p.trainer_name ?? '—')
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="date"
-                      className="form-input"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.effectiveness_date}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, effectiveness_date: e.target.value }))}
-                      aria-label="Data oceny skuteczności"
-                    />
+                    {canManage ? (
+                      <input
+                        type="date"
+                        className="cell-edit-input"
+                        value={d.effectiveness_date}
+                        onChange={(e) => updateDraft(p.id, { effectiveness_date: e.target.value })}
+                        aria-label={`Data oceny skuteczności — ${p.worker_name}`}
+                      />
+                    ) : (
+                      fmt(p.effectiveness_date)
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                      value={editDraft.remarks}
-                      onChange={(e) => setEditDraft((d) => ({ ...d, remarks: e.target.value }))}
-                      aria-label="Uwagi"
-                    />
+                    {canManage ? (
+                      <input
+                        type="text"
+                        className="cell-edit-input"
+                        value={d.remarks}
+                        onChange={(e) => updateDraft(p.id, { remarks: e.target.value })}
+                        aria-label={`Uwagi — ${p.worker_name}`}
+                      />
+                    ) : (
+                      (p.remarks ?? '—')
+                    )}
                   </td>
-                  <td className="text-right">
-                    <div className="action-icons">
-                      <Button type="button" variant="secondary" small onClick={() => handleSaveEdit(p.id)} disabled={saving}>
-                        Zapisz
-                      </Button>
-                      <Button type="button" variant="secondary" small onClick={() => setEditingId(null)} disabled={saving}>
-                        Anuluj
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={p.id}>
-                  <td>{p.worker_name}</td>
-                  <td>{fmt(p.start_date)}</td>
-                  <td>{fmt(p.finish_date)}</td>
-                  <td>{p.trainer_name ?? '—'}</td>
-                  <td>{fmt(p.effectiveness_date)}</td>
-                  <td>{p.remarks ?? '—'}</td>
                   {canManage && (
                     <td className="text-right">
                       <div className="action-icons">
@@ -248,15 +272,22 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
                         >
                           <Icon name="delete" />
                         </button>
-                        <button type="button" className="action-icon-btn" title="Edytuj" aria-label={`Edytuj uczestnika ${p.worker_name}`} onClick={() => startEdit(p)}>
-                          <Icon name="edit" />
+                        <button
+                          type="button"
+                          className="action-icon-btn"
+                          title="Zapisz"
+                          aria-label={`Zapisz uczestnika ${p.worker_name}`}
+                          onClick={() => handleSaveRow(p.id)}
+                          disabled={saving}
+                        >
+                          <Icon name="save" />
                         </button>
                       </div>
                     </td>
                   )}
                 </tr>
-              ),
-            )}
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -264,30 +295,22 @@ export function ParticipantsTable({ trainingId, participants, loading, reload, c
       {canManage && adding && (
         <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr auto', alignItems: 'end' }}>
           <div>
-            <label className="form-label">Pracownik</label>
-            <SelectWrap>
-              <select className="form-select" value={draft.worker_id} onChange={(e) => setDraft((d) => ({ ...d, worker_id: e.target.value }))}>
-                <option value="">Wybierz…</option>
-                {workerOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </SelectWrap>
+            <SearchableSelect
+              id="participant-add-worker"
+              label="Pracownik"
+              options={workerOptions}
+              value={draft.worker_id}
+              onChange={(v) => setDraft((d) => ({ ...d, worker_id: v }))}
+            />
           </div>
           <div>
-            <label className="form-label">Trener</label>
-            <SelectWrap>
-              <select className="form-select" value={draft.trainer_id} onChange={(e) => setDraft((d) => ({ ...d, trainer_id: e.target.value }))}>
-                <option value="">—</option>
-                {workerOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </SelectWrap>
+            <SearchableSelect
+              id="participant-add-trainer"
+              label="Trener"
+              options={trainerOptions}
+              value={draft.trainer_id}
+              onChange={(v) => setDraft((d) => ({ ...d, trainer_id: v }))}
+            />
           </div>
           <div>
             <label className="form-label">Data rozpoczęcia</label>

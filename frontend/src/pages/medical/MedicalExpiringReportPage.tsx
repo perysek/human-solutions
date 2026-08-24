@@ -7,7 +7,7 @@ import { SortableTh } from '@/components/ui/SortableTh';
 import { useApiData } from '@/lib/api/useApiData';
 import { useTableSort } from '@/lib/useTableSort';
 import { medicalApi, type ExpiringMedicalExam } from '@/lib/api/medical';
-import { SelectWrap } from '@/components/ui/SelectWrap';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 const KIND_LABELS: Record<ExpiringMedicalExam['kind'], string> = {
   Preliminary: 'Wstępne',
@@ -91,15 +91,15 @@ export function MedicalExpiringReportPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <SelectWrap inline>
-            <select className="refined-select" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Okno czasowe">
-              {WINDOW_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </SelectWrap>
+          <SearchableSelect
+            id="medical-window"
+            ariaLabel="Okno czasowe"
+            fullWidth={false}
+            triggerClassName="refined-select"
+            options={WINDOW_OPTIONS.map((opt) => ({ value: String(opt.value), label: opt.label }))}
+            value={String(days)}
+            onChange={(v) => setDays(Number(v))}
+          />
         </div>
       </div>
 

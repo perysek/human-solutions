@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from './Button';
 import { Icon } from '@/lib/icons/Icon';
-import { SelectWrap } from './SelectWrap';
+import { SearchableSelect } from './SearchableSelect';
 
 const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -98,24 +98,19 @@ export function PaginatedTable<T>({
         {totalItems > pageSizeOptions[0] && (
           <div className="flex items-center gap-3" style={{ marginLeft: 'auto' }}>
             {(!serverSide || serverSide.onPageSizeChange) && (
-              <label className="flex items-center gap-1.5" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+              <span className="flex items-center gap-1.5" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
                 Na stronie
-                <SelectWrap inline>
-                  <select
-                    className="refined-select"
-                    style={{ padding: '0.25rem 1.75rem 0.25rem 0.5rem', fontSize: '0.75rem' }}
-                    value={pageSize}
-                    onChange={(e) => changePageSize(Number(e.target.value))}
-                    aria-label="Liczba wyników na stronie"
-                  >
-                    {pageSizeOptions.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </SelectWrap>
-              </label>
+                <SearchableSelect
+                  id="paginated-table-page-size"
+                  ariaLabel="Liczba wyników na stronie"
+                  fullWidth={false}
+                  triggerClassName="refined-select"
+                  triggerStyle={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  options={pageSizeOptions.map((size) => ({ value: String(size), label: String(size) }))}
+                  value={String(pageSize)}
+                  onChange={(v) => changePageSize(Number(v))}
+                />
+              </span>
             )}
             <div className="flex items-center gap-1.5">
               <Button
