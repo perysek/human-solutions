@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -7,8 +8,7 @@ import { useApiData } from '@/lib/api/useApiData';
 import { workersApi } from '@/lib/api/workers';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
-import { useConfirm } from '@/lib/feedback/ConfirmProvider';
-import { useToast } from '@/lib/feedback/ToastProvider';
+import { TerminationModal } from '@/components/workers/TerminationModal';
 import { WorkerAttentionSection } from './WorkerAttentionSection';
 import { WorkerCompetencySection } from './WorkerCompetencySection';
 import { WorkerMedicalSection } from './WorkerMedicalSection';
@@ -44,30 +44,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function WorkerViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const confirm = useConfirm();
-  const toast = useToast();
   const { hasModuleAccess, isModuleReadOnly } = useAuth();
   const canWrite = !isModuleReadOnly('workers');
   const { data: worker, loading, error, reload } = useApiData(() => workersApi.get(id as string), [id]);
   useEscapeAction(() => navigate('/workers'));
 
-  async function handleDeactivate() {
-    if (!worker) return;
-    const ok = await confirm({
-      title: 'Dezaktywować pracownika?',
-      message: `"${worker.full_name}" zostanie oznaczony jako nieaktywny (data zwolnienia = dziś). Dane pozostają w systemie.`,
-      confirmText: 'Dezaktywuj',
-      type: 'warning',
-    });
-    if (!ok) return;
-    try {
-      await workersApi.deactivate(worker.id);
-      toast.success('Pracownik dezaktywowany.');
-      reload();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nie udało się dezaktywować pracownika.');
-    }
-  }
+  const [showTerminationModal, setShowTerminationModal] = useState(false);
 
   return (
     <div className="refined-page">
@@ -86,8 +68,8 @@ export function WorkerViewPage() {
                   Podwładni
                 </Button>
               )}
-              {worker?.is_active && (
-                <Button variant="danger" onClick={handleDeactivate}>
+              {worker?.is_active && !worker.pending_termination && (
+                <Button variant="danger" onClick={() => setShowTerminationModal(true)}>
                   Dezaktywuj
                 </Button>
               )}
@@ -130,6 +112,23 @@ export function WorkerViewPage() {
               <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />
               <Field label="Data zwolnienia" value={worker.fire_date ? new Date(worker.fire_date).toLocaleDateString('pl-PL') : '—'} />
             </Section>
+
+            {worker.pending_termination && (
+              <div className="form-card animate-fade-up" style={{ borderColor: 'var(--color-warning)' }}>
+                <h2 className="text-base font-semibold mb-4" style={{ color: 'var(--color-ink)' }}>
+                  Wypowiedzenie złożone
+                </h2>
+                <div className="form-grid">
+                  <Field label="Data złożenia" value={new Date(worker.pending_termination.submission_date).toLocaleDateString('pl-PL')} />
+                  <Field label="Okres wypowiedzenia" value={`${worker.pending_termination.notice_period_days} dni`} />
+                  <Field label="Planowana data zwolnienia" value={new Date(worker.pending_termination.planned_fire_date).toLocaleDateString('pl-PL')} />
+                  <Field label="Przyczyna złożenia" value={worker.pending_termination.reason} />
+                  {worker.pending_termination.shortening_reason && (
+                    <Field label="Przyczyna skrócenia okresu" value={worker.pending_termination.shortening_reason} />
+                  )}
+                </div>
+              </div>
+            )}
 
             <WorkerAttentionSection
               workerId={worker.id}
@@ -188,6 +187,14 @@ export function WorkerViewPage() {
           </div>
         )}
       </div>
+      {showTerminationModal && worker && (
+        <TerminationModal
+          workerId={worker.id}
+          workerName={worker.full_name}
+          onClose={() => setShowTerminationModal(false)}
+          onSubmitted={reload}
+        />
+      )}
     </div>
   );
 }

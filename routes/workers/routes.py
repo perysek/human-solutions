@@ -100,7 +100,25 @@ def _profile_json(profile: dict) -> dict:
         'employment_basis': foreigner['employment_basis'],
         'employment_basis_validity': foreigner['employment_basis_validity'].isoformat() if foreigner['employment_basis_validity'] else None,
     } if foreigner else None
+    pending = profile['pending_termination']
+    out['pending_termination'] = _termination_json(pending) if pending else None
     return out
+
+
+def _termination_json(row) -> dict:
+    return {
+        'id': row['id'],
+        'worker_id': row['worker_id'],
+        'worker_name': f"{row['firstname']} {row['surname']}",
+        'submission_date': row['submission_date'].isoformat() if row['submission_date'] else None,
+        'reason': row['reason'],
+        'notice_period_days': row['notice_period_days'],
+        'default_notice_period_days': row['default_notice_period_days'],
+        'shortening_reason': row['shortening_reason'],
+        'planned_fire_date': row['planned_fire_date'].isoformat() if row['planned_fire_date'] else None,
+        'status': row['status'],
+        'created_at': row['created_at'].isoformat() if row['created_at'] else None,
+    }
 
 
 # ─── API Endpoints ────────────────────────────────────────────────────────────
@@ -111,6 +129,7 @@ def _profile_json(profile: dict) -> dict:
 def api_list():
     """GET /workers/api?status=&search=&needs_attention=&sort=&order=&page=&page_size= — WRK_1/WRK_11."""
     try:
+        worker_service.finalize_due_terminations()
         status = request.args.get('status') or None
         search = request.args.get('search') or None
         needs_attention = request.args.get('needs_attention') or None
@@ -193,6 +212,7 @@ def api_expiring_foreigner_docs():
 def api_get(worker_id):
     """GET /workers/api/<id> — profil łączony (WRK_2/3/4/5)."""
     try:
+        worker_service.finalize_due_terminations()
         profile = worker_service.get_worker_profile(worker_id)
         if not profile:
             raise NotFoundError('Pracownik nie znaleziony')
@@ -236,21 +256,46 @@ def api_update(worker_id):
         raise AppError('Wystąpił błąd serwera')
 
 
-@workers_bp.route('/api/<worker_id>/deactivate', methods=['PUT'])
+@workers_bp.route('/api/<worker_id>/termination-default', methods=['GET'])
 @login_required
 @module_permission_required('workers')
-def api_deactivate(worker_id):
-    """PUT /workers/api/<id>/deactivate — WRK_8/RODO_4 (soft-delete, fire_date)."""
-    repo = WorkerRepository()
-    if not repo.get_by_id(worker_id):
-        raise NotFoundError('Pracownik nie znaleziony')
+def api_termination_default(worker_id):
+    """GET /workers/api/<id>/termination-default?submission_date= — pre-fill
+    for the "Złożenie wypowiedzenia" modal: the Kodeks-pracy-tier default
+    okres wypowiedzenia (and the fire date it implies) for this worker as
+    of `submission_date` (defaults to today)."""
     try:
-        deactivated = repo.deactivate(worker_id)
-        return jsonify({'success': True, 'already_inactive': not deactivated})
+        submission_date = _parse_date(request.args.get('submission_date'), field_label='Data złożenia') or None
+        result = worker_service.get_termination_default(worker_id, submission_date)
+        return jsonify({
+            'submission_date': result['submission_date'].isoformat(),
+            'default_notice_period_days': result['default_notice_period_days'],
+            'planned_fire_date': result['planned_fire_date'].isoformat(),
+        })
     except AppError:
         raise
     except Exception:
-        logging.exception('Unexpected error in api_deactivate (workers)')
+        logging.exception('Unexpected error in api_termination_default (workers)')
+        raise AppError('Wystąpił błąd serwera')
+
+
+@workers_bp.route('/api/<worker_id>/termination', methods=['POST'])
+@login_required
+@module_permission_required('workers')
+def api_submit_termination(worker_id):
+    """POST /workers/api/<id>/termination — "Złożenie wypowiedzenia": the
+    'Dezaktywuj' button's new target. Records a notice of termination;
+    workers.fire_date is only set once planned_fire_date is actually
+    reached (finalize_due_terminations, evaluated lazily on read — this
+    app has no background scheduler)."""
+    data = request.get_json() or {}
+    try:
+        new_id = worker_service.submit_termination(worker_id, data)
+        return jsonify({'success': True, 'id': new_id}), 201
+    except AppError:
+        raise
+    except Exception:
+        logging.exception('Unexpected error in api_submit_termination (workers)')
         raise AppError('Wystąpił błąd serwera')
 
 

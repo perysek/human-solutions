@@ -211,13 +211,17 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         self._execute(query, (firstname, surname, job_id, gender, hire_date, worker_id))
         self._audit('UPDATE', worker_id, label=f'{firstname} {surname}')
 
-    def deactivate(self, worker_id: str) -> bool:
-        """Soft-delete (WRK_8/RODO_4) — sets fire_date, never a physical DELETE."""
-        query = "UPDATE workers SET fire_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND fire_date IS NULL"
-        cursor = self._execute(query, (worker_id,))
+    def set_fire_date(self, worker_id: str, fire_date: date) -> bool:
+        """Soft-delete (WRK_8/RODO_4) — sets fire_date, never a physical
+        DELETE. Only called from services.worker_service.finalize_due_terminations
+        once a submitted notice's planned_fire_date is reached — HR no
+        longer sets this directly (see the "Złożenie wypowiedzenia" flow,
+        WorkerTerminationRepository)."""
+        query = "UPDATE workers SET fire_date = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND fire_date IS NULL"
+        cursor = self._execute(query, (fire_date, worker_id))
         deactivated = cursor.rowcount > 0
         if deactivated:
-            self._audit('DEACTIVATE', worker_id, field_name='fire_date', new='CURRENT_DATE')
+            self._audit('DEACTIVATE', worker_id, field_name='fire_date', new=fire_date.isoformat())
         return deactivated
 
     def get_subordinates(self, worker_id: str) -> List[Any]:

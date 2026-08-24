@@ -71,6 +71,15 @@ def _orphan_job_json(row) -> dict:
     }
 
 
+def _upcoming_termination_json(row) -> dict:
+    return {
+        'worker_id': row['worker_id'],
+        'full_name': f"{row['firstname']} {row['surname']}",
+        'planned_fire_date': row['planned_fire_date'].isoformat() if row['planned_fire_date'] else None,
+        'bucket': row['bucket'],
+    }
+
+
 def _own_training_json(row) -> dict:
     return {
         'id': row['id'],
@@ -111,6 +120,7 @@ def api_alerts():
             'bhp': [_bhp_alert_json(r) for r in alerts['bhp']],
             'foreigner_docs': [_foreigner_doc_alert_json(r) for r in alerts['foreigner_docs']],
             'orphan_jobs': [_orphan_job_json(r) for r in alerts['orphan_jobs']],
+            'upcoming_terminations': [_upcoming_termination_json(r) for r in alerts['upcoming_terminations']],
         })
     except AppError:
         raise

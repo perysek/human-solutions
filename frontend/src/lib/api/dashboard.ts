@@ -45,6 +45,18 @@ export interface OrphanJobAlert {
   description: string | null;
 }
 
+/** Pulpit's "N dni do zwolnienia" section — pending notices of termination
+ * (submitted via the worker's "Dezaktywuj" flow) whose planned_fire_date
+ * is coming up within the fixed 14-day window (services/alert_service.py's
+ * WORKER_TERMINATION_WINDOW_DAYS). 2-tier bucket, no 'notice' tier — see
+ * get_upcoming_terminations' docstring. */
+export interface UpcomingTerminationAlert {
+  worker_id: string;
+  full_name: string;
+  planned_fire_date: string | null;
+  bucket: Exclude<AlertBucket, 'notice'>;
+}
+
 export interface OwnTraining {
   id: number;
   description: string;
@@ -59,6 +71,7 @@ export interface FullAlerts {
   bhp: BhpAlert[];
   foreigner_docs: ForeignerDocAlert[];
   orphan_jobs: OrphanJobAlert[];
+  upcoming_terminations: UpcomingTerminationAlert[];
 }
 
 /** `trainer` shape (own_data=TRUE on `dashboard`): RODO_2 blocks all three

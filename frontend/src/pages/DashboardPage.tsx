@@ -60,6 +60,23 @@ export function DashboardPage() {
   // Task 2 — orphan job-positions (jobs.department_id IS NULL). Fixed
   // 'notice' bucket: not an expiry alert (no date of its own), just flagged
   // as a data-completeness gap worth a look, not urgent.
+  // "14 dni do zwolnienia" — pending notices of termination (the worker's
+  // "Dezaktywuj" -> "Złożenie wypowiedzenia" flow) whose planned_fire_date
+  // is coming up. No custom onRowClick — AlertPanel's default (navigate to
+  // /workers/:id) is exactly the "nav-buttons routing to employee view"
+  // this section needs.
+  const upcomingTerminationRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.upcoming_terminations.map((r) => ({
+          key: `t-${r.worker_id}`,
+          id: r.worker_id,
+          fullName: r.full_name,
+          detail: 'Planowana data zwolnienia',
+          date: r.planned_fire_date,
+          bucket: r.bucket,
+        }))
+      : [];
+
   const orphanJobRows: AlertPanelRow[] =
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.orphan_jobs.map((r) => ({
@@ -149,6 +166,12 @@ export function DashboardPage() {
           <AlertPanel title="Badania lekarskie" rows={medicalRows} emptyMessage="Żadne badanie nie wygasa wkrótce." />
           <AlertPanel title="Szkolenia BHP" rows={bhpRows} emptyMessage="Żadne szkolenie BHP nie wygasa wkrótce." />
           <AlertPanel title="Dokumenty cudzoziemców" rows={foreignerDocRows} emptyMessage="Żaden dokument nie wygasa wkrótce." />
+          <AlertPanel
+            title="14 dni do zwolnienia"
+            rows={upcomingTerminationRows}
+            emptyMessage="Żaden pracownik nie kończy zatrudnienia w ciągu 14 dni."
+            dateLabel="Data zwolnienia"
+          />
           <AlertPanel
             title="Stanowiska bez działu"
             rows={orphanJobRows}

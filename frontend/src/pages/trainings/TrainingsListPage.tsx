@@ -85,7 +85,7 @@ export function TrainingsListPage() {
           Lista szkoleń
         </button>
         <button type="button" role="tab" aria-selected={tab === 'open'} className={`page-tab ${tab === 'open' ? 'is-active' : ''}`} onClick={() => setTab('open')}>
-          Szkolenia otwarte
+          Pracownicy do szkolenia
         </button>
       </div>
 

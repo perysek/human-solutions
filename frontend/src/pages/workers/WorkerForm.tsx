@@ -125,6 +125,16 @@ export function WorkerForm({ mode, initial, onSaved, onCancel }: WorkerFormProps
           />
           <SelectField label="Płeć" name="gender" value={gender} onChange={(e) => setGender(e.target.value)} options={GENDER_OPTIONS} required />
           <TextField label="Data zatrudnienia" name="hire_date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
+          {mode === 'edit' && initial?.fire_date && (
+            <TextField
+              label="Data zwolnienia"
+              name="fire_date"
+              type="date"
+              value={initial.fire_date}
+              disabled
+              helper="Ustawiana automatycznie po dotarciu do planowanej daty zwolnienia ze złożonego wypowiedzenia — nieedytowalna tutaj."
+            />
+          )}
         </FormFieldset>
 
         <FormFieldset title="Dane urodzenia">

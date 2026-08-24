@@ -21,6 +21,15 @@ from repositories.bhp.bhp_training_repository import BhpTrainingRepository
 from repositories.dashboard.alert_threshold_repository import AlertThresholdRepository
 from repositories.medical.medical_exam_repository import MedicalExamRepository
 from repositories.workers.foreigner_data_repository import ForeignerDataRepository
+from repositories.workers.worker_termination_repository import WorkerTerminationRepository
+
+# Pulpit's "N dni do zwolnienia" section — pending notices of termination
+# (worker_service.submit_termination) whose planned_fire_date is coming up.
+# Fixed window, not a configurable alert_thresholds module like medical/
+# bhp/foreigner_docs — the product ask was specifically a 14-day section,
+# not a tunable threshold.
+WORKER_TERMINATION_WINDOW_DAYS = 14
+WORKER_TERMINATION_CRITICAL_DAYS = 7
 
 # OQ_1 (IMPLEMENTATION_PLAN.md §15): dokumenty cudzoziemca — 30/60 dni,
 # celowo bez trzeciego progu 90-dniowego (inaczej niż medical/bhp).
@@ -114,3 +123,21 @@ def get_expiring_foreigner_docs_with_bucket(days_threshold: Optional[int] = None
     days = days_threshold if days_threshold is not None else thresholds['warning_days']
     rows = get_expiring_foreigner_docs(days)
     return [{**row, 'bucket': _bucket_2tier(row['document_validity'], thresholds)} for row in rows]
+
+
+def get_upcoming_terminations(days_threshold: int = WORKER_TERMINATION_WINDOW_DAYS) -> list:
+    """Pending notices of termination whose planned_fire_date falls within
+    `days_threshold` days (or has already been reached — the caller is
+    expected to have run worker_service.finalize_due_terminations() first,
+    same ordering dashboard_service.get_alerts already uses for the other
+    panels). 2-tier bucket like foreigner_docs (no third 'notice' tier —
+    a 14-day window is short enough that everything in it is already
+    'zbliża się' at worst)."""
+    rows = WorkerTerminationRepository().get_upcoming(as_of=date.today(), days=days_threshold)
+    return [
+        {
+            **row,
+            'bucket': 'critical' if (row['planned_fire_date'] - date.today()).days <= WORKER_TERMINATION_CRITICAL_DAYS else 'warning',
+        }
+        for row in rows
+    ]

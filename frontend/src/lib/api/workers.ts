@@ -35,10 +35,44 @@ export interface ForeignerData {
   employment_basis_validity: string | null;
 }
 
+/** A worker's notice of termination ("Złożenie wypowiedzenia") — replaces
+ * the old instant "Dezaktywuj". `status: 'pending'` means the notice is
+ * submitted but planned_fire_date hasn't been reached yet (workers.fire_date
+ * is still null); once reached, the backend finalizes it lazily (no
+ * scheduler in this app — every worker/dashboard read path checks first)
+ * and the worker's own fire_date/is_active reflect it. */
+export interface WorkerTermination {
+  id: number;
+  worker_id: string;
+  worker_name: string;
+  submission_date: string;
+  reason: string;
+  notice_period_days: number;
+  default_notice_period_days: number;
+  shortening_reason: string | null;
+  planned_fire_date: string;
+  status: 'pending' | 'finalized';
+  created_at: string | null;
+}
+
+export interface TerminationDefault {
+  submission_date: string;
+  default_notice_period_days: number;
+  planned_fire_date: string;
+}
+
+export interface SubmitTerminationPayload {
+  submission_date: string;
+  reason: string;
+  notice_period_days: number;
+  shortening_reason?: string | null;
+}
+
 export interface WorkerProfile extends WorkerListItem {
   birth: { birth_date: string | null; birth_place: string | null };
   nationalities: string[];
   foreigner: ForeignerData | null;
+  pending_termination: WorkerTermination | null;
 }
 
 export interface WorkerPayload {
@@ -156,7 +190,12 @@ export const workersApi = {
   needsAttentionSummary: () => api.get<NeedsAttentionSummary>(`${BASE}/needs-attention-summary`),
   create: (payload: WorkerPayload) => api.post<{ success: boolean; id: string }>(BASE, payload),
   update: (id: string, payload: WorkerPayload) => api.put<{ success: boolean }>(`${BASE}/${encodeURIComponent(id)}`, payload),
-  deactivate: (id: string) => api.put<{ success: boolean; already_inactive: boolean }>(`${BASE}/${encodeURIComponent(id)}/deactivate`),
+  terminationDefault: (id: string, submissionDate?: string) =>
+    api.get<TerminationDefault>(
+      `${BASE}/${encodeURIComponent(id)}/termination-default${submissionDate ? `?submission_date=${submissionDate}` : ''}`,
+    ),
+  submitTermination: (id: string, payload: SubmitTerminationPayload) =>
+    api.post<{ success: boolean; id: number }>(`${BASE}/${encodeURIComponent(id)}/termination`, payload),
   subordinates: (id: string) => api.get<{ subordinates: WorkerListItem[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/subordinates`),
   expiringForeignerDocs: (days = 30) =>
     api.get<{ workers: ExpiringForeignerDoc[]; count: number }>(`${BASE}/expiring-foreigner-docs?days=${days}`),

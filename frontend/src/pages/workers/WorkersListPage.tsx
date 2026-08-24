@@ -174,7 +174,7 @@ export function WorkersListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={5} />
+          <TableSkeleton cols={6} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : workers.length === 0 ? (
@@ -198,6 +198,7 @@ export function WorkersListPage() {
                     <th>Przełożony</th>
                     <th>Płeć</th>
                     <SortableTh label="Data zatrudnienia" sortKey="hire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
+                    <SortableTh label="Data zwolnienia" sortKey="fire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <th>Status</th>
                     {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
                   </tr>
@@ -221,6 +222,7 @@ export function WorkersListPage() {
                       <td>{w.boss_name ?? '—'}</td>
                       <td>{GENDER_LABELS[w.gender] ?? w.gender}</td>
                       <td>{w.hire_date ? new Date(w.hire_date).toLocaleDateString('pl-PL') : '—'}</td>
+                      <td>{w.fire_date ? new Date(w.fire_date).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>
                         <span className="flex items-center gap-1.5">
                           <StatusBadge status={w.is_active ? 'active' : 'inactive'}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>

@@ -7,6 +7,7 @@ services/alert_service.py, cross-cutting decision #4).
 """
 from config.auth_config import own_data_worker_id
 import services.alert_service as alert_service
+import services.worker_service as worker_service
 from repositories.jobs.job_repository import JobRepository
 from repositories.trainings.training_repository import TrainingRepository
 from repositories.workers.worker_repository import WorkerRepository
@@ -17,7 +18,13 @@ def get_summary(user) -> dict:
     Żadna z tych dwóch liczb nie identyfikuje pojedynczej osoby, więc
     (inaczej niż get_alerts) nie ma tu rozróżnienia own_data — każda rola,
     która w ogóle dotrze do tej funkcji (moduł `dashboard` gate na poziomie
-    route'a), widzi te same dwie liczby."""
+    route'a), widzi te same dwie liczby.
+
+    Runs finalize_due_terminations() first — this app has no background
+    scheduler (config/runtime_guards.py), so the pulpit's own load is one
+    of the read paths that lazily promotes a just-reached notice of
+    termination into an actual fire_date before counting "aktywni"."""
+    worker_service.finalize_due_terminations()
     return {
         'active_workers': WorkerRepository().count_active(),
         'trainings_this_month': TrainingRepository().count_current_month(),
@@ -45,6 +52,10 @@ def get_alerts(user) -> dict:
     if owner_worker_id is not None:
         return {'own_trainings': TrainingRepository().list_for_trainer(owner_worker_id)}
 
+    # finalize_due_terminations() first (see get_summary's docstring) so a
+    # notice whose planned_fire_date lands today doesn't linger in
+    # upcoming_terminations after the worker is already inactive.
+    worker_service.finalize_due_terminations()
     return {
         'medical': alert_service.get_expiring_medical(),
         'bhp': alert_service.get_expiring_bhp(),
@@ -55,4 +66,9 @@ def get_alerts(user) -> dict:
         # branch rather than needing its own RODO carve-out like the three
         # employee-facing panels above.
         'orphan_jobs': JobRepository().get_orphan_jobs(),
+        # "Złożenie wypowiedzenia" — same RODO reasoning as orphan_jobs
+        # doesn't apply here (this DOES identify a worker), but it's still
+        # full-access-only for the same reason medical/bhp/foreigner_docs
+        # are: RODO_2 blocks `trainer` from any panel naming a worker.
+        'upcoming_terminations': alert_service.get_upcoming_terminations(),
     }
