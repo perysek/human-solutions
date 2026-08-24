@@ -776,6 +776,37 @@
   .status-badge-pulse { animation: none; }
 }
 .permission-tile input { accent-color: var(--color-accent); flex-shrink: 0; width: 1rem; height: 1rem; }
+
+/* WorkerCompetencySection's "Ocena" cell — a small tactile pill for the
+   rating-edit SearchableSelect, same bordered/hover/pop language as
+   .permission-tile above, scoped to just the editable value rather than
+   the whole table row (a full row-to-card conversion was considered and
+   rejected — see the design discussion in that section: it would break
+   column scanability and the .refined-table consistency every other list
+   page in the app shares). */
+.rating-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease-out;
+}
+.rating-pill:hover { border-color: var(--color-ink-muted); background: var(--color-surface); }
+.rating-pill:active { transform: scale(0.96); }
+.rating-pill:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.rating-pill:disabled { cursor: not-allowed; opacity: 0.65; }
+.rating-pill-pulse { animation: tile-check-pop 0.25s var(--ease-out-quart); }
+@media (prefers-reduced-motion: reduce) {
+  .rating-pill { transition: border-color 0.15s ease, background 0.15s ease; }
+  .rating-pill:active { transform: none; }
+  .rating-pill-pulse { animation: none; }
+}
 .form-btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 0.625rem 1.25rem; font-size: 0.875rem; font-weight: 500;

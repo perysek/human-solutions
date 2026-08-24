@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Icon } from '@/lib/icons/Icon';
@@ -13,6 +13,53 @@ const RATING_OPTIONS = [1, 2, 3];
 function GapBadge({ gap }: { gap: number }) {
   if (gap <= 0) return <span className="status-badge active">Spełnia</span>;
   return <span className="status-badge inactive">Luka: {gap}</span>;
+}
+
+/** The "Ocena" cell as a small tactile pill (.rating-pill, same bordered/
+ * hover/pop language as .permission-tile) instead of a bare inline select —
+ * gives the editable value its own visual weight without turning the whole
+ * row into a card (rows stay `.refined-table` rows: sortable-page
+ * consistency + column scanability, see the design discussion this
+ * replaced). Pulses (reusing `tile-check-pop`, same trick as StatusBadge)
+ * whenever `rating` changes after mount, so a save gets the same "yes, that
+ * registered" feedback a full reload would give for free. */
+function RatingPill({
+  skillId,
+  skillDescription,
+  rating,
+  onChange,
+  disabled,
+}: {
+  skillId: string;
+  skillDescription: string;
+  rating: number | null;
+  onChange: (value: number) => void;
+  disabled: boolean;
+}) {
+  const prevRating = useRef(rating);
+  const [pulsing, setPulsing] = useState(false);
+
+  useEffect(() => {
+    if (prevRating.current === rating) return;
+    prevRating.current = rating;
+    setPulsing(true);
+    const t = window.setTimeout(() => setPulsing(false), 250);
+    return () => window.clearTimeout(t);
+  }, [rating]);
+
+  return (
+    <SearchableSelect
+      id={`competency-rating-${skillId}`}
+      ariaLabel={`Ocena — ${skillDescription}`}
+      fullWidth={false}
+      triggerClassName={`rating-pill${pulsing ? ' rating-pill-pulse' : ''}`}
+      triggerStyle={{ gap: '0.25rem', padding: '0.25rem 0.4rem' }}
+      options={RATING_OPTIONS.map((opt) => ({ value: String(opt), label: String(opt) }))}
+      value={String(rating ?? '')}
+      onChange={(v) => onChange(Number(v))}
+      disabled={disabled}
+    />
+  );
 }
 
 /** SKL_2/3/4 — a worker's actual skill ratings (editable), per-rating
@@ -209,13 +256,11 @@ export function WorkerCompetencySection({ workerId, canWrite }: { workerId: stri
                   <td>{r.skill_description}</td>
                   <td>
                     {canWrite ? (
-                      <SearchableSelect
-                        id={`competency-rating-${r.skill_id}`}
-                        ariaLabel={`Ocena — ${r.skill_description}`}
-                        triggerStyle={{ padding: '0.25rem 0.5rem', fontSize: '0.8125rem' }}
-                        options={RATING_OPTIONS.map((opt) => ({ value: String(opt), label: String(opt) }))}
-                        value={String(r.current_rating ?? '')}
-                        onChange={(v) => handleUpdateRating(r.skill_id, Number(v))}
+                      <RatingPill
+                        skillId={r.skill_id}
+                        skillDescription={r.skill_description}
+                        rating={r.current_rating}
+                        onChange={(v) => handleUpdateRating(r.skill_id, v)}
                         disabled={saving}
                       />
                     ) : (
