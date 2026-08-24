@@ -10,7 +10,7 @@ importuje flask.request/current_user; ip/user-agent trafiają jako zwykłe
 argumenty, wyciągnięte przez routing layer, tak jak `payload`/`user` w
 training_service.py.
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from config.database import managed_transaction
@@ -22,6 +22,26 @@ from repositories.trainings.training_presence_repository import TrainingPresence
 import services.training_service as training_service
 
 DEFAULT_TTL_HOURS = 12
+
+
+def _is_eligible_for_sign_in(participant, before: date, confirmed_ids: set) -> bool:
+    """Shared eligibility rule for the whole feature — a participant may be
+    offered/accept a presence confirmation only if their session already
+    happened (start_date AND finish_date set, both strictly before `before`
+    — a same-day training doesn't qualify on the day it runs, only from the
+    next day on) and they haven't confirmed yet. `before` is always a fixed
+    reference date, never "today at read time": the generation-time gate
+    (generate_sign_in_link) uses today (the token doesn't exist yet), while
+    the public roster/confirm (get_sign_in_roster/confirm_presence) use the
+    token's own `created_at` date, so a participant's eligibility for a
+    given QR can't silently flip after the fact as calendar days pass."""
+    return (
+        participant['start_date'] is not None
+        and participant['finish_date'] is not None
+        and participant['start_date'] < before
+        and participant['finish_date'] < before
+        and participant['id'] not in confirmed_ids
+    )
 
 
 def _load_valid_token(token: str):
@@ -49,6 +69,16 @@ def generate_sign_in_link(training_id: int, user, ttl_hours: int = DEFAULT_TTL_H
     if not training:
         raise NotFoundError('Szkolenie nie znalezione')
     training_service.assert_trainer_can_edit(training_id, user)
+
+    participants = TrainingParticipantRepository().get_by_training(training_id)
+    confirmed_ids = {c['training_participant_id'] for c in TrainingPresenceRepository().get_by_training(training_id)}
+    today = date.today()
+    if not any(_is_eligible_for_sign_in(p, today, confirmed_ids) for p in participants):
+        raise ValidationError(
+            'Brak uczestników kwalifikujących się do potwierdzenia obecności — wymagane są ustawione daty '
+            'rozpoczęcia i zakończenia (wcześniejsze niż dzisiaj) oraz brak wcześniejszego potwierdzenia '
+            'przynajmniej dla jednego uczestnika.'
+        )
 
     user_id = getattr(user, 'id', None)
     with managed_transaction():
@@ -98,18 +128,25 @@ def get_sign_in_roster(token: str) -> dict:
     confirmed_ids = {
         c['training_participant_id'] for c in TrainingPresenceRepository().get_by_training(token_row['training_id'])
     }
+    generated_on = token_row['created_at'].date()
     return {
         'training': {
             'description': training['description'],
             'training_date': training['training_date'].isoformat() if training['training_date'] else None,
         },
+        # Only participants eligible for *this* token (see
+        # _is_eligible_for_sign_in) are offered — someone already confirmed,
+        # not yet started/finished, or whose session runs the same day this
+        # QR was generated simply isn't in the list. No `confirmed` field
+        # needed here anymore: every row returned is, by construction, not
+        # yet confirmed.
         'participants': [
             {
                 'id': p['id'],
                 'display_name': f"{p['worker_firstname']} {p['worker_surname']}",
-                'confirmed': p['id'] in confirmed_ids,
             }
             for p in participants
+            if _is_eligible_for_sign_in(p, generated_on, confirmed_ids)
         ],
     }
 
@@ -128,6 +165,18 @@ def confirm_presence(
     participant = TrainingParticipantRepository().get_by_id(participant_id)
     if not participant or participant['training_id'] != token_row['training_id']:
         raise NotFoundError('Uczestnik nie znaleziony dla tego szkolenia')
+
+    # Re-validated server-side, not trusted from the roster the client
+    # already fetched — state can drift between GET and POST (admin edits
+    # the participant's dates, someone else confirms first). Same
+    # eligibility rule get_sign_in_roster used to decide whether this row
+    # was ever offered in the first place.
+    confirmed_ids = {
+        c['training_participant_id']
+        for c in TrainingPresenceRepository().get_by_training(token_row['training_id'])
+    }
+    if not _is_eligible_for_sign_in(participant, token_row['created_at'].date(), confirmed_ids):
+        raise ValidationError('Ten uczestnik nie kwalifikuje się już do potwierdzenia obecności')
 
     employee_id = (payload.get('employee_id') or '').strip()
     if not employee_id or employee_id != participant['worker_id']:

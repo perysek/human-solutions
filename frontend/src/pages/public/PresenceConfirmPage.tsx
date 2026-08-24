@@ -16,7 +16,11 @@ import { api, ApiError } from '@/lib/api/client';
  * instead of one form, and a tap-to-select roster instead of text inputs.
  */
 
-type Participant = { id: number; display_name: string; confirmed: boolean };
+// Backend already filters to eligible-only rows (start/finish set and in the
+// past relative to when this QR was generated, not yet confirmed) — see
+// services/training_presence_service.py's _is_eligible_for_sign_in. No
+// `confirmed` field: every row returned here is, by construction, pending.
+type Participant = { id: number; display_name: string };
 type Roster = { training: { description: string; training_date: string | null }; participants: Participant[] };
 
 export function PresenceConfirmPage() {
@@ -110,36 +114,41 @@ export function PresenceConfirmPage() {
               </div>
 
               {!selected ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <p className="refined-label" style={{ marginBottom: '0.25rem' }}>
-                    Znajdź swoje imię i nazwisko na liście:
+                roster.participants.length === 0 ? (
+                  <p className="hint-text">
+                    Brak osób oczekujących na potwierdzenie obecności na tym szkoleniu — być może wszyscy już
+                    potwierdzili, albo ten kod dotyczy sesji, która jeszcze się nie zakończyła.
                   </p>
-                  {roster.participants.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => !p.confirmed && setSelectedId(p.id)}
-                      disabled={p.confirmed}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%',
-                        padding: '0.875rem 1rem',
-                        fontSize: '1rem',
-                        textAlign: 'left',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--color-border)',
-                        background: p.confirmed ? 'var(--color-surface-warm)' : 'var(--color-surface-elevated)',
-                        color: p.confirmed ? 'var(--color-ink-subtle)' : 'var(--color-ink)',
-                        cursor: p.confirmed ? 'default' : 'pointer',
-                      }}
-                    >
-                      <span>{p.display_name}</span>
-                      {p.confirmed && <span style={{ fontSize: '0.8125rem' }}>potwierdzono ✓</span>}
-                    </button>
-                  ))}
-                </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <p className="refined-label" style={{ marginBottom: '0.25rem' }}>
+                      Znajdź swoje imię i nazwisko na liście:
+                    </p>
+                    {roster.participants.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSelectedId(p.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          padding: '0.875rem 1rem',
+                          fontSize: '1rem',
+                          textAlign: 'left',
+                          borderRadius: 'var(--radius-md, 8px)',
+                          border: '1px solid var(--color-border)',
+                          background: 'var(--color-surface-elevated)',
+                          color: 'var(--color-ink)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span>{p.display_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
               ) : (
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   <div

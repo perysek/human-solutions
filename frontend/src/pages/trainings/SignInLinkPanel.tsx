@@ -6,6 +6,8 @@ import { trainingsApi, type SignInLinkCreated } from '@/lib/api/trainings';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 
+const QR_SIZE = 160;
+
 interface SignInLinkPanelProps {
   trainingId: number;
   /** Called after generate/revoke so ParticipantsTable's ✓ column and the
@@ -48,6 +50,26 @@ export function SignInLinkPanel({ trainingId, onConfirmationsChanged }: SignInLi
     }
   }
 
+  function handleSavePng() {
+    if (!justCreated) return;
+    const a = document.createElement('a');
+    a.href = `data:image/png;base64,${justCreated.qr_png_base64}`;
+    a.download = `lista-obecnosci-szkolenie-${trainingId}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function handleCopyUrl() {
+    if (!justCreated) return;
+    try {
+      await navigator.clipboard.writeText(justCreated.url);
+      toast.success('Link skopiowany do schowka.');
+    } catch {
+      toast.error('Nie udało się skopiować linku.');
+    }
+  }
+
   async function handleRevoke() {
     const ok = await confirm({
       title: 'Unieważnić link?',
@@ -85,12 +107,28 @@ export function SignInLinkPanel({ trainingId, onConfirmationsChanged }: SignInLi
       ) : (
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
           {justCreated && (
-            <div style={{ textAlign: 'center' }}>
-              <img
-                src={`data:image/png;base64,${justCreated.qr_png_base64}`}
-                alt="Kod QR do potwierdzenia obecności"
-                style={{ width: 160, height: 160, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 8px)' }}
-              />
+            <div>
+              {/* QR column + a second column beside it (Zapisz jako PNG /
+                  Kopiuj link, one per row) — the button column's height
+                  matches the QR's (QR_SIZE) and is top-aligned with it, so
+                  button 1 sits level with the QR's top edge and button 2
+                  with its bottom edge. */}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <img
+                  src={`data:image/png;base64,${justCreated.qr_png_base64}`}
+                  alt="Kod QR do potwierdzenia obecności"
+                  style={{ width: QR_SIZE, height: QR_SIZE, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md, 8px)' }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: QR_SIZE }}>
+                  <Button type="button" variant="secondary" small onClick={handleSavePng}>
+                    <Icon name="download" size={14} />
+                    Zapisz jako PNG
+                  </Button>
+                  <Button type="button" variant="secondary" small onClick={handleCopyUrl}>
+                    Kopiuj link
+                  </Button>
+                </div>
+              </div>
               <p style={{ fontSize: '0.75rem', color: 'var(--color-ink-subtle)', marginTop: '0.375rem', maxWidth: 160, wordBreak: 'break-all' }}>
                 {justCreated.url}
               </p>
