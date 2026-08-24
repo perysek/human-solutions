@@ -54,5 +54,8 @@ qrcode>=7.4,<8.0
 # is set; default stays 'memory://' (see extensions.py).
 redis==5.2.1
 
+# Structured JSON logging (SCALING_PREP_PLAN.md Phase 5) — config/logging_config.py.
+python-json-logger==3.2.1
+
 # Production WSGI server (Render/Linux deployment)
 gunicorn==21.2.0

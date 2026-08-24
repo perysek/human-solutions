@@ -17,14 +17,22 @@ _BASE_DIR = Path(__file__).parent
 load_dotenv(_BASE_DIR / '.env')
 load_dotenv(_BASE_DIR / '.env.local', override=True)
 
-from flask import Flask, jsonify
+import uuid
+
+from flask import Flask, g, jsonify, request
 from flask_login import LoginManager
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config.database import DatabaseConnection, assert_schema_current, initialize_pool
+from config.logging_config import configure_logging
 from exceptions import AppError
 from extensions import limiter
 from repositories.users.user_repository import UserRepository
+
+# Runs once at import time (Python caches modules), so every create_app()
+# call — repeated across pytest fixtures, seed scripts, etc. — reuses the
+# same root-logger configuration rather than re-registering handlers.
+configure_logging(os.environ.get('LOG_LEVEL', 'INFO'))
 
 
 def create_app() -> Flask:
@@ -41,6 +49,15 @@ def create_app() -> Flask:
     # proxy hop, matching Nginx being the only proxy in front of Gunicorn.
     # No-ops in dev (run_dev.py never sends X-Forwarded-For).
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    @app.before_request
+    def _assign_request_id():
+        g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+
+    @app.after_request
+    def _echo_request_id(response):
+        response.headers['X-Request-ID'] = g.get('request_id', '-')
+        return response
 
     secret_key = os.environ.get('SECRET_KEY', '')
     if not secret_key or len(secret_key) < 32:
