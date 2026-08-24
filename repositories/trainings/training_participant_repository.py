@@ -132,13 +132,15 @@ class TrainingParticipantRepository(AuditableMixin, BaseRepository):
         column set), one query rather than the JSON list's separate
         per-purpose SELECT."""
         return self._fetch_all(
-            _EXPORT_SELECT + " WHERE tp.training_id = %s AND NOT tp.is_deleted ORDER BY w.surname, w.firstname", (training_id,),
+            _EXPORT_SELECT + " WHERE tp.training_id = %s AND NOT tp.is_deleted ORDER BY w.surname, w.firstname",
+            (training_id,),
         )
 
     def get_by_worker(self, worker_id: str) -> List[Any]:
         """TRN_10 — historia szkoleń jednego pracownika, najnowsze pierwsze."""
         return self._fetch_all(
-            _HISTORY_SELECT + " WHERE tp.worker_id = %s AND NOT tp.is_deleted ORDER BY t.training_date DESC NULLS LAST, tp.id DESC",
+            _HISTORY_SELECT + " WHERE tp.worker_id = %s AND NOT tp.is_deleted "
+            "ORDER BY t.training_date DESC NULLS LAST, tp.id DESC",
             (worker_id,),
         )
 
@@ -169,7 +171,8 @@ class TrainingParticipantRepository(AuditableMixin, BaseRepository):
         services/worker_onboarding_service.py's bulk-schedule flow ("Szkolenia
         wstępne"); zwykła rejestracja (TrainingViewPage) zostawia domyślne FALSE."""
         new_id = self._execute_insert(
-            "INSERT INTO training_participants (training_id, worker_id, start_date, finish_date, remarks, is_onboarding) "
+            "INSERT INTO training_participants "
+            "(training_id, worker_id, start_date, finish_date, remarks, is_onboarding) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
             (training_id, worker_id, start_date, finish_date, remarks, is_onboarding),
         )

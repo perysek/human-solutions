@@ -95,7 +95,10 @@ def _overdue_action_plan_json(row) -> dict:
     return {
         'id': row['id'],
         'description': row['description'],
-        'responsible_name': f"{row['responsible_firstname']} {row['responsible_surname']}" if row['responsible_firstname'] else None,
+        'responsible_name': (
+            f"{row['responsible_firstname']} {row['responsible_surname']}"
+            if row['responsible_firstname'] else None
+        ),
         'planned_date': row['planned_date'].isoformat() if row['planned_date'] else None,
         'delay_days': row['delay_days'],
         'bucket': row['bucket'],
@@ -190,7 +193,9 @@ def api_update_alert_thresholds():
             warning_days = int(item.get('warning_days'))
             notice_days = int(item.get('notice_days'))
             if not (0 < critical_days < warning_days < notice_days):
-                raise ValidationError(f'Progi modułu {module!r} muszą spełniać: critical < warning < notice (liczby dodatnie)')
+                raise ValidationError(
+                    f'Progi modułu {module!r} muszą spełniać: critical < warning < notice (liczby dodatnie)'
+                )
             if not repo.update(
                 module, critical_days=critical_days, warning_days=warning_days,
                 notice_days=notice_days, updated_by=current_user.id,

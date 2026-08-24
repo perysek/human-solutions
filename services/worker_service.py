@@ -79,7 +79,8 @@ def _apply_personal_data(worker_id: str, payload: dict, *, is_update: bool) -> N
 
     foreigner = payload.get('foreigner') or {}
     has_foreigner_data = any(
-        foreigner.get(k) for k in ('document_kind', 'document_validity', 'employment_basis', 'employment_basis_validity')
+        foreigner.get(k)
+        for k in ('document_kind', 'document_validity', 'employment_basis', 'employment_basis_validity')
     )
     if has_foreigner_data:
         foreigner_repo.upsert(

@@ -75,7 +75,8 @@ class TrainingRepository(AuditableMixin, BaseRepository):
 
         if skill_id:
             conditions.append(
-                "EXISTS (SELECT 1 FROM training_skills tsk2 WHERE tsk2.training_id = trainings.id AND tsk2.skill_id = %s)"
+                "EXISTS (SELECT 1 FROM training_skills tsk2 "
+                "WHERE tsk2.training_id = trainings.id AND tsk2.skill_id = %s)"
             )
             params.append(skill_id)
 
@@ -116,7 +117,8 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         worker_status_params: tuple = ()
         if worker_id:
             worker_status_col = (
-                ", (SELECT CASE WHEN tp2.finish_date IS NOT NULL AND tp2.effectiveness_date IS NOT NULL THEN 'completed' "
+                ", (SELECT CASE "
+                "WHEN tp2.finish_date IS NOT NULL AND tp2.effectiveness_date IS NOT NULL THEN 'completed' "
                 "WHEN tp2.finish_date IS NOT NULL THEN 'in_progress' ELSE 'defined' END "
                 "FROM training_participants tp2 WHERE tp2.training_id = trainings.id AND tp2.worker_id = %s "
                 "AND NOT tp2.is_deleted ORDER BY tp2.id DESC LIMIT 1) AS worker_status"
@@ -127,19 +129,25 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         job_link_params: tuple = ()
         if job_id:
             job_link_col = (
-                ", (SELECT tj4.is_mandatory FROM training_job tj4 WHERE tj4.training_id = trainings.id AND tj4.job_id = %s) AS job_is_mandatory, "
-                "(SELECT tj4.sequence_order FROM training_job tj4 WHERE tj4.training_id = trainings.id AND tj4.job_id = %s) AS job_sequence_order"
+                ", (SELECT tj4.is_mandatory FROM training_job tj4 "
+                "WHERE tj4.training_id = trainings.id AND tj4.job_id = %s) AS job_is_mandatory, "
+                "(SELECT tj4.sequence_order FROM training_job tj4 "
+                "WHERE tj4.training_id = trainings.id AND tj4.job_id = %s) AS job_sequence_order"
             )
             job_link_params = (job_id, job_id)
 
         offset = max(page - 1, 0) * page_size
         list_query = (
             f"SELECT {_COLUMNS}, "
-            "(SELECT COUNT(*) FROM training_participants tp WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS participant_count, "
+            "(SELECT COUNT(*) FROM training_participants tp "
+            "WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS participant_count, "
             "(SELECT STRING_AGG(w.firstname || ' ' || w.surname, ', ' ORDER BY w.surname, w.firstname) "
-            " FROM training_trainers tt JOIN workers w ON w.id = tt.trainer_id WHERE tt.training_id = trainings.id) AS trainer_names, "
-            "(SELECT STRING_AGG(tt.trainer_id, ', ' ORDER BY tt.trainer_id) FROM training_trainers tt WHERE tt.training_id = trainings.id) AS trainer_ids, "
-            "(SELECT MAX(tp.finish_date) FROM training_participants tp WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS last_session_date"
+            " FROM training_trainers tt JOIN workers w ON w.id = tt.trainer_id "
+            "WHERE tt.training_id = trainings.id) AS trainer_names, "
+            "(SELECT STRING_AGG(tt.trainer_id, ', ' ORDER BY tt.trainer_id) FROM training_trainers tt "
+            "WHERE tt.training_id = trainings.id) AS trainer_ids, "
+            "(SELECT MAX(tp.finish_date) FROM training_participants tp "
+            "WHERE tp.training_id = trainings.id AND NOT tp.is_deleted) AS last_session_date"
             f"{worker_status_col}{job_link_col} "
             f"FROM trainings{where_clause} "
             f"ORDER BY {sort_column} {order_sql} NULLS LAST, id ASC LIMIT %s OFFSET %s"
@@ -195,7 +203,9 @@ class TrainingRepository(AuditableMixin, BaseRepository):
             """
             UPDATE trainings SET completion = (
                 SELECT CASE WHEN COUNT(*) = 0 THEN NULL
-                            ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE finish_date IS NOT NULL AND effectiveness_date IS NOT NULL) / COUNT(*))
+                            ELSE ROUND(100.0 * COUNT(*) FILTER (
+                                WHERE finish_date IS NOT NULL AND effectiveness_date IS NOT NULL
+                            ) / COUNT(*))
                        END
                 FROM training_participants WHERE training_id = %s AND NOT is_deleted
             ), updated_at = CURRENT_TIMESTAMP

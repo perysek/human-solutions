@@ -149,5 +149,6 @@ def apply_training_effectiveness(participant_id: int) -> None:
                 plan['worker_id'], plan['skill_id'], new_rating, last_update=participant['effectiveness_date'],
             )
             ActionPlanRepository().mark_training_effective(
-                plan['id'], completed_date=participant['finish_date'], effectiveness_date=participant['effectiveness_date'],
+                plan['id'], completed_date=participant['finish_date'],
+                effectiveness_date=participant['effectiveness_date'],
             )

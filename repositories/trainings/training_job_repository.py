@@ -30,7 +30,10 @@ class TrainingJobRepository(AuditableMixin, BaseRepository):
         super().__init__('training_job')
 
     def get_by_training(self, training_id: int) -> List[Any]:
-        return self._fetch_all(_SELECT + " WHERE tj.training_id = %s ORDER BY tj.sequence_order NULLS LAST, j.id", (training_id,))
+        return self._fetch_all(
+            _SELECT + " WHERE tj.training_id = %s ORDER BY tj.sequence_order NULLS LAST, j.id",
+            (training_id,),
+        )
 
     def training_ids_for_job(self, job_id: str) -> Set[int]:
         """Reverse of get_by_training — every training linked to one job
@@ -42,7 +45,9 @@ class TrainingJobRepository(AuditableMixin, BaseRepository):
         rows = self._fetch_all("SELECT training_id FROM training_job WHERE job_id = %s", (job_id,))
         return {r['training_id'] for r in rows}
 
-    def _assert_sequence_available(self, job_id: str, sequence_order: Optional[int], *, exclude_training_id: int) -> None:
+    def _assert_sequence_available(
+        self, job_id: str, sequence_order: Optional[int], *, exclude_training_id: int,
+    ) -> None:
         """`sequence_order` is only meaningful (and only unique) within one
         job's curriculum — the same slot number on two *different* jobs
         doesn't collide, only two different trainings claiming the same
@@ -59,7 +64,8 @@ class TrainingJobRepository(AuditableMixin, BaseRepository):
         )
         if row:
             raise ConflictError(
-                f'Stanowisko ma już szkolenie z kolejnością {sequence_order} w programie wstępnym ("{row["description"]}").'
+                f'Stanowisko ma już szkolenie z kolejnością {sequence_order} w programie wstępnym '
+                f'("{row["description"]}").'
             )
 
     def replace_links(self, training_id: int, jobs: List[dict]) -> None:
@@ -91,7 +97,8 @@ class TrainingJobRepository(AuditableMixin, BaseRepository):
         self._execute("DELETE FROM training_job WHERE training_id = %s", (training_id,))
         for job_id, meta in seen.items():
             self._execute(
-                "INSERT INTO training_job (training_id, job_id, is_mandatory, sequence_order) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO training_job (training_id, job_id, is_mandatory, sequence_order) "
+                "VALUES (%s, %s, %s, %s)",
                 (training_id, job_id, meta['is_mandatory'], meta['sequence_order']),
             )
         self._audit(

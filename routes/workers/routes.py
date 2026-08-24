@@ -105,7 +105,9 @@ def _profile_json(profile: dict) -> dict:
         'document_kind': foreigner['document_kind'],
         'document_validity': foreigner['document_validity'].isoformat() if foreigner['document_validity'] else None,
         'employment_basis': foreigner['employment_basis'],
-        'employment_basis_validity': foreigner['employment_basis_validity'].isoformat() if foreigner['employment_basis_validity'] else None,
+        'employment_basis_validity': (
+            foreigner['employment_basis_validity'].isoformat() if foreigner['employment_basis_validity'] else None
+        ),
     } if foreigner else None
     pending = profile['pending_termination']
     out['pending_termination'] = _termination_json(pending) if pending else None
@@ -471,7 +473,10 @@ def api_get_remarks(worker_id, skill_id):
     try:
         rows = WorkerSkillRemarkRepository().get_by_worker_skill(worker_skill['id'])
         remarks = [
-            {'id': r['id'], 'remarks': r['remarks'], 'created_at': r['created_at'].isoformat() if r['created_at'] else None}
+            {
+                'id': r['id'], 'remarks': r['remarks'],
+                'created_at': r['created_at'].isoformat() if r['created_at'] else None,
+            }
             for r in rows
         ]
         return jsonify({'remarks': remarks, 'count': len(remarks)})
@@ -524,7 +529,9 @@ def api_skill_rating_history(worker_id, skill_id):
     if not WorkerRepository().get_by_id(worker_id):
         raise NotFoundError('Pracownik nie znaleziony')
     try:
-        rows = AuditRepository().get_all(entity_type='worker', entity_id=worker_id, field_name='current_rating', label=skill_id)
+        rows = AuditRepository().get_all(
+            entity_type='worker', entity_id=worker_id, field_name='current_rating', label=skill_id,
+        )
         events = [
             {
                 'id': r['id'],
@@ -618,7 +625,10 @@ def _action_plan_json(row) -> dict:
         'skill_description': row['skill_description'],
         'description': row['description'],
         'responsible_id': row['responsible_id'],
-        'responsible_name': f"{row['responsible_firstname']} {row['responsible_surname']}" if row['responsible_firstname'] else None,
+        'responsible_name': (
+            f"{row['responsible_firstname']} {row['responsible_surname']}"
+            if row['responsible_firstname'] else None
+        ),
         'planned_date': row['planned_date'].isoformat() if row['planned_date'] else None,
         'completed_date': row['completed_date'].isoformat() if row['completed_date'] else None,
         'effectiveness_date': row['effectiveness_date'].isoformat() if row['effectiveness_date'] else None,
@@ -785,7 +795,9 @@ def api_update_action_plan(action_plan_id):
     if not WorkerRepository().get_by_id(responsible_id):
         raise NotFoundError('Odpowiedzialny pracownik nie znaleziony')
     if status in _OPEN_ACTION_PLAN_STATUSES:
-        conflict = ActionPlanRepository().get_open_plan(existing['worker_id'], existing['skill_id'], exclude_id=action_plan_id)
+        conflict = ActionPlanRepository().get_open_plan(
+            existing['worker_id'], existing['skill_id'], exclude_id=action_plan_id,
+        )
         if conflict:
             raise ConflictError(
                 f'Pracownik ma już inny otwarty plan działania dla tej umiejętności ("{conflict["description"]}") '

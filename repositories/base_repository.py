@@ -202,6 +202,9 @@ class BaseRepository:
 		"""Przywróć soft-deleted rekord"""
 		if not self._soft_delete:
 			return False
-		query = f"UPDATE {self.table_name} SET is_deleted = FALSE, deleted_at = NULL WHERE id = %s AND is_deleted = TRUE"
+		query = (
+			f"UPDATE {self.table_name} SET is_deleted = FALSE, deleted_at = NULL "
+			"WHERE id = %s AND is_deleted = TRUE"
+		)
 		cursor = self._execute(query, (id,))
 		return cursor.rowcount > 0

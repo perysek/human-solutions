@@ -59,7 +59,9 @@ def _get_thresholds(module: str) -> dict:
         row = None
     if not row:
         return {'critical_days': CRITICAL_DAYS, 'warning_days': WARNING_DAYS, 'notice_days': NOTICE_DAYS}
-    return {'critical_days': row['critical_days'], 'warning_days': row['warning_days'], 'notice_days': row['notice_days']}
+    return {
+        'critical_days': row['critical_days'], 'warning_days': row['warning_days'], 'notice_days': row['notice_days'],
+    }
 
 
 def get_expiring_foreigner_docs(days_threshold: int = DEFAULT_FOREIGNER_DOC_THRESHOLD_DAYS) -> list:
@@ -105,14 +107,20 @@ def get_expiring_medical(threshold_days: Optional[int] = None) -> list:
     medical, Faza 6), każde z dopisanym kubełkiem critical/warning/notice."""
     thresholds = _get_thresholds('medical')
     days = threshold_days if threshold_days is not None else thresholds['notice_days']
-    return [{**row, 'bucket': _bucket(row['valid_until'], thresholds)} for row in MedicalExamRepository().get_expiring(days)]
+    return [
+        {**row, 'bucket': _bucket(row['valid_until'], thresholds)}
+        for row in MedicalExamRepository().get_expiring(days)
+    ]
 
 
 def get_expiring_bhp(threshold_days: Optional[int] = None) -> list:
     """BHP_5 — analogicznie do get_expiring_medical, dla bhp_trainings."""
     thresholds = _get_thresholds('bhp')
     days = threshold_days if threshold_days is not None else thresholds['notice_days']
-    return [{**row, 'bucket': _bucket(row['valid_until'], thresholds)} for row in BhpTrainingRepository().get_expiring(days)]
+    return [
+        {**row, 'bucket': _bucket(row['valid_until'], thresholds)}
+        for row in BhpTrainingRepository().get_expiring(days)
+    ]
 
 
 def get_expiring_foreigner_docs_with_bucket(days_threshold: Optional[int] = None) -> list:
@@ -139,7 +147,11 @@ def get_upcoming_terminations(days_threshold: int = WORKER_TERMINATION_WINDOW_DA
     return [
         {
             **row,
-            'bucket': 'critical' if (row['planned_fire_date'] - date.today()).days <= WORKER_TERMINATION_CRITICAL_DAYS else 'warning',
+            'bucket': (
+                'critical'
+                if (row['planned_fire_date'] - date.today()).days <= WORKER_TERMINATION_CRITICAL_DAYS
+                else 'warning'
+            ),
         }
         for row in rows
     ]

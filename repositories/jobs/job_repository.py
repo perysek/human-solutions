@@ -91,7 +91,10 @@ class JobRepository(AuditableMixin, BaseRepository):
     ) -> str:
         """Utwórz stanowisko. Wywołujący (route) odpowiada za sprawdzenie
         unikalności id przed wywołaniem — patrz routes/jobs/routes.py."""
-        query = "INSERT INTO jobs (id, description, department_id, is_managerial, is_director) VALUES (%s, %s, %s, %s, %s)"
+        query = (
+            "INSERT INTO jobs (id, description, department_id, is_managerial, is_director) "
+            "VALUES (%s, %s, %s, %s, %s)"
+        )
         self._execute(query, (job_id, description, department_id, is_managerial, is_director))
         self._audit('CREATE', job_id, label=description or job_id)
         return job_id

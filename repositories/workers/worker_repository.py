@@ -173,7 +173,9 @@ class WorkerRepository(AuditableMixin, BaseRepository):
 
         if search:
             like = f'%{search}%'
-            conditions.append('(w.firstname ILIKE %s OR w.surname ILIKE %s OR j.description ILIKE %s OR w.job_id ILIKE %s)')
+            conditions.append(
+                '(w.firstname ILIKE %s OR w.surname ILIKE %s OR j.description ILIKE %s OR w.job_id ILIKE %s)'
+            )
             params.extend([like, like, like, like])
 
         if needs_attention == 'yes':

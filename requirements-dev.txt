@@ -8,3 +8,6 @@ pytest-mock==3.14.0
 
 # Factory pattern for test data
 factory-boy==3.3.1
+
+# Linting (CI: ruff check .)
+ruff==0.9.4

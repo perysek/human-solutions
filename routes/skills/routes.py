@@ -79,7 +79,10 @@ def api_get_jobs(skill_id):
         raise NotFoundError('Umiejętność nie znaleziona')
     try:
         rows = JobSkillRepository().get_by_skill(skill_id)
-        jobs = [{'job_id': r['job_id'], 'job_description': r['job_description'], 'required_rating': r['required_rating']} for r in rows]
+        jobs = [
+            {'job_id': r['job_id'], 'job_description': r['job_description'], 'required_rating': r['required_rating']}
+            for r in rows
+        ]
         return jsonify({'jobs': jobs, 'count': len(jobs)})
     except AppError:
         raise

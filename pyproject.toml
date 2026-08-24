@@ -5,5 +5,22 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I"]  # pyflakes + pycodestyle + import-sort — start narrow, widen later
 
+# These entrypoint/script files deliberately call load_dotenv()/sys.path.insert()
+# before importing anything that reads os.environ or the project package — the
+# import-after-setup ordering is correct, not a mistake E402 should flag.
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["E402"]
+"run_dev.py" = ["E402"]
+"scripts/seed_dev_data.py" = ["E402"]
+"scripts/seed_mock_data.py" = ["E402"]
+# Column-aligned {tone: text} message catalog — wrapping any entry to 120
+# chars breaks the aligned, scannable table layout for no readability gain.
+"config/ui_messages.py" = ["E501"]
+# Historical migrations, several already applied in prod — not worth the risk
+# of a wrapping typo in DDL/SQL strings for lint purity. New migrations should
+# still aim to stay under the limit; this doesn't block fixing one if you're
+# already touching it.
+"alembic/versions/*.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

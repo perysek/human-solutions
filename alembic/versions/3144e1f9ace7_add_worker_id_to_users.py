@@ -18,12 +18,20 @@ worker row; `trainer` accounts should have one, but `own_data_worker_id()`
 degrades safely (sentinel `-1`) if one doesn't. ON DELETE SET NULL — a
 worker leaving (or, rare, a hard-deleted worker row) must not cascade into
 deleting the *login account*, just detach it.
+
+No-op (2026-08-24): `f5a6b7c8d9e0` (down_revision chain: ...e4f5a6b7c8d9 ->
+f5a6b7c8d9e0 -> a6b7c8d9e0f1 -> dbd528235721 -> 3144e1f9ace7...), earlier in
+this same chain, already adds this exact column + `fk_users_worker_id`
+constraint as part of creating the `workers` table. Whatever historical
+reason had this migration doing it again too, running the chain against a
+genuinely fresh database (a new CI Postgres container, a new dev machine)
+hit `DuplicateColumn`/`DuplicateObject` at this revision — head was
+unreachable from scratch. Any database that already applied this revision
+(dev, prod) keeps its column/constraint untouched; this file's body is
+neutered so the *next* fresh build succeeds. The real add/drop now lives
+solely in `f5a6b7c8d9e0`.
 """
 from typing import Sequence, Union
-
-import sqlalchemy as sa
-
-from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '3144e1f9ace7'
@@ -33,12 +41,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('users', sa.Column('worker_id', sa.Text(), nullable=True))
-    op.create_foreign_key(
-        'fk_users_worker_id', 'users', 'workers', ['worker_id'], ['id'], ondelete='SET NULL',
-    )
+    pass  # see module docstring — f5a6b7c8d9e0 (earlier in chain) already does this
 
 
 def downgrade() -> None:
-    op.drop_constraint('fk_users_worker_id', 'users', type_='foreignkey')
-    op.drop_column('users', 'worker_id')
+    pass  # see module docstring — f5a6b7c8d9e0's downgrade() is what actually drops it

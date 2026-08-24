@@ -333,11 +333,23 @@ def seed_medical_and_bhp(job_workers: dict):
 
 TRAININGS = [
     dict(description='Szkolenie BHP wstępne', jobs=[], skills=['2008'], completion=100),
-    dict(description='Audyt wewnętrzny ISO 9001/IATF — warsztat', jobs=['KIER_JAK', 'KONTROLER_JAKOSCI'], skills=['2001'], completion=100),
-    dict(description='Uprawnienia UDT — wózki widłowe', jobs=['MAGAZYNIER', 'BRYGADZISTA'], skills=['2003'], completion=80),
+    dict(
+        description='Audyt wewnętrzny ISO 9001/IATF — warsztat',
+        jobs=['KIER_JAK', 'KONTROLER_JAKOSCI'], skills=['2001'], completion=100,
+    ),
+    dict(
+        description='Uprawnienia UDT — wózki widłowe',
+        jobs=['MAGAZYNIER', 'BRYGADZISTA'], skills=['2003'], completion=80,
+    ),
     dict(description='Kurs spawania MIG/MAG — certyfikacja', jobs=['SPAWACZ'], skills=['2004'], completion=100),
-    dict(description='Warsztat zarządzania zespołem', jobs=['KIEROWNIK_PROD', 'BRYGADZISTA', 'DYR'], skills=['2006'], completion=60),
-    dict(description='Obsługa systemu ERP — moduł magazynowy', jobs=['LOGISTYK', 'MAGAZYNIER', 'SPECJALISTA_HR'], skills=['2009'], completion=40),
+    dict(
+        description='Warsztat zarządzania zespołem',
+        jobs=['KIEROWNIK_PROD', 'BRYGADZISTA', 'DYR'], skills=['2006'], completion=60,
+    ),
+    dict(
+        description='Obsługa systemu ERP — moduł magazynowy',
+        jobs=['LOGISTYK', 'MAGAZYNIER', 'SPECJALISTA_HR'], skills=['2009'], completion=40,
+    ),
     dict(description='Pierwsza pomoc przedmedyczna', jobs=[], skills=['2008'], completion=100),
 ]
 

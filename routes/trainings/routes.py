@@ -364,7 +364,9 @@ def api_list_participants(training_id):
         raise NotFoundError('Szkolenie nie znalezione')
     try:
         rows = TrainingParticipantRepository().get_by_training(training_id)
-        confirmed_ids = {c['training_participant_id'] for c in TrainingPresenceRepository().get_by_training(training_id)}
+        confirmed_ids = {
+            c['training_participant_id'] for c in TrainingPresenceRepository().get_by_training(training_id)
+        }
         participants = [_participant_json(r, confirmed_ids) for r in rows]
         if current_user.role == 'viewer':
             participants = [_redact_participant_for_viewer(p) for p in participants]

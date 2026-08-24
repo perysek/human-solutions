@@ -87,7 +87,8 @@ class WorkerTerminationRepository(AuditableMixin, BaseRepository):
 
     def finalize(self, termination_id: int) -> bool:
         cursor = self._execute(
-            "UPDATE worker_terminations SET status = 'finalized', updated_at = CURRENT_TIMESTAMP WHERE id = %s AND status = 'pending'",
+            "UPDATE worker_terminations SET status = 'finalized', updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = %s AND status = 'pending'",
             (termination_id,),
         )
         finalized = cursor.rowcount > 0
