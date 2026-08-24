@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@/lib/icons/Icon';
 import { Button } from '@/components/ui/Button';
 import { CheckboxField, SelectField, TextareaField, TextField } from '@/components/ui/form';
@@ -352,7 +353,13 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
     }
   }
 
-  return (
+  // Portalled to document.body — this modal is opened from WorkerAttentionSection,
+  // whose card carries `animate-fade-up`. That animation targets opacity/transform,
+  // which makes the card a stacking context for its lifetime, so a plain nested
+  // .modal-overlay (position:fixed, z-index:9999) would still be painted within
+  // that card's local stacking order and end up behind later sibling sections
+  // (e.g. "Dane urodzenia", "Obywatelstwo") instead of on top of the whole page.
+  return createPortal(
     <div
       className="modal-overlay"
       role="presentation"
@@ -526,6 +533,7 @@ export function ActionPlanModal({ seed, onClose, onSaved }: ActionPlanModalProps
         </form>
       </div>
       {showCreateTraining && <CreateTrainingModal onClose={() => setShowCreateTraining(false)} onCreated={handleTrainingCreated} />}
-    </div>
+    </div>,
+    document.body,
   );
 }

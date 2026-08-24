@@ -14,6 +14,10 @@ const EMPTY_BHP = { trainings: [], count: 0 };
 interface AttentionIssue {
   key: string;
   description: string;
+  /** Button label — "Dodaj działanie" for gap issues (opens the action-plan
+   * modal), "Przejdź do →" for medical/bhp issues (just scrolls to the
+   * relevant section below, no action to add there). */
+  actionLabel: string;
   onNavigate: () => void;
 }
 
@@ -23,9 +27,10 @@ function scrollToSection(id: string) {
 
 /** task3 — "Wymaga uwagi": every open issue for this worker (competence
  * gap, no currently-valid BHP training, no currently-valid medical exam),
- * each with a "Przejdź do →" that either opens the same action-plan modal
- * CompetencyGapsReportPage uses (gap issues) or scrolls to the relevant
- * section below (medical/bhp issues) — matches WorkersListPage's
+ * each with a button that either opens the same action-plan modal
+ * CompetencyGapsReportPage uses (gap issues, "Dodaj działanie") or scrolls to
+ * the relevant section below (medical/bhp issues, "Przejdź do →") — matches
+ * WorkersListPage's
  * `needs_attention` badge definition exactly (see worker_repository.py's
  * _NEEDS_ATTENTION_SQL), so a flagged row on the list always has a
  * non-empty section here. Renders nothing when there are no issues. */
@@ -73,6 +78,7 @@ export function WorkerAttentionSection({
     ...gaps.map((g) => ({
       key: `gap-${g.skill_id}`,
       description: `Luka kompetencyjna — ${g.skill_description}: wymagany poziom ${g.required_rating}, posiadany ${g.current_rating ?? 'brak oceny'}.`,
+      actionLabel: 'Dodaj działanie',
       onNavigate: () => setActionSeed({ workerId, workerName, skillId: g.skill_id, skillDescription: g.skill_description }),
     })),
     ...(medicalExpired
@@ -82,6 +88,7 @@ export function WorkerAttentionSection({
             description: `Badania lekarskie — brak ważnego badania${
               lastExpiredMedical?.valid_until ? ` (ostatnie wygasło ${new Date(lastExpiredMedical.valid_until).toLocaleDateString('pl-PL')})` : ''
             }.`,
+            actionLabel: 'Przejdź do →',
             onNavigate: () => scrollToSection('worker-medical-section'),
           },
         ]
@@ -93,6 +100,7 @@ export function WorkerAttentionSection({
             description: `Szkolenia BHP — brak ważnego szkolenia${
               lastExpiredBhp?.valid_until ? ` (ostatnie wygasło ${new Date(lastExpiredBhp.valid_until).toLocaleDateString('pl-PL')})` : ''
             }.`,
+            actionLabel: 'Przejdź do →',
             onNavigate: () => scrollToSection('worker-bhp-section'),
           },
         ]
@@ -116,7 +124,7 @@ export function WorkerAttentionSection({
           >
             <span style={{ fontSize: '0.875rem', color: 'var(--color-ink)' }}>{issue.description}</span>
             <Button type="button" variant="secondary" small onClick={issue.onNavigate}>
-              Przejdź do →
+              {issue.actionLabel}
             </Button>
           </li>
         ))}
