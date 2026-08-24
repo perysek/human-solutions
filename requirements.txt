@@ -48,5 +48,11 @@ python-dotenv==1.2.2
 Flask-Limiter>=3.8,<4.0
 qrcode>=7.4,<8.0
 
+# Redis client for Flask-Limiter's storage backend (SCALING_PREP_PLAN.md
+# Phase 4). flask-limiter speaks redis:// once this package is importable —
+# no flask-limiter[redis] extra needed. Unused until RATELIMIT_STORAGE_URI
+# is set; default stays 'memory://' (see extensions.py).
+redis==5.2.1
+
 # Production WSGI server (Render/Linux deployment)
 gunicorn==21.2.0

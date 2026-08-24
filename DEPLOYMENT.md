@@ -283,6 +283,14 @@ FRONTEND_URL=https://your-domain.com
 # DB_POOL_MAX=10
 # DB_CONNECT_TIMEOUT=5
 # DB_STATEMENT_TIMEOUT=30000
+
+# Optional — rate-limiter storage backend (extensions.py). Unset defaults to
+# in-process memory://, which is correct as long as gunicorn.conf.py's
+# `workers = 1` holds (assert_single_worker). Only set this once you
+# provision Redis (e.g. Vultr Managed Redis) and move to workers > 1 or
+# multiple app nodes — see SCALING_PREP_PLAN.md Phase 4 /
+# MULTI_TENANCY_PROPOSAL.md §6/§7/§8. Not provisioned as part of this guide.
+# RATELIMIT_STORAGE_URI=redis://<vultr-managed-redis-host>:6379/0
 ```
 
 `SECRET_KEY` is validated at boot (`app.py`) — the app refuses to start if
