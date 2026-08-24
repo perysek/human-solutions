@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@/lib/icons/Icon';
 import { useEscapeClaim } from '@/lib/a11y/useEscapeClaim';
+
+interface PopoverCoords {
+  left: number;
+  width: number;
+  top?: number;
+  bottom?: number;
+}
 
 export interface SearchableSelectOption {
   value: string;
@@ -40,9 +48,16 @@ interface SearchableSelectProps {
  * trainings, picked by name), but generic enough for any long option list —
  * every native <select> in the app now goes through this (see form.tsx's
  * SelectField) or a direct label-less usage for compact/filter contexts.
- * Reuses ColumnFilterDropdown/StatusSelect's trigger-button + inline-popover
- * shape (not position:absolute — see StatusSelect's comment on why: an
- * absolute overlay gets clipped by the modal body's own overflow-y:auto). */
+ * Reuses ColumnFilterDropdown/StatusSelect's trigger-button + popover shape,
+ * but portals the open listbox to document.body and positions it with
+ * position:fixed off the trigger's own getBoundingClientRect(). That's what
+ * lets it float over a table row instead of pushing the row (and its
+ * siblings, since <td> heights are shared across a <tr>) taller to fit the
+ * option list — StatusSelect's static-flow approach avoids clipping inside
+ * a modal's overflow-y:auto but only reads as "correct" for a short form,
+ * not a table cell. Fixed positioning escapes any scrolling/overflow
+ * ancestor (modal body included) without the clipping absolute positioning
+ * would otherwise hit. */
 export function SearchableSelect({
   id,
   label,
@@ -60,7 +75,10 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [coords, setCoords] = useState<PopoverCoords | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const labelId = `${id}-label`;
   useEscapeClaim(open);
@@ -71,18 +89,46 @@ export function SearchableSelect({
     if (!open) return;
     setQuery('');
     const focusTimer = window.setTimeout(() => searchRef.current?.focus(), 0);
+
+    // Estimate rather than measure the popover's own height: it hasn't
+    // rendered into the portal yet on this same pass, and re-measuring
+    // after render would flash it in the wrong spot for one frame.
+    const ESTIMATED_MENU_HEIGHT = 260;
+    function updatePosition() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < ESTIMATED_MENU_HEIGHT && rect.top > spaceBelow;
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8));
+      setCoords(
+        openUp
+          ? { bottom: window.innerHeight - rect.top + 6, left, width: rect.width }
+          : { top: rect.bottom + 6, left, width: rect.width },
+      );
+    }
+    updatePosition();
+
     function onClickOutside(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target) || popoverRef.current?.contains(target)) return;
+      setOpen(false);
     }
     function onEscape(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false);
     }
     document.addEventListener('mousedown', onClickOutside);
     document.addEventListener('keydown', onEscape);
+    // capture:true so scrolling inside any ancestor (a scrollable table
+    // wrapper, a modal body) also repositions the popover — scroll events
+    // don't bubble, but capture-phase listeners on window still see them.
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener('mousedown', onClickOutside);
       document.removeEventListener('keydown', onEscape);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
     };
   }, [open]);
 
@@ -110,6 +156,7 @@ export function SearchableSelect({
         </label>
       )}
       <button
+        ref={buttonRef}
         type="button"
         id={id}
         className={triggerClassName}
@@ -142,54 +189,72 @@ export function SearchableSelect({
         </span>
         <Icon name="expand_more" size={14} style={{ flexShrink: 0 }} />
       </button>
-      {open && (
-        <div
-          role="listbox"
-          aria-labelledby={label ? labelId : undefined}
-          aria-label={!label ? (ariaLabel ?? searchPlaceholder) : undefined}
-          className="col-filter-menu"
-          style={{ position: 'static', marginTop: '0.375rem', display: 'flex', flexDirection: 'column', width: fullWidth ? '100%' : 'max-content' }}
-        >
-          <input
-            ref={searchRef}
-            type="text"
-            className="refined-input"
-            style={{ marginBottom: '0.375rem' }}
-            placeholder={searchPlaceholder}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label={label ? `${searchPlaceholder} — ${label}` : (ariaLabel ? `${searchPlaceholder} — ${ariaLabel}` : searchPlaceholder)}
-          />
-          <div style={{ maxHeight: '12rem', overflowY: 'auto' }}>
-            {filtered.length === 0 ? (
-              <p style={{ padding: '0.375rem 0.5rem', fontSize: '0.8125rem', color: 'var(--color-ink-subtle)' }}>Brak wyników</p>
-            ) : (
-              filtered.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="option"
-                  aria-selected={opt.value === value}
-                  className="col-filter-item"
-                  style={{
-                    width: '100%',
-                    border: 'none',
-                    background: opt.value === value ? 'var(--color-surface)' : 'transparent',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="listbox"
+            aria-labelledby={label ? labelId : undefined}
+            aria-label={!label ? (ariaLabel ?? searchPlaceholder) : undefined}
+            className="col-filter-menu"
+            style={{
+              // .col-filter-menu sets top:100% for its default (non-portaled)
+              // absolute usage — an explicit 'auto' is required on whichever
+              // side is unused here, otherwise React omits the undefined
+              // style and that class rule wins instead.
+              position: 'fixed',
+              top: coords.top ?? 'auto',
+              bottom: coords.bottom ?? 'auto',
+              left: coords.left,
+              margin: 0,
+              zIndex: 10000,
+              display: 'flex',
+              flexDirection: 'column',
+              width: fullWidth ? coords.width : 'max-content',
+            }}
+          >
+            <input
+              ref={searchRef}
+              type="text"
+              className="refined-input"
+              style={{ marginBottom: '0.375rem' }}
+              placeholder={searchPlaceholder}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label={label ? `${searchPlaceholder} — ${label}` : (ariaLabel ? `${searchPlaceholder} — ${ariaLabel}` : searchPlaceholder)}
+            />
+            <div style={{ maxHeight: '12rem', overflowY: 'auto' }}>
+              {filtered.length === 0 ? (
+                <p style={{ padding: '0.375rem 0.5rem', fontSize: '0.8125rem', color: 'var(--color-ink-subtle)' }}>Brak wyników</p>
+              ) : (
+                filtered.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="option"
+                    aria-selected={opt.value === value}
+                    className="col-filter-item"
+                    style={{
+                      width: '100%',
+                      border: 'none',
+                      background: opt.value === value ? 'var(--color-surface)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onClick={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
