@@ -20,6 +20,8 @@ from typing import Optional
 from repositories.bhp.bhp_training_repository import BhpTrainingRepository
 from repositories.dashboard.alert_threshold_repository import AlertThresholdRepository
 from repositories.medical.medical_exam_repository import MedicalExamRepository
+from repositories.trainings.training_repository import TrainingRepository
+from repositories.workers.action_plan_repository import ActionPlanRepository
 from repositories.workers.foreigner_data_repository import ForeignerDataRepository
 from repositories.workers.worker_termination_repository import WorkerTerminationRepository
 
@@ -139,5 +141,40 @@ def get_upcoming_terminations(days_threshold: int = WORKER_TERMINATION_WINDOW_DA
             **row,
             'bucket': 'critical' if (row['planned_fire_date'] - date.today()).days <= WORKER_TERMINATION_CRITICAL_DAYS else 'warning',
         }
+        for row in rows
+    ]
+
+
+# Pulpit's "Zaległe szkolenia" / "Działania do luk kompetencji" sections
+# (Faza 7) — both fixed-window, un-configurable like WORKER_TERMINATION_
+# WINDOW_DAYS above: "zaległe" is just "past its own date, still not done",
+# not a tunable alert_thresholds module. 2-tier bucket only — every row here
+# is by definition already overdue, so there's no least-urgent 'notice' tier
+# left to give it (same reasoning as foreigner_docs/upcoming_terminations).
+TRAINING_OVERDUE_CRITICAL_DAYS = 14
+ACTION_PLAN_OVERDUE_CRITICAL_DAYS = 14
+
+
+def get_overdue_trainings() -> list:
+    """Trainings past their planned date with participants still short of
+    TrainingRepository.recalculate_completion's 'done' bar — see
+    TrainingRepository.get_overdue's docstring for the exact query."""
+    rows = TrainingRepository().get_overdue()
+    today = date.today()
+    return [
+        {**row, 'delay_days': (today - row['training_date']).days,
+         'bucket': 'critical' if (today - row['training_date']).days >= TRAINING_OVERDUE_CRITICAL_DAYS else 'warning'}
+        for row in rows
+    ]
+
+
+def get_overdue_action_plans() -> list:
+    """Open action plans (status defined/in_progress) whose planned_date has
+    passed — see ActionPlanRepository.get_overdue's docstring."""
+    rows = ActionPlanRepository().get_overdue()
+    today = date.today()
+    return [
+        {**row, 'delay_days': (today - row['planned_date']).days,
+         'bucket': 'critical' if (today - row['planned_date']).days >= ACTION_PLAN_OVERDUE_CRITICAL_DAYS else 'warning'}
         for row in rows
     ]

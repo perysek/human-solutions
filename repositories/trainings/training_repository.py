@@ -169,6 +169,36 @@ class TrainingRepository(AuditableMixin, BaseRepository):
         )
         return row['total']
 
+    def get_overdue(self) -> List[Any]:
+        """Pulpit's "Zaległe szkolenia" alert (Faza 7) — trainings whose
+        `training_date` has passed without the roster clearing
+        recalculate_completion's own "done" bar (finish_date AND
+        effectiveness_date both set on every non-deleted participant).
+        `pending_participants` counts the roster still short of that bar, so
+        the caller can show "N do przeszkolenia" without a second query; a
+        training with no participants at all still qualifies (0 pending) —
+        a planned session that never got a roster is exactly the kind of gap
+        this alert exists to surface. `completion` (DISTINCT FROM 100) is
+        the cheap short-circuit — pending_participants is the authoritative
+        count, but skipping the LEFT JOIN's GROUP BY work for training's
+        that are plainly done first keeps this query trivial even as the
+        catalog grows."""
+        return self._fetch_all(
+            """
+            SELECT t.id, t.description, t.training_date,
+                   COUNT(tp.id) FILTER (
+                       WHERE NOT tp.is_deleted
+                       AND NOT (tp.finish_date IS NOT NULL AND tp.effectiveness_date IS NOT NULL)
+                   ) AS pending_participants
+            FROM trainings t
+            LEFT JOIN training_participants tp ON tp.training_id = t.id
+            WHERE t.training_date < CURRENT_DATE
+              AND (t.completion IS NULL OR t.completion < 100)
+            GROUP BY t.id, t.description, t.training_date
+            ORDER BY t.training_date ASC
+            """
+        )
+
     def is_trainer_of(self, training_id: int, worker_id: str) -> bool:
         """TRN_7's ownership check: does ``worker_id`` appear as one of this
         training's assigned trainers (`training_trainers`, migration

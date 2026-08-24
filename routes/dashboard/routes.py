@@ -80,6 +80,28 @@ def _upcoming_termination_json(row) -> dict:
     }
 
 
+def _overdue_training_json(row) -> dict:
+    return {
+        'id': row['id'],
+        'description': row['description'],
+        'training_date': row['training_date'].isoformat() if row['training_date'] else None,
+        'pending_participants': row['pending_participants'],
+        'delay_days': row['delay_days'],
+        'bucket': row['bucket'],
+    }
+
+
+def _overdue_action_plan_json(row) -> dict:
+    return {
+        'id': row['id'],
+        'description': row['description'],
+        'responsible_name': f"{row['responsible_firstname']} {row['responsible_surname']}" if row['responsible_firstname'] else None,
+        'planned_date': row['planned_date'].isoformat() if row['planned_date'] else None,
+        'delay_days': row['delay_days'],
+        'bucket': row['bucket'],
+    }
+
+
 def _own_training_json(row) -> dict:
     return {
         'id': row['id'],
@@ -121,6 +143,8 @@ def api_alerts():
             'foreigner_docs': [_foreigner_doc_alert_json(r) for r in alerts['foreigner_docs']],
             'orphan_jobs': [_orphan_job_json(r) for r in alerts['orphan_jobs']],
             'upcoming_terminations': [_upcoming_termination_json(r) for r in alerts['upcoming_terminations']],
+            'overdue_trainings': [_overdue_training_json(r) for r in alerts['overdue_trainings']],
+            'overdue_action_plans': [_overdue_action_plan_json(r) for r in alerts['overdue_action_plans']],
         })
     except AppError:
         raise

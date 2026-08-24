@@ -99,6 +99,19 @@ class ActionPlanRepository(AuditableMixin, BaseRepository):
             params.append(exclude_id)
         return self._fetch_one(query, tuple(params))
 
+    def get_overdue(self) -> List[Any]:
+        """Pulpit's "Działania do luk kompetencji" alert (Faza 7) — open
+        plans (status defined/in_progress — same 'open' definition
+        get_open_plan's one-open-plan-per-gap guard uses) whose planned_date
+        has passed. A plan already 'completed'/'effective' isn't "zaległe"
+        even with a past planned_date — it got done, just not necessarily on
+        schedule, so this deliberately doesn't reuse get_all's broader
+        "not is_deleted" scope alone."""
+        return self._fetch_all(
+            _SELECT + " WHERE NOT ap.is_deleted AND ap.status IN ('defined', 'in_progress') "
+            "AND ap.planned_date < CURRENT_DATE ORDER BY ap.planned_date ASC"
+        )
+
     def delete(self, action_plan_id: int) -> bool:
         """Soft-delete (BaseRepository.delete() with _soft_delete=True sets
         is_deleted/deleted_at rather than removing the row) + an explicit

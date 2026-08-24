@@ -77,6 +77,38 @@ export function DashboardPage() {
         }))
       : [];
 
+  // Task 7 — "Zaległe szkolenia": pending_participants + delay_days both
+  // folded into `detail` (AlertPanelRow has no dedicated slot for a second
+  // number), `date`/`dateLabel` still carries the training's own planned
+  // date so both facts are visible on the card at once.
+  const overdueTrainingRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.overdue_trainings.map((t) => ({
+          key: `ot-${t.id}`,
+          id: String(t.id),
+          fullName: t.description,
+          detail: `${t.pending_participants} do przeszkolenia · zaległość ${t.delay_days} dni`,
+          date: t.training_date,
+          bucket: t.bucket,
+        }))
+      : [];
+
+  // Task 7 — "Działania do luk kompetencji": routes to the plans list
+  // (not a single plan's own view — that page has no per-row deep link),
+  // carrying `returnTo` so ActionPlansPage's Escape handler knows to land
+  // back on the pulpit rather than doing nothing.
+  const overdueActionPlanRows: AlertPanelRow[] =
+    alerts && !isOwnTrainingsAlerts(alerts)
+      ? alerts.overdue_action_plans.map((p) => ({
+          key: `ap-${p.id}`,
+          id: String(p.id),
+          fullName: p.description,
+          detail: `Odpowiedzialny: ${p.responsible_name ?? 'Nieprzypisany'} · zaległość ${p.delay_days} dni`,
+          date: p.planned_date,
+          bucket: p.bucket,
+        }))
+      : [];
+
   const orphanJobRows: AlertPanelRow[] =
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.orphan_jobs.map((r) => ({
@@ -171,6 +203,23 @@ export function DashboardPage() {
             rows={upcomingTerminationRows}
             emptyMessage="Żaden pracownik nie kończy zatrudnienia w ciągu 14 dni."
             dateLabel="Data zwolnienia"
+          />
+          <AlertPanel
+            title="Zaległe szkolenia"
+            rows={overdueTrainingRows}
+            emptyMessage="Żadne szkolenie nie jest zaległe."
+            dateLabel="Termin szkolenia"
+            onRowClick={(row) => navigate(`/trainings/${row.id}`)}
+          />
+          <AlertPanel
+            title="Działania do luk kompetencji"
+            rows={overdueActionPlanRows}
+            emptyMessage="Brak zaległych działań."
+            dateLabel="Planowany termin"
+            // task2 — always the list page, not a single plan's own view;
+            // returnTo lets ActionPlansPage's Escape handler know to land
+            // back here.
+            onRowClick={() => navigate('/workers/action-plans', { state: { returnTo: '/' } })}
           />
           <AlertPanel
             title="Stanowiska bez działu"

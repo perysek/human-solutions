@@ -57,6 +57,31 @@ export interface UpcomingTerminationAlert {
   bucket: Exclude<AlertBucket, 'notice'>;
 }
 
+/** Pulpit's "Zaległe szkolenia" alert (Faza 7) — a training whose
+ * training_date has passed with its roster still short of "done"
+ * (TrainingRepository.get_overdue's docstring). 2-tier bucket, no 'notice'
+ * tier — every row here is by definition already overdue. */
+export interface OverdueTrainingAlert {
+  id: number;
+  description: string;
+  training_date: string;
+  pending_participants: number;
+  delay_days: number;
+  bucket: Exclude<AlertBucket, 'notice'>;
+}
+
+/** Pulpit's "Działania do luk kompetencji" alert (Faza 7) — an open action
+ * plan (status defined/in_progress) whose planned_date has passed. Same
+ * 2-tier bucket reasoning as OverdueTrainingAlert. */
+export interface OverdueActionPlanAlert {
+  id: number;
+  description: string;
+  responsible_name: string | null;
+  planned_date: string;
+  delay_days: number;
+  bucket: Exclude<AlertBucket, 'notice'>;
+}
+
 export interface OwnTraining {
   id: number;
   description: string;
@@ -72,6 +97,8 @@ export interface FullAlerts {
   foreigner_docs: ForeignerDocAlert[];
   orphan_jobs: OrphanJobAlert[];
   upcoming_terminations: UpcomingTerminationAlert[];
+  overdue_trainings: OverdueTrainingAlert[];
+  overdue_action_plans: OverdueActionPlanAlert[];
 }
 
 /** `trainer` shape (own_data=TRUE on `dashboard`): RODO_2 blocks all three

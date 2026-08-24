@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -11,6 +11,7 @@ import { useTableSort } from '@/lib/useTableSort';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 import { actionPlansApi, type ActionPlan, type ActionPlanHistoryEvent } from '@/lib/api/actionPlans';
 import { ACTION_PLAN_STATUS_OPTIONS } from '@/lib/actionPlanStatus';
 import { ActionPlanModal, type ActionPlanSeed } from '@/components/workers/ActionPlanModal';
@@ -107,6 +108,15 @@ export function ActionPlansPage() {
   const confirm = useConfirm();
   const { isModuleReadOnly } = useAuth();
   const canWrite = !isModuleReadOnly('workers');
+
+  // task2 (pulpit's "Działania do luk kompetencji" alert) — DashboardPage
+  // navigates here with `returnTo: '/'` (same location.state pattern as
+  // JobEditPage's focusDepartment/returnTo). Escape only does anything when
+  // that state is present, so navigating here directly (sidebar link) keeps
+  // its normal no-op Escape — this page has no "back" target of its own.
+  const location = useLocation();
+  const { returnTo } = (location.state as { returnTo?: string } | null) ?? {};
+  useEscapeAction(() => navigate(returnTo!), !!returnTo);
 
   const { data, loading, error, reload } = useApiData(() => actionPlansApi.list());
   const rows = useMemo(() => data?.results ?? [], [data]);

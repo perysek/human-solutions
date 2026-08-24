@@ -71,4 +71,11 @@ def get_alerts(user) -> dict:
         # full-access-only for the same reason medical/bhp/foreigner_docs
         # are: RODO_2 blocks `trainer` from any panel naming a worker.
         'upcoming_terminations': alert_service.get_upcoming_terminations(),
+        # Faza 7 — same full-access branch as the panels above: neither
+        # panel names a worker's personal data (training rosters and action
+        # plans are operational, not RODO_2-gated the way medical/bhp/
+        # foreigner_docs/upcoming_terminations are), so there's no separate
+        # carve-out needed — they simply ride the same "not `trainer`" gate.
+        'overdue_trainings': alert_service.get_overdue_trainings(),
+        'overdue_action_plans': alert_service.get_overdue_action_plans(),
     }
