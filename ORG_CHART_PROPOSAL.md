@@ -51,9 +51,11 @@ both to accept `parent_department_id: Optional[int]`, and add:
 
 ```python
 def get_ancestry(self, department_id: int) -> list[int]:
-    """Walk parent_department_id up to the root. Used by both the cycle
-    guard below and the frontend's parent-picker (to exclude a department's
-    own descendants, not just itself, from the dropdown)."""
+    """Walk parent_department_id UP to the root, server-side only — this is
+    the direction would_create_cycle needs. NOT the same traversal as the
+    frontend's parent-picker filter (§4a), which needs department_id's
+    DESCENDANTS instead (walking down) — an easy direction mixup to make,
+    worth being explicit about so nobody reaches for this method there."""
     ...
 
 def would_create_cycle(self, department_id: int, new_parent_id: int | None) -> bool:
@@ -146,27 +148,138 @@ _LABELS = {
 # 'jobs:BRYGADZISTA:UPDATE:is_managerial;' -> "Zmiana kierownika działu (BRYGADZISTA)"
 ```
 
+### 3f. `routes/departments/routes.py` + `_department_json()` — carry the new column
+
+`create()`/`update()`'s request bodies gain `parent_department_id`
+(int-or-null, same optional-field convention as `description`).
+`api_create` and `api_update` validate it exists before delegating to the
+repository (`NotFoundError` — a bogus id would otherwise 500 on the FK
+constraint instead of failing cleanly), and `api_update` additionally
+relies on the repository's `would_create_cycle` check (§3a).
+
+`_department_json()` gains two fields on the response:
+```python
+'parent_department_id': row['parent_department_id'],
+'parent_name': row.get('parent_name'),   # LEFT JOIN departments AS parent
+```
+Both the edit form (to pre-select the current parent) and the breadcrumb on
+`DepartmentEditPage` (§4c) need `parent_name` — without the join, the
+frontend would have to cross-reference a second full department list just
+to show one string, for every single department detail view.
+
 ---
 
 ## 4. Frontend wiring
 
 ### 4a. `DepartmentForm.tsx` — parent department picker
 
-Add a `Select` field "Dział nadrzędny" (optional), options from the
-existing `GET /departments/api/options` endpoint — filtered client-side to
-exclude the department being edited **and its descendants**
-(`get_ancestry`-derived set from the tree endpoint), so an obviously-invalid
-cycle can't even be selected, ahead of the server's authoritative
-`would_create_cycle` check. In create mode, no filtering needed (a brand
-new department has no descendants yet).
+New prop, `allDepartments: DepartmentListItem[]` — passed down already-
+fetched by the parent page (§4b/§4c), not fetched inside the form itself
+(avoids a duplicate request every time the form mounts). New `Select` field
+"Dział nadrzędny" (optional — "Brak" for top-level), submitting
+`parent_department_id` alongside `name`/`description`.
 
-### 4b. `DepartmentsListPage.tsx` — surface the hierarchy
+Options filtering differs by mode:
+- **create**: no filtering — a department that doesn't exist yet can't be
+  anyone's ancestor, so every existing department is a valid parent.
+- **edit**: exclude the department itself **and every one of its
+  descendants** — assigning a department under its own child would be an
+  obviously-invalid cycle the UI shouldn't even offer, ahead of the
+  server's authoritative check. This is a **descendant** walk (down the
+  tree), the mirror image of `get_ancestry` (§3a, which walks up) — computed
+  purely client-side from `allDepartments` (every department already
+  carries its own `parent_department_id`, so the full tree is reconstructible
+  without another endpoint):
+
+```ts
+// lib/utils/departmentTree.ts
+export function getDescendantIds(rootId: number, all: DepartmentListItem[]): Set<number> {
+  const childrenOf = new Map<number, number[]>();
+  for (const d of all) {
+    if (d.parent_department_id != null) {
+      childrenOf.set(d.parent_department_id, [...(childrenOf.get(d.parent_department_id) ?? []), d.id]);
+    }
+  }
+  const result = new Set<number>();
+  const stack = [...(childrenOf.get(rootId) ?? [])];
+  while (stack.length) {
+    const next = stack.pop()!;
+    if (result.has(next)) continue; // defensive: never loop even over already-bad data
+    result.add(next);
+    stack.push(...(childrenOf.get(next) ?? []));
+  }
+  return result;
+}
+```
+
+A `409` from the server's `would_create_cycle` check (a race, or a client
+list that's gone stale) surfaces through the form's *existing*
+`ApiError`/`flash-error` handling — no new error-handling code needed here.
+
+### 4b. `DepartmentCreatePage.tsx`
+
+One addition: `useApiData(() => departmentsApi.list(), [])`, passed to
+`<DepartmentForm mode="create" allDepartments={...} .../>` as the picker's
+option source. No exclusion logic needed (create mode, §4a).
+
+### 4c. `DepartmentEditPage.tsx` — extend, don't fork a new ViewPage
+
+**Decision, and the reasoning behind it**: this app's dictionary tables
+split two ways — `Jobs` gets a standalone `JobViewPage.tsx` (real
+relationships: linked skills, linked workers) while `Skills` has none (flat
+`id`+`description`, list+inline-edit is enough). `Departments` currently
+sits on the flat side (`DepartmentEditPage` already *is* a hybrid edit
+page — it renders the form **and** a live "Stanowiska w dziale" section
+below it, computed by filtering the already-fetched job list client-side).
+`parent_department_id` gives departments real relationships too (parent,
+children) — the same trigger that gave Jobs its ViewPage — but rather than
+forking a *third* navigation pattern (`List → View → Edit`, alongside
+Jobs's `List → View → Edit` and today's Departments `List → Edit-with-
+detail`), the more consistent move is extending the page departments
+already have. Two additions, mirroring the "Stanowiska w dziale" section's
+existing shape exactly:
+
+1. **Parent breadcrumb** in the `PageHeader` subtitle — `department.name`
+   plus, when `parent_department_id` is set, a link built from the new
+   `parent_name` field (§3f) to `/departments/<parent_id>/edit`. One click
+   up the tree, reusing this same page.
+
+2. **New "Działy podrzędne" section**, directly parallel to the existing
+   jobs-in-department table:
+   ```tsx
+   const { data: allDepartments } = useApiData(() => departmentsApi.list(), []);
+   const childDepartments = useMemo(
+     () => (allDepartments?.departments ?? []).filter((d) => d.parent_department_id === departmentId),
+     [allDepartments, departmentId],
+   );
+   ```
+   Rendered as a table (name, job/worker counts already in `_department_json`)
+   with each row linking to `/departments/<childId>/edit` — clicking a
+   child navigates into *its* edit-with-detail view, giving free recursive
+   drill-down through the whole tree without any dedicated tree-browsing UI.
+
+The same `allDepartments` fetch feeds `DepartmentForm`'s parent picker
+(§4a) — one request serves the breadcrumb, the children section, and the
+picker's exclusion set.
+
+**Still open**: today `canWrite` (from `isModuleReadOnly('jobs')`) only
+gates the *write* affordances (the "Dodaj stanowiska" button, remove-job
+icons) — the form itself always renders editable. Worth confirming whether
+a `viewer` role should be able to land on this page at all to see a
+department's detail read-only, or whether that's blocked further up
+(`ProtectedRoute`/nav visibility) before this even loads — not something to
+guess silently given it's a real access-control question, not a UI detail.
+
+### 4d. `DepartmentsListPage.tsx` — surface the hierarchy in the list too
 
 Add a "Dział nadrzędny" column (parent's name, or "—" for top-level), and
-indent child-department rows under their parent — cheapest way to make the
-nesting visible in the existing table without building the tree view twice.
+sort/indent rows into tree order instead of the current flat alphabetical
+list — the same `getDescendantIds`-style graph-walk from §4a, generalized
+into a depth-first ordering, so a parent's children always appear grouped
+directly under it rather than scattered wherever their name sorts
+alphabetically.
 
-### 4c. New page: `pages/org-chart/OrgChartPage.tsx`
+### 4e. New page: `pages/org-chart/OrgChartPage.tsx`
 
 A plain recursive React component — nested cards connected by simple CSS
 borders/lines, **not a new dependency**. `package.json` currently has no
@@ -180,14 +293,14 @@ deliberate upgrade to reconsider then, not a default to reach for now.
 Header shows the revision badge from `GET /org-chart/api/revisions/latest`
 ("Rev. 8 · 31.08.2026, 19:17") with a link through to the history page.
 
-### 4d. New page: `pages/org-chart/OrgChartRevisionsPage.tsx`
+### 4f. New page: `pages/org-chart/OrgChartRevisionsPage.tsx`
 
 `PaginatedTable` (the existing shared component) over
 `GET /org-chart/api/revisions` — columns: revision #, date, human-readable
 description (§3e). No edit/delete affordances anywhere on this page — it's
 a read-only log, matching `audit_log`'s own viewer-to-be.
 
-### 4e. Nav (`navConfig.ts`)
+### 4g. Nav (`navConfig.ts`)
 
 ```ts
 // "Kadry" section, after "Działy firmy":
