@@ -27,6 +27,10 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
+# Legacy source data (Phase 8 migration input) — real production HR
+# records, never belongs in the repo. See database.db in the working tree.
+*.db
+
 # Logs
 *.log
 
