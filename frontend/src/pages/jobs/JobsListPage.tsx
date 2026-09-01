@@ -13,6 +13,7 @@ import { jobsApi, type JobListItem } from '@/lib/api/jobs';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { useOrgChartRevisionToast } from '@/lib/orgChart/useOrgChartRevisionToast';
 
 function getSortValue(row: JobListItem, key: string): string | number | null {
   switch (key) {
@@ -37,6 +38,7 @@ export function JobsListPage() {
   const canWrite = !isModuleReadOnly('jobs');
   const confirm = useConfirm();
   const toast = useToast();
+  const orgChartToast = useOrgChartRevisionToast();
 
   const [search, setSearch] = useState('');
   const { data, loading, error, reload } = useApiData(() => jobsApi.list(search || undefined), [search]);
@@ -54,8 +56,9 @@ export function JobsListPage() {
     });
     if (!ok) return;
     try {
-      await jobsApi.remove(job.id);
+      const result = await jobsApi.remove(job.id);
       toast.success('Stanowisko usunięte.');
+      orgChartToast.notify(result.org_chart_revision);
       reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć stanowiska.');

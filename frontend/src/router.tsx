@@ -23,6 +23,7 @@ import { JobEditPage } from '@/pages/jobs/JobEditPage';
 import { DepartmentsListPage } from '@/pages/departments/DepartmentsListPage';
 import { DepartmentCreatePage } from '@/pages/departments/DepartmentCreatePage';
 import { DepartmentEditPage } from '@/pages/departments/DepartmentEditPage';
+import { OrgChartPage } from '@/pages/org-chart/OrgChartPage';
 import { SkillsListPage } from '@/pages/skills/SkillsListPage';
 import { SkillCreatePage } from '@/pages/skills/SkillCreatePage';
 import { SkillEditPage } from '@/pages/skills/SkillEditPage';
@@ -99,6 +100,12 @@ export function AppRoutes() {
             <Route path="/departments" element={<DepartmentsListPage />} />
             <Route path="/departments/create" element={<DepartmentCreatePage />} />
             <Route path="/departments/:id/edit" element={<DepartmentEditPage />} />
+            {/* Struktura organizacyjna — ORG_CHART_PROPOSAL.md §4e+§4f joined
+                into one page-view. Gated on 'jobs' (the chart's own
+                requirement, the less restrictive of the two); the history
+                section inside OrgChartPage independently re-checks 'audit'
+                before rendering itself. */}
+            <Route path="/org-chart" element={<OrgChartPage />} />
           </Route>
 
           {/* module_permission_required('skills') — routes/skills/routes.py */}

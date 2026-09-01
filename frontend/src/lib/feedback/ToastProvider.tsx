@@ -3,18 +3,32 @@ import { Icon } from '@/lib/icons/Icon';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
+/** Optional secondary affordance inside a toast — e.g. TASK3's "Zobacz
+ * historię zmian" link back to the org chart. Deliberately an `onClick`
+ * callback, not a `to` route string: ToastProvider mounts OUTSIDE
+ * <BrowserRouter> (see App.tsx), so it has no Router context of its own to
+ * navigate with — the CALLER (already inside Router context, e.g.
+ * DepartmentForm) builds the callback from its own useNavigate(). Rendered
+ * as a <button>, not an <a>, on purpose: a same-page, JS-driven route change
+ * is a button's job semantically (WAI-ARIA), not a real cross-document link. */
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: number;
   message: string;
   type: ToastType;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  show: (message: string, type?: ToastType, durationMs?: number) => void;
-  success: (message: string, durationMs?: number) => void;
-  error: (message: string, durationMs?: number) => void;
-  warning: (message: string, durationMs?: number) => void;
-  info: (message: string, durationMs?: number) => void;
+  show: (message: string, type?: ToastType, durationMs?: number, action?: ToastAction) => void;
+  success: (message: string, durationMs?: number, action?: ToastAction) => void;
+  error: (message: string, durationMs?: number, action?: ToastAction) => void;
+  warning: (message: string, durationMs?: number, action?: ToastAction) => void;
+  info: (message: string, durationMs?: number, action?: ToastAction) => void;
   clear: () => void;
 }
 
@@ -38,10 +52,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
 
-  const show = useCallback((message: string, type: ToastType = 'info', durationMs = 4000) => {
+  const show = useCallback((message: string, type: ToastType = 'info', durationMs = 4000, action?: ToastAction) => {
     const id = nextId.current++;
     setToasts((cur) => {
-      const next = [...cur, { id, message, type }];
+      const next = [...cur, { id, message, type, action }];
       return next.length > MAX_STACKED ? next.slice(next.length - MAX_STACKED) : next;
     });
     if (durationMs > 0) {
@@ -56,10 +70,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ToastContextValue>(
     () => ({
       show,
-      success: (m, d) => show(m, 'success', d),
-      error: (m, d) => show(m, 'error', d),
-      warning: (m, d) => show(m, 'warning', d),
-      info: (m, d) => show(m, 'info', d),
+      success: (m, d, a) => show(m, 'success', d, a),
+      error: (m, d, a) => show(m, 'error', d, a),
+      warning: (m, d, a) => show(m, 'warning', d, a),
+      info: (m, d, a) => show(m, 'info', d, a),
       clear,
     }),
     [show, clear],
@@ -73,6 +87,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div key={t.id} className={`toast-${t.type}`} role="status">
             <Icon name={TOAST_ICON[t.type]} className="icon text-lg" />
             <p className="text-sm font-medium flex-1">{t.message}</p>
+            {t.action && (
+              <button
+                type="button"
+                className="underline underline-offset-2 opacity-90 hover:opacity-100 text-sm font-medium whitespace-nowrap"
+                onClick={() => {
+                  t.action!.onClick();
+                  setToasts((cur) => cur.filter((x) => x.id !== t.id));
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
             <button
               type="button"
               aria-label="Zamknij powiadomienie"

@@ -31,6 +31,10 @@ export default defineConfig({
       // task1 — '/departments' is also a React Router page (Działy firmy),
       // same '/prefix/api' scoping as '/jobs' above.
       '/departments/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      // ORG_CHART_PROPOSAL.md §4g — '/org-chart' is also a React Router
+      // page (OrgChartPage), same '/prefix/api' scoping as '/jobs'/
+      // '/departments' above.
+      '/org-chart/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       '/skills/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       '/workers/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       // Same '/prefix/api' scoping (Faza 4, IMPLEMENTATION_PLAN.md §9) —

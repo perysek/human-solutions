@@ -11,9 +11,12 @@ import logging
 from flask import Blueprint, jsonify, request
 from flask_login import login_required
 
+import services.department_service as department_service
+import services.org_chart_service as org_chart_service
 from config.auth_config import module_permission_required
 from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.departments.department_repository import DepartmentRepository
+from repositories.org_chart.org_chart_revision_repository import OrgChartRevisionRepository
 
 departments_bp = Blueprint('departments', __name__, url_prefix='/departments')
 
@@ -27,6 +30,13 @@ def _department_json(row) -> dict:
         'id': row['id'],
         'name': row['name'],
         'description': row['description'],
+        # parent_department_id/parent_name (migracja 8f053c175547) — oba
+        # potrzebne frontendowi: pierwsze do pre-selekcji picker'a rodzica w
+        # formularzu edycji, drugie do breadcrumb'a na DepartmentEditPage —
+        # bez JOIN-a w _SELECT frontend musiałby dociągać pełną listę
+        # działów tylko po to, żeby pokazać jeden string.
+        'parent_department_id': row.get('parent_department_id'),
+        'parent_name': row.get('parent_name'),
         'job_count': row.get('job_count', 0),
         'worker_count': row.get('worker_count', 0),
         'manager_names': row.get('manager_names'),
@@ -91,6 +101,7 @@ def api_create():
     data = request.get_json() or {}
     name = (data.get('name') or '').strip()
     description = (data.get('description') or '').strip() or None
+    parent_department_id = department_service.parse_parent_department_id(data)
 
     if not name:
         raise ValidationError('Nazwa działu jest wymagana')
@@ -98,10 +109,16 @@ def api_create():
     repo = _repo()
     if repo.get_by_name(name):
         raise ConflictError(f'Dział o nazwie "{name}" już istnieje')
+    # department_id=None (create) — a brand-new department can't be anyone's
+    # ancestor yet, so validate_parent_assignment only checks the parent
+    # exists, never a cycle (see its own docstring).
+    department_service.validate_parent_assignment(repo, None, parent_department_id)
 
+    before_revision_id = OrgChartRevisionRepository().get_latest_id()
     try:
-        new_id = repo.create(name, description)
-        return jsonify({'success': True, 'id': new_id}), 201
+        new_id = repo.create(name, description, parent_department_id)
+        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
+        return jsonify({'success': True, 'id': new_id, 'org_chart_revision': org_chart_revision}), 201
     except AppError:
         raise
     except Exception:
@@ -121,6 +138,7 @@ def api_update(department_id):
     data = request.get_json() or {}
     name = (data.get('name') or '').strip()
     description = (data.get('description') or '').strip() or None
+    parent_department_id = department_service.parse_parent_department_id(data)
 
     if not name:
         raise ValidationError('Nazwa działu jest wymagana')
@@ -128,10 +146,13 @@ def api_update(department_id):
     duplicate = repo.get_by_name(name)
     if duplicate and duplicate['id'] != department_id:
         raise ConflictError(f'Dział o nazwie "{name}" już istnieje')
+    department_service.validate_parent_assignment(repo, department_id, parent_department_id)
 
+    before_revision_id = OrgChartRevisionRepository().get_latest_id()
     try:
-        repo.update(department_id, name, description)
-        return jsonify({'success': True})
+        repo.update(department_id, name, description, parent_department_id)
+        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
+        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
     except AppError:
         raise
     except Exception:
@@ -180,9 +201,11 @@ def api_add_jobs(department_id):
                 '— najpierw usuń je z działu.'
             )
 
+    before_revision_id = OrgChartRevisionRepository().get_latest_id()
     try:
         updated = job_repo.assign_department(job_ids, department_id)
-        return jsonify({'success': True, 'updated': updated})
+        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
+        return jsonify({'success': True, 'updated': updated, 'org_chart_revision': org_chart_revision})
     except AppError:
         raise
     except Exception:
@@ -208,9 +231,11 @@ def api_remove_job(department_id, job_id):
     if job.get('department_id') != department_id:
         raise ValidationError('Stanowisko nie jest przypisane do tego działu')
 
+    before_revision_id = OrgChartRevisionRepository().get_latest_id()
     try:
         JobRepository().unassign_department(job_id)
-        return jsonify({'success': True})
+        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
+        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
     except AppError:
         raise
     except Exception:
@@ -226,11 +251,13 @@ def api_delete(department_id):
     if not repo.get_by_id(department_id):
         raise NotFoundError('Dział nie znaleziony')
 
+    before_revision_id = OrgChartRevisionRepository().get_latest_id()
     try:
         deleted = repo.delete(department_id)
         if not deleted:
             raise NotFoundError('Dział nie znaleziony')
-        return jsonify({'success': True})
+        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
+        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
     except AppError:
         raise
     except Exception:
