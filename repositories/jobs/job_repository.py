@@ -103,14 +103,19 @@ class JobRepository(AuditableMixin, BaseRepository):
         self, job_id: str, description: Optional[str], department_id: Optional[int] = None,
         is_managerial: bool = False, is_director: bool = False,
     ) -> None:
-        """Zaktualizuj stanowisko. Audytuje zmianę pola description,
-        żeby historia zmian pokazywała starą i nową wartość, nie tylko fakt
-        edycji — department_id/is_managerial/is_director nie są osobno
-        audytowane (drugorzędne wobec description, jak gender w
-        WorkerRepository) — poza samym przejęciem flagi is_director, patrz
-        clear_director() poniżej."""
+        """Zaktualizuj stanowisko. Audytuje zmianę pola description, oraz —
+        value-aware, tylko gdy faktycznie się zmieniły — department_id/
+        is_managerial/is_director: te trzy pola są dokładnie tym, co dawniej
+        wykrywał trigger bump_org_chart_revision() (migracje 0811375b3298,
+        cab974083e2c); teraz audit_log jest jedynym źródłem prawdy o zmianie
+        struktury (org_chart_service.list_pending_changes), więc muszą być
+        audytowane osobno, każde jako własny wiersz — ten sam wzorzec co
+        DepartmentRepository.update()'s parent_department_id."""
         existing = self.get_by_id(job_id)
         old_description = existing['description'] if existing else None
+        old_department_id = existing['department_id'] if existing else None
+        old_is_managerial = existing['is_managerial'] if existing else False
+        old_is_director = existing['is_director'] if existing else False
         query = (
             "UPDATE jobs SET description = %s, department_id = %s, is_managerial = %s, is_director = %s, "
             "updated_at = CURRENT_TIMESTAMP WHERE id = %s"
@@ -120,6 +125,21 @@ class JobRepository(AuditableMixin, BaseRepository):
             'UPDATE', job_id, label=description or job_id,
             field_name='description', old=old_description, new=description,
         )
+        if old_department_id != department_id:
+            self._audit(
+                'UPDATE', job_id, label=description or job_id,
+                field_name='department_id', old=old_department_id, new=department_id,
+            )
+        if old_is_managerial != is_managerial:
+            self._audit(
+                'UPDATE', job_id, label=description or job_id,
+                field_name='is_managerial', old=old_is_managerial, new=is_managerial,
+            )
+        if old_is_director != is_director:
+            self._audit(
+                'UPDATE', job_id, label=description or job_id,
+                field_name='is_director', old=old_is_director, new=is_director,
+            )
 
     def get_director_job(self) -> Optional[Any]:
         """'Co najwyżej jeden Dyrektor zakładu w firmie' — firmowy
@@ -161,13 +181,24 @@ class JobRepository(AuditableMixin, BaseRepository):
         replace-the-whole-set endpoint like TrainingJobRepository.replace_links)."""
         if not job_ids:
             return 0
+        # Fetch old department_id per job BEFORE the bulk UPDATE — needed so
+        # each audit row carries a real `old=` (org_chart_service's pending-
+        # changes list shows "was -> is" department names, not a blank ->
+        # new), and so a job already in this department (a no-op re-select,
+        # see the docstring) doesn't get audited as a change at all.
+        old_department_by_id = {j['id']: j['department_id'] for j in self.get_by_ids(job_ids)}
         clause, params = self._in_clause(job_ids)
         cursor = self._execute(
             f"UPDATE jobs SET department_id = %s, updated_at = CURRENT_TIMESTAMP WHERE id IN {clause}",
             (department_id, *params),
         )
         for job_id in job_ids:
-            self._audit('UPDATE', job_id, field_name='department_id', new=str(department_id))
+            old_department_id = old_department_by_id.get(job_id)
+            if old_department_id != department_id:
+                self._audit(
+                    'UPDATE', job_id, field_name='department_id',
+                    old=old_department_id, new=department_id,
+                )
         return cursor.rowcount
 
     def unassign_department(self, job_id: str) -> bool:
@@ -177,13 +208,15 @@ class JobRepository(AuditableMixin, BaseRepository):
         update(), which would also overwrite description/is_managerial) —
         this is an unlink, not a delete: the job-position itself, its
         required skills, and any worker holding it are all untouched."""
+        existing = self.get_by_id(job_id)
+        old_department_id = existing['department_id'] if existing else None
         cursor = self._execute(
             "UPDATE jobs SET department_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
             (job_id,),
         )
         updated = cursor.rowcount > 0
         if updated:
-            self._audit('UPDATE', job_id, field_name='department_id', new=None)
+            self._audit('UPDATE', job_id, field_name='department_id', old=old_department_id, new=None)
         return updated
 
     def count_blocking_references(self, job_id: str) -> dict:
@@ -216,4 +249,14 @@ class JobRepository(AuditableMixin, BaseRepository):
         deleted = cursor.rowcount > 0
         if deleted and existing:
             self._audit('DELETE', job_id, label=existing['description'] or job_id)
+            # Second, distinctly-tagged audit row — only when the deleted
+            # job-position was managerial/director, mirroring the old
+            # trigger's own DELETE WHEN clause (OLD.is_managerial OR
+            # OLD.is_director). This is what org_chart_service's pending-
+            # changes query looks for to know a deletion was structural.
+            if existing['is_managerial'] or existing['is_director']:
+                self._audit(
+                    'DELETE', job_id, label=existing['description'] or job_id,
+                    field_name='org_chart_structural_delete', old=existing['description'], new=None,
+                )
         return deleted

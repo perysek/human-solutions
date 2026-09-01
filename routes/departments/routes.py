@@ -114,11 +114,11 @@ def api_create():
     # exists, never a cycle (see its own docstring).
     department_service.validate_parent_assignment(repo, None, parent_department_id)
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         new_id = repo.create(name, description, parent_department_id)
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'id': new_id, 'org_chart_revision': org_chart_revision}), 201
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'id': new_id, 'pending_change': pending_change}), 201
     except AppError:
         raise
     except Exception:
@@ -148,11 +148,11 @@ def api_update(department_id):
         raise ConflictError(f'Dział o nazwie "{name}" już istnieje')
     department_service.validate_parent_assignment(repo, department_id, parent_department_id)
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         repo.update(department_id, name, description, parent_department_id)
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'pending_change': pending_change})
     except AppError:
         raise
     except Exception:
@@ -201,11 +201,11 @@ def api_add_jobs(department_id):
                 '— najpierw usuń je z działu.'
             )
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         updated = job_repo.assign_department(job_ids, department_id)
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'updated': updated, 'org_chart_revision': org_chart_revision})
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'updated': updated, 'pending_change': pending_change})
     except AppError:
         raise
     except Exception:
@@ -231,11 +231,11 @@ def api_remove_job(department_id, job_id):
     if job.get('department_id') != department_id:
         raise ValidationError('Stanowisko nie jest przypisane do tego działu')
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         JobRepository().unassign_department(job_id)
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'pending_change': pending_change})
     except AppError:
         raise
     except Exception:
@@ -251,13 +251,13 @@ def api_delete(department_id):
     if not repo.get_by_id(department_id):
         raise NotFoundError('Dział nie znaleziony')
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         deleted = repo.delete(department_id)
         if not deleted:
             raise NotFoundError('Dział nie znaleziony')
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'pending_change': pending_change})
     except AppError:
         raise
     except Exception:

@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { OrgChartRevisionDelta } from './departments';
+import type { OrgChartPendingChangeDelta } from './departments';
 import type { SkillGap } from './workers';
 
 export interface JobListItem {
@@ -50,13 +50,13 @@ export const jobsApi = {
     api.get<{ jobs: JobListItem[]; count: number }>(search ? `${BASE}?search=${encodeURIComponent(search)}` : BASE),
   get: (id: string) => api.get<JobListItem>(`${BASE}/${encodeURIComponent(id)}`),
   create: (payload: JobPayload) =>
-    api.post<{ success: boolean; id: string; warning?: string | null; org_chart_revision: OrgChartRevisionDelta | null }>(BASE, payload),
+    api.post<{ success: boolean; id: string; warning?: string | null; pending_change: OrgChartPendingChangeDelta | null }>(BASE, payload),
   update: (id: string, payload: Omit<JobPayload, 'id'>) =>
-    api.put<{ success: boolean; warning?: string | null; org_chart_revision: OrgChartRevisionDelta | null }>(
+    api.put<{ success: boolean; warning?: string | null; pending_change: OrgChartPendingChangeDelta | null }>(
       `${BASE}/${encodeURIComponent(id)}`, payload,
     ),
   remove: (id: string) =>
-    api.del<{ success: boolean; org_chart_revision: OrgChartRevisionDelta | null }>(`${BASE}/${encodeURIComponent(id)}`),
+    api.del<{ success: boolean; pending_change: OrgChartPendingChangeDelta | null }>(`${BASE}/${encodeURIComponent(id)}`),
 
   // Competency matrix (JOB_2/4/5/6, Phase 3)
   getSkills: (id: string) => api.get<{ skills: JobSkillRequirement[]; count: number }>(`${BASE}/${encodeURIComponent(id)}/skills`),

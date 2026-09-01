@@ -151,25 +151,26 @@ def api_create():
     _check_single_manager(department_id, is_managerial)
     warning = _apply_director_flag(repo, is_director)
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         repo.create(job_id, description, department_id, is_managerial, is_director)
-        # The DB trigger only exists for jobs UPDATE (of is_managerial/
-        # is_director/department_id) and DELETE, never INSERT (migration
-        # 0811375b3298 — "a fresh, unflagged job-position doesn't change the
-        # chart's shape") — so this always returns None for a brand-new job,
-        # even one created already-managerial/director. before_revision_id
+        # The pending-changes whitelist (OrgChartRevisionRepository's
+        # _PENDING_CHANGES_WHERE) only covers jobs UPDATE/DELETE, never
+        # INSERT (migration 0811375b3298's original decision, still
+        # honoured — "a fresh, unflagged job-position doesn't change the
+        # chart's shape") — so this always returns None for a brand-new
+        # job, even one created already-managerial/director. before_audit_id
         # is snapshotted after _apply_director_flag above on purpose: that
-        # helper's clear_director() call DOES bump the revision (demoting
-        # the *previous* director is a real structural change), and that
-        # bump belongs to the job being demoted, not this route's own
-        # capture — excluding it here avoids reporting someone else's
-        # revision as "yours". Kept (rather than skipped) for symmetry with
-        # api_update/api_delete below, and so this stays correct on its own
-        # if the trigger definition ever changes.
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
+        # helper's clear_director() call DOES write a structural audit row
+        # (demoting the *previous* director is a real structural change),
+        # and that row belongs to the job being demoted, not this route's
+        # own capture — excluding it here avoids reporting someone else's
+        # pending change as "yours". Kept (rather than skipped) for symmetry
+        # with api_update/api_delete below, and so this stays correct on its
+        # own if the whitelist ever changes.
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
         return jsonify({
-            'success': True, 'id': job_id, 'warning': warning, 'org_chart_revision': org_chart_revision,
+            'success': True, 'id': job_id, 'warning': warning, 'pending_change': pending_change,
         }), 201
     except AppError:
         raise
@@ -196,13 +197,13 @@ def api_update(job_id):
     warning = _apply_director_flag(repo, is_director, job_id=job_id)
 
     # Snapshotted after _apply_director_flag, same reasoning as api_create
-    # above — its clear_director() bump (if any) belongs to the *previous*
-    # director's job, not this one.
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    # above — its clear_director() audit row (if any) belongs to the
+    # *previous* director's job, not this one.
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         repo.update(job_id, description, department_id, is_managerial, is_director)
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'warning': warning, 'org_chart_revision': org_chart_revision})
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'warning': warning, 'pending_change': pending_change})
     except AppError:
         raise
     except Exception:
@@ -219,13 +220,13 @@ def api_delete(job_id):
     if not repo.get_by_id(job_id):
         raise NotFoundError('Stanowisko nie znalezione')
 
-    before_revision_id = OrgChartRevisionRepository().get_latest_id()
+    before_audit_id = OrgChartRevisionRepository().get_latest_audit_id()
     try:
         deleted = repo.delete(job_id)
         if not deleted:
             raise NotFoundError('Stanowisko nie znalezione')
-        org_chart_revision = org_chart_service.capture_revision_delta(before_revision_id)
-        return jsonify({'success': True, 'org_chart_revision': org_chart_revision})
+        pending_change = org_chart_service.capture_pending_change_delta(before_audit_id)
+        return jsonify({'success': True, 'pending_change': pending_change})
     except AppError:
         raise
     except Exception:

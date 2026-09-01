@@ -95,7 +95,7 @@ export function DepartmentsListPage() {
     try {
       const result = await departmentsApi.remove(department.id);
       toast.success('Dział usunięty.');
-      orgChartToast.notify(result.org_chart_revision);
+      orgChartToast.notify(result.pending_change);
       reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć działu.');

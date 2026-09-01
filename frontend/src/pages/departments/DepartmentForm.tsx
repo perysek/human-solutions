@@ -64,11 +64,11 @@ export function DepartmentForm({ mode, initial, allDepartments, onSaved, onCance
       if (mode === 'create') {
         const result = await departmentsApi.create(payload);
         toast.success('Dział utworzony.');
-        orgChartToast.notify(result.org_chart_revision);
+        orgChartToast.notify(result.pending_change);
       } else if (initial) {
         const result = await departmentsApi.update(initial.id, payload);
         toast.success('Zmiany zapisane.');
-        orgChartToast.notify(result.org_chart_revision);
+        orgChartToast.notify(result.pending_change);
       }
       onSaved();
     } catch (err) {

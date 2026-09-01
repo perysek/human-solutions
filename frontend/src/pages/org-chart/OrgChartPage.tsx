@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { OrgChartTree } from './OrgChartTree';
 import { OrgChartRevisionsSection } from './OrgChartRevisionsSection';
+import { NewRevisionModal } from './NewRevisionModal';
 
 /** yyyy-mm-dd, filename-safe — today's date in the local timezone (not
  * `.toISOString()`, which is UTC and could read one day off from what the
@@ -42,17 +43,20 @@ export function OrgChartPage() {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: tree, loading, error } = useApiData(() => orgChartApi.tree(), []);
-  const { data: latestRevision } = useApiData(() => orgChartApi.latestRevision(), []);
+  const { data: latestRevision, reload: reloadLatestRevision } = useApiData(() => orgChartApi.latestRevision(), []);
+  const { data: pendingChanges, reload: reloadPendingChanges } = useApiData(() => orgChartApi.pendingChanges(), []);
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const historySectionRef = useRef<HTMLDivElement>(null);
   const consumedHistoryParam = useRef(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState<'png' | 'pdf' | null>(null);
+  const [newRevisionOpen, setNewRevisionOpen] = useState(false);
+  const consumedNewRevisionParam = useRef(false);
 
-  // TASK3's toast links here as `/org-chart?history=1` — expand the section
-  // and scroll it into view once, then drop the param so a later manual
-  // refresh/back-nav doesn't keep forcing it open.
+  // The org-structure toast links here as `/org-chart?history=1` — expand
+  // the section and scroll it into view once, then drop the param so a
+  // later manual refresh/back-nav doesn't keep forcing it open.
   useEffect(() => {
     if (consumedHistoryParam.current) return;
     if (searchParams.get('history') !== '1') return;
@@ -67,6 +71,20 @@ export function OrgChartPage() {
     window.setTimeout(() => {
       historySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
+  }, [searchParams, setSearchParams]);
+
+  // Same deep-link pattern as `?history=1` above, for
+  // useOrgChartRevisionToast's "Utwórz rewizję" action button — opens
+  // NewRevisionModal directly instead of just landing on the page.
+  useEffect(() => {
+    if (consumedNewRevisionParam.current) return;
+    if (searchParams.get('new-revision') !== '1') return;
+    consumedNewRevisionParam.current = true;
+    setNewRevisionOpen(true);
+    setSearchParams((params) => {
+      params.delete('new-revision');
+      return params;
+    }, { replace: true });
   }, [searchParams, setSearchParams]);
 
   // Dynamic import() (not a static import at the top of the file) — jsPDF +
@@ -103,6 +121,12 @@ export function OrgChartPage() {
   }
 
   const subtitle = latestRevision ? `Rev. ${latestRevision.id} · ${new Date(latestRevision.revised_at).toLocaleString('pl-PL')}` : undefined;
+  const pendingCount = pendingChanges?.length ?? 0;
+
+  function handleRevisionCreated() {
+    reloadLatestRevision();
+    reloadPendingChanges();
+  }
 
   return (
     <div className="refined-page">
@@ -110,20 +134,33 @@ export function OrgChartPage() {
         title="Struktura organizacyjna"
         subtitle={subtitle}
         actions={
-          tree && (tree.director || tree.departments.length > 0) ? (
-            <>
-              <Button variant="secondary" small onClick={handleExportPng} disabled={exporting !== null}>
-                <Icon name="download" size={16} />
-                {exporting === 'png' ? 'Eksportowanie…' : 'Pobierz PNG'}
-              </Button>
-              <Button variant="secondary" small onClick={handleExportPdf} disabled={exporting !== null}>
-                <Icon name="download" size={16} />
-                {exporting === 'pdf' ? 'Eksportowanie…' : 'Pobierz PDF'}
-              </Button>
-            </>
-          ) : undefined
+          <>
+            <Button variant="primary" small onClick={() => setNewRevisionOpen(true)}>
+              + Nowa rewizja{pendingCount > 0 ? ` (${pendingCount})` : ''}
+            </Button>
+            {tree && (tree.director || tree.departments.length > 0) ? (
+              <>
+                <Button variant="secondary" small onClick={handleExportPng} disabled={exporting !== null}>
+                  <Icon name="download" size={16} />
+                  {exporting === 'png' ? 'Eksportowanie…' : 'Pobierz PNG'}
+                </Button>
+                <Button variant="secondary" small onClick={handleExportPdf} disabled={exporting !== null}>
+                  <Icon name="download" size={16} />
+                  {exporting === 'pdf' ? 'Eksportowanie…' : 'Pobierz PDF'}
+                </Button>
+              </>
+            ) : null}
+          </>
         }
       />
+
+      {newRevisionOpen && tree && (
+        <NewRevisionModal
+          tree={tree}
+          onClose={() => setNewRevisionOpen(false)}
+          onCreated={handleRevisionCreated}
+        />
+      )}
 
       {loading ? (
         <p className="page-subtitle">Ładowanie…</p>

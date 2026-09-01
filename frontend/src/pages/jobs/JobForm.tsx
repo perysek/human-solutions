@@ -58,7 +58,7 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
         });
         toast.success('Stanowisko utworzone.');
         if (result.warning) toast.warning(result.warning);
-        orgChartToast.notify(result.org_chart_revision);
+        orgChartToast.notify(result.pending_change);
         onSaved(result.id);
       } else if (initial) {
         const result = await jobsApi.update(initial.id, {
@@ -69,7 +69,7 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
         });
         toast.success('Zmiany zapisane.');
         if (result.warning) toast.warning(result.warning);
-        orgChartToast.notify(result.org_chart_revision);
+        orgChartToast.notify(result.pending_change);
         onSaved(initial.id);
       }
     } catch (err) {
