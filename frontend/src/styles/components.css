@@ -892,6 +892,47 @@
 }
 .modal-close:hover { background: #f1f5f9; color: #475569; }
 .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+
+/* ============================================
+   ORG CHART PREVIEW OVERLAY — NewRevisionModal's press-and-hold "Podgląd
+   zmian". z-index above .modal-overlay (9999) since it opens on top of the
+   revision modal itself, not instead of it. Class-toggled opacity/transform
+   transition (not a one-shot @keyframes) so the SAME transition plays
+   forward on press and reverses on release — the collapse the task asked
+   for is just this rule running backward, no separate keyframe needed.
+   pointer-events: none on the overlay itself — this is a hold-to-preview,
+   never a click target; only the press-and-hold button drives it.
+   ============================================ */
+.org-chart-preview-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  background-color: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease-out-expo);
+  pointer-events: none;
+}
+.org-chart-preview-overlay.is-open { opacity: 1; }
+.org-chart-preview-panel {
+  width: 50vw; height: 50vh; max-width: calc(100vw - 3rem); max-height: calc(100vh - 3rem);
+  display: flex; flex-direction: column;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  transform: scale(0.92);
+  opacity: 0;
+  transition: transform 0.2s var(--ease-out-expo), opacity 0.2s var(--ease-out-expo);
+}
+.org-chart-preview-overlay.is-open .org-chart-preview-panel { transform: scale(1); opacity: 1; }
+.org-chart-preview-header {
+  padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--color-border);
+  font-size: 0.8125rem; font-weight: 600; color: var(--color-ink-muted);
+  flex-shrink: 0;
+}
+.org-chart-preview-body { flex: 1; overflow: auto; padding: 1.25rem; }
 .modal-footer {
   display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;
   padding: 1rem 1.5rem; border-top: 1px solid var(--color-border);

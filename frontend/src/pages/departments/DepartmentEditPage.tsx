@@ -64,7 +64,7 @@ export function DepartmentEditPage() {
     try {
       const result = await departmentsApi.removeJob(departmentId, jobId);
       toast.success('Stanowisko usunięte z działu.');
-      orgChartToast.notify(result.org_chart_revision);
+      orgChartToast.notify(result.pending_change);
       reloadAll();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć stanowiska z działu.');

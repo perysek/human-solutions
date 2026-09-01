@@ -112,9 +112,11 @@ class DepartmentRepository(AuditableMixin, BaseRepository):
         # Separate _audit call, same pattern as JobRepository.clear_director —
         # parent_department_id is a distinct, structurally-meaningful field
         # from `name` and deserves its own audit_log row when it actually
-        # changes (org_chart_revisions, bumped by the DB trigger, is a
-        # different log with a different purpose — the raw structural-change
-        # feed, not the human-readable per-field audit trail).
+        # changes. This is also the exact row org_chart_service's pending-
+        # changes query looks for (OrgChartRevisionRepository's
+        # _PENDING_CHANGES_WHERE) — since migration d6d10b667838 removed the
+        # DB trigger, this value-aware _audit() call IS the mechanism that
+        # detects "the org chart's shape changed", not a side effect of it.
         if old_parent_id != parent_department_id:
             self._audit(
                 'UPDATE', department_id, label=name,

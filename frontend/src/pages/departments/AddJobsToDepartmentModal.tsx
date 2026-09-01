@@ -60,7 +60,7 @@ export function AddJobsToDepartmentModal({ departmentId, departmentName, onClose
     try {
       const result = await departmentsApi.addJobs(departmentId, [...selected]);
       toast.success(selected.size === 1 ? 'Stanowisko dodane do działu.' : `Stanowiska dodane do działu (${selected.size}).`);
-      orgChartToast.notify(result.org_chart_revision);
+      orgChartToast.notify(result.pending_change);
       onAdded();
       onClose();
     } catch (err) {

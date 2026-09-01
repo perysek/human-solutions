@@ -58,7 +58,7 @@ export function JobsListPage() {
     try {
       const result = await jobsApi.remove(job.id);
       toast.success('Stanowisko usunięte.');
-      orgChartToast.notify(result.org_chart_revision);
+      orgChartToast.notify(result.pending_change);
       reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć stanowiska.');
