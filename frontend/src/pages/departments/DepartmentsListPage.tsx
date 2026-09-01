@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -10,15 +10,19 @@ import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useTableSort } from '@/lib/useTableSort';
 import { departmentsApi, type DepartmentListItem } from '@/lib/api/departments';
+import { toDepartmentTreeOrder } from '@/lib/utils/departmentTree';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { useOrgChartRevisionToast } from '@/lib/orgChart/useOrgChartRevisionToast';
 import { AddJobsToDepartmentModal } from './AddJobsToDepartmentModal';
 
 function getSortValue(row: DepartmentListItem, key: string): string | number | null {
   switch (key) {
     case 'name':
       return row.name;
+    case 'parent_name':
+      return row.parent_name;
     case 'manager_names':
       return row.manager_names;
     case 'description':
@@ -52,13 +56,28 @@ export function DepartmentsListPage() {
   const canWrite = !isModuleReadOnly('jobs');
   const confirm = useConfirm();
   const toast = useToast();
+  const orgChartToast = useOrgChartRevisionToast();
 
   const [search, setSearch] = useState('');
   const [addJobsFor, setAddJobsFor] = useState<DepartmentListItem | null>(null);
   const { data, loading, error, reload } = useApiData(() => departmentsApi.list(search || undefined), [search]);
-  const departments = data?.departments ?? [];
+  // Memoized (not a bare `data?.departments ?? []`) so treeOrdered's own
+  // useMemo below actually memoizes instead of recomputing every render —
+  // an inline `?? []` fallback is a new array reference every time.
+  const departments = useMemo(() => data?.departments ?? [], [data]);
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(departments, getSortValue);
+
+  // §4d — default view is tree order (depth-first, each parent immediately
+  // followed by its own descendants) rather than the flat alphabetical list
+  // .refined-table would otherwise show. An explicit column sort (sortKey
+  // set) overrides that default, same as any other list in this app — the
+  // tree is a *default ordering*, not a mode the user can't leave.
+  const treeOrdered = useMemo(() => toDepartmentTreeOrder(departments), [departments]);
+  const displayRows = useMemo(
+    () => (sortKey ? sorted.map((department) => ({ department, depth: 0 })) : treeOrdered),
+    [sortKey, sorted, treeOrdered],
+  );
 
   function goToEdit(department: DepartmentListItem) {
     navigate(`/departments/${department.id}/edit`);
@@ -74,8 +93,9 @@ export function DepartmentsListPage() {
     });
     if (!ok) return;
     try {
-      await departmentsApi.remove(department.id);
+      const result = await departmentsApi.remove(department.id);
       toast.success('Dział usunięty.');
+      orgChartToast.notify(result.org_chart_revision);
       reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się usunąć działu.');
@@ -113,18 +133,19 @@ export function DepartmentsListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={6} />
+          <TableSkeleton cols={7} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
-        ) : sorted.length === 0 ? (
+        ) : displayRows.length === 0 ? (
           <EmptyState icon="category" title="Brak działów" message={search ? 'Żaden dział nie pasuje do wyszukiwania.' : 'Dodaj pierwszy dział.'} />
         ) : (
-          <PaginatedTable rows={sorted}>
+          <PaginatedTable rows={displayRows}>
             {(pageRows) => (
               <table className="refined-table">
                 <thead>
                   <tr>
                     <SortableTh label="Nazwa działu" sortKey="name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <SortableTh label="Dział nadrzędny" sortKey="parent_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Kierownik działu" sortKey="manager_names" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Opis" sortKey="description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh
@@ -149,7 +170,7 @@ export function DepartmentsListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.map((d, i) => (
+                  {pageRows.map(({ department: d, depth }, i) => (
                     <tr
                       key={d.id}
                       onClick={() => canWrite && goToEdit(d)}
@@ -160,7 +181,12 @@ export function DepartmentsListPage() {
                       style={{ cursor: canWrite ? 'pointer' : 'default', animationDelay: `${Math.min(i, 7) * 30}ms` }}
                       aria-label={canWrite ? `Edytuj dział ${d.name}` : undefined}
                     >
-                      <td>{d.name}</td>
+                      {/* depth-indented so a parent's children read as nested
+                          under it in the default tree order above — an
+                          explicit column sort always renders depth 0 (flat),
+                          see displayRows. */}
+                      <td style={depth > 0 ? { paddingLeft: `${0.75 + depth * 1.25}rem` } : undefined}>{d.name}</td>
+                      <td>{d.parent_name ?? '—'}</td>
                       <td>{d.manager_names ?? '—'}</td>
                       <td>{d.description ?? '—'}</td>
                       <td className="text-center">{d.worker_count}</td>

@@ -7,6 +7,7 @@ import { useApiData } from '@/lib/api/useApiData';
 import { jobsApi } from '@/lib/api/jobs';
 import { departmentsApi } from '@/lib/api/departments';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { useOrgChartRevisionToast } from '@/lib/orgChart/useOrgChartRevisionToast';
 
 interface AddJobsToDepartmentModalProps {
   departmentId: number;
@@ -29,6 +30,7 @@ export function AddJobsToDepartmentModal({ departmentId, departmentName, onClose
   useFocusTrap(true, panelRef);
   useEscapeClaim(true);
   const toast = useToast();
+  const orgChartToast = useOrgChartRevisionToast();
 
   const { data: jobsData, loading } = useApiData(() => jobsApi.list());
   const [query, setQuery] = useState('');
@@ -56,8 +58,9 @@ export function AddJobsToDepartmentModal({ departmentId, departmentName, onClose
     if (selected.size === 0) return;
     setSubmitting(true);
     try {
-      await departmentsApi.addJobs(departmentId, [...selected]);
+      const result = await departmentsApi.addJobs(departmentId, [...selected]);
       toast.success(selected.size === 1 ? 'Stanowisko dodane do działu.' : `Stanowiska dodane do działu (${selected.size}).`);
+      orgChartToast.notify(result.org_chart_revision);
       onAdded();
       onClose();
     } catch (err) {

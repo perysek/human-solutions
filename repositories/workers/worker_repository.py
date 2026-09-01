@@ -284,3 +284,14 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         """Active+inactive workers holding this job (JOB_5)."""
         query = _SELECT_BASE + " WHERE w.job_id = %s ORDER BY w.surname, w.firstname"
         return self._fetch_all(query, (job_id,))
+
+    def list_active_for_org_chart(self) -> List[Any]:
+        """Bare id/name/job_id for active workers only (fire_date IS NULL) —
+        org_chart_service.get_org_chart_tree groups these under their
+        job/department; none of _SELECT_BASE's heavier joins (onboarding
+        status, boss_name, department_name, …) are needed here, the same
+        "skip the aggregates the caller doesn't need" reasoning as
+        DepartmentRepository.list_options vs. its full _SELECT."""
+        return self._fetch_all(
+            "SELECT id, firstname, surname, job_id FROM workers WHERE fire_date IS NULL ORDER BY surname, firstname",
+        )

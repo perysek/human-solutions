@@ -36,3 +36,7 @@ Thumbs.db
 
 # Playwright MCP scratch output (screenshots, console logs)
 .playwright-mcp/
+
+# Git Bash crash dumps — seen recurring, harmless, from bash.exe itself on
+# this Windows dev setup, not from anything in this repo.
+*.stackdump

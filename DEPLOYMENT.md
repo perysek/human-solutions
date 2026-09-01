@@ -467,6 +467,9 @@ server {
     location /bhp/api         { proxy_pass http://127.0.0.1:8083; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
     location /trainings/api   { proxy_pass http://127.0.0.1:8083; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
     location /dashboard/api   { proxy_pass http://127.0.0.1:8083; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    # ORG_CHART_PROPOSAL.md §4g — '/org-chart' is ALSO a React Router page
+    # (OrgChartPage), same '/api'-suffix-only scoping as the rest above.
+    location /org-chart/api   { proxy_pass http://127.0.0.1:8083; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
 
     # --- Everything else: the SPA, with client-side routing fallback ---
     location / {

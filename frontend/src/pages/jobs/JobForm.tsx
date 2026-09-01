@@ -6,6 +6,7 @@ import { jobsApi, type JobListItem } from '@/lib/api/jobs';
 import { departmentsApi } from '@/lib/api/departments';
 import { useApiData } from '@/lib/api/useApiData';
 import { useToast } from '@/lib/feedback/ToastProvider';
+import { useOrgChartRevisionToast } from '@/lib/orgChart/useOrgChartRevisionToast';
 import { ApiError } from '@/lib/api/client';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
 
@@ -25,6 +26,7 @@ interface JobFormProps {
  * creation, same pattern as RoleForm's "Identyfikator (kod)" field. */
 export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment }: JobFormProps) {
   const toast = useToast();
+  const orgChartToast = useOrgChartRevisionToast();
   useEscapeAction(onCancel);
 
   const { data: departmentsData } = useApiData(() => departmentsApi.options());
@@ -56,6 +58,7 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
         });
         toast.success('Stanowisko utworzone.');
         if (result.warning) toast.warning(result.warning);
+        orgChartToast.notify(result.org_chart_revision);
         onSaved(result.id);
       } else if (initial) {
         const result = await jobsApi.update(initial.id, {
@@ -66,6 +69,7 @@ export function JobForm({ mode, initial, onSaved, onCancel, autoFocusDepartment 
         });
         toast.success('Zmiany zapisane.');
         if (result.warning) toast.warning(result.warning);
+        orgChartToast.notify(result.org_chart_revision);
         onSaved(initial.id);
       }
     } catch (err) {

@@ -43,6 +43,10 @@ const ICON_JOBS =
 // office-building glyph to read distinctly from ICON_JOBS's briefcase.
 const ICON_DEPARTMENTS =
   'M3 21V5.25A2.25 2.25 0 015.25 3h6a2.25 2.25 0 012.25 2.25V21m-10.5 0h15M13.5 21V9.75a2.25 2.25 0 012.25-2.25h1.5A2.25 2.25 0 0119.5 9.75V21M6.75 6.75h.008v.008H6.75V6.75zm0 3h.008v.008H6.75V9.75zm0 3h.008v.008H6.75v-.008zm3-6h.008v.008h-.008V6.75zm0 3h.008v.008h-.008V9.75zm0 3h.008v.008h-.008v-.008z';
+// ORG_CHART_PROPOSAL.md §4g — hierarchy/tree glyph (three connected nodes),
+// reads distinctly from ICON_DEPARTMENTS's building outline.
+const ICON_ORG_CHART =
+  'M12 4.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM4.5 15.75a2.25 2.25 0 104.5 0 2.25 2.25 0 00-4.5 0zm10.5 0a2.25 2.25 0 104.5 0 2.25 2.25 0 00-4.5 0zM12 9v3m0 0H6.75m5.25 0h5.25m0 0v3.75M6.75 12v3.75';
 const ICON_SKILLS =
   'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z';
 // Faza 4 (IMPLEMENTATION_PLAN.md §9) — medical exams / BHP training reports.
@@ -93,6 +97,16 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         to: '/departments',
         iconPath: ICON_DEPARTMENTS,
         // Piggybacks on 'jobs' — see routes/departments/routes.py's docstring.
+        visible: (ctx) => ctx.hasModuleAccess('jobs'),
+      },
+      {
+        label: 'Struktura organizacyjna',
+        to: '/org-chart',
+        iconPath: ICON_ORG_CHART,
+        // Same 'jobs' grant as Działy firmy — the joined chart+history
+        // page-view (OrgChartPage) internally re-checks 'audit' for its own
+        // history section, so no second nav entry is needed for it (see
+        // router.tsx's comment on the /org-chart route).
         visible: (ctx) => ctx.hasModuleAccess('jobs'),
       },
       {

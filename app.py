@@ -121,6 +121,7 @@ def create_app() -> Flask:
     from routes.jobs.routes import jobs_bp
     from routes.main.routes import main_bp
     from routes.medical.routes import medical_bp
+    from routes.org_chart.routes import org_chart_bp
     from routes.public.routes import public_bp
     from routes.roles.routes import roles_bp
     from routes.skills.routes import skills_bp
@@ -134,6 +135,7 @@ def create_app() -> Flask:
     app.register_blueprint(roles_bp)
     app.register_blueprint(jobs_bp)
     app.register_blueprint(departments_bp)
+    app.register_blueprint(org_chart_bp)
     app.register_blueprint(skills_bp)
     app.register_blueprint(workers_bp)
     app.register_blueprint(medical_bp)
