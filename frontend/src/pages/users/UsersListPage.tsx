@@ -5,8 +5,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { usersApi, type UserListItem } from '@/lib/api/users';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -49,17 +51,18 @@ export function UsersListPage() {
 
   const { data, loading, error, reload } = useApiData(() => usersApi.list());
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set(STATUS_OPTIONS.map((o) => o.value)));
 
   const filtered = useMemo(() => {
     const users = data?.users ?? [];
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return users.filter((u) => {
       const matchesSearch = !q || u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
       const matchesStatus = statusFilter.has(u.is_active ? 'active' : 'inactive');
       return matchesSearch && matchesStatus;
     });
-  }, [data, search, statusFilter]);
+  }, [data, debouncedSearch, statusFilter]);
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(filtered, getSortValue);
 
@@ -100,15 +103,7 @@ export function UsersListPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po imieniu lub emailu…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po imieniu lub emailu…" />
         </div>
       </div>
 

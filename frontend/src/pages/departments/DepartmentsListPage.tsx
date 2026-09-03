@@ -6,8 +6,10 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { departmentsApi, type DepartmentListItem } from '@/lib/api/departments';
 import { toDepartmentTreeOrder } from '@/lib/utils/departmentTree';
@@ -59,8 +61,9 @@ export function DepartmentsListPage() {
   const orgChartToast = useOrgChartRevisionToast();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [addJobsFor, setAddJobsFor] = useState<DepartmentListItem | null>(null);
-  const { data, loading, error, reload } = useApiData(() => departmentsApi.list(search || undefined), [search]);
+  const { data, loading, error, reload } = useApiData(() => departmentsApi.list(debouncedSearch || undefined), [debouncedSearch]);
   // Memoized (not a bare `data?.departments ?? []`) so treeOrdered's own
   // useMemo below actually memoizes instead of recomputing every render —
   // an inline `?? []` fallback is a new array reference every time.
@@ -119,15 +122,7 @@ export function DepartmentsListPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po nazwie lub opisie…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po nazwie lub opisie…" />
         </div>
       </div>
 

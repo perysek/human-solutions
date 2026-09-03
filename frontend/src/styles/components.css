@@ -391,8 +391,14 @@
 
 .table-scroll-body {
   overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   flex: 1;
   min-height: 0;
+}
+
+.table-scroll-body .refined-table {
+  min-width: 640px;
 }
 
 .table-footer {

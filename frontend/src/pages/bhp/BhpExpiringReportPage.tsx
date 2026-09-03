@@ -5,9 +5,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { bhpApi, type ExpiringBhpTraining } from '@/lib/api/bhp';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { SearchInput } from '@/components/ui/SearchInput';
 
 const KIND_LABELS: Record<ExpiringBhpTraining['kind'], string> = {
   Initial: 'Wstępne',
@@ -66,14 +68,15 @@ export function BhpExpiringReportPage() {
   const navigate = useNavigate();
   const [days, setDays] = useState(90);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const { data, loading, error } = useApiData(() => bhpApi.expiring(days), [days]);
 
   const filtered = useMemo(() => {
     const trainings = data?.trainings ?? [];
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return trainings;
     return trainings.filter((t) => t.full_name.toLowerCase().includes(q));
-  }, [data, search]);
+  }, [data, debouncedSearch]);
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(filtered, getSortValue);
 
@@ -83,15 +86,7 @@ export function BhpExpiringReportPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po pracowniku…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po pracowniku…" />
           <SearchableSelect
             id="bhp-window"
             ariaLabel="Okno czasowe"

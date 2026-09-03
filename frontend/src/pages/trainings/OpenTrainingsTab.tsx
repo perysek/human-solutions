@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { ColumnFilterDropdown } from '@/components/ui/ColumnFilterDropdown';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { trainingsApi } from '@/lib/api/trainings';
 import { ACTION_PLAN_STATUS_OPTIONS } from '@/lib/actionPlanStatus';
 
@@ -31,10 +33,11 @@ export function OpenTrainingsTab() {
   const allRows = useMemo(() => data?.results ?? [], [data]);
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState<Set<string>>(() => new Set(STATUS_OPTIONS.map((o) => o.value)));
 
   const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return allRows.filter((r) => {
       if (!statusFilter.has(r.status)) return false;
       if (!q) return true;
@@ -44,7 +47,7 @@ export function OpenTrainingsTab() {
         (r.trainer_name ?? '').toLowerCase().includes(q)
       );
     });
-  }, [allRows, search, statusFilter]);
+  }, [allRows, debouncedSearch, statusFilter]);
 
   const workerCount = useMemo(() => new Set(rows.map((r) => r.worker_id)).size, [rows]);
 
@@ -52,15 +55,11 @@ export function OpenTrainingsTab() {
     <>
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po pracowniku, szkoleniu lub prowadzącym…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Szukaj po pracowniku, szkoleniu lub prowadzącym…"
+          />
           <ColumnFilterDropdown columnLabel="Status" options={STATUS_OPTIONS} selected={statusFilter} onChange={setStatusFilter} />
         </div>
       </div>

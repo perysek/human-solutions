@@ -90,7 +90,7 @@ export function PaginatedTable<T>({
     <>
       <div className="table-scroll-body">{children(pageRows)}</div>
       <div className="table-footer">
-        <span>
+        <span aria-live="polite" aria-atomic="true">
           {totalItems === 0
             ? '0 wyników'
             : `${start + 1}–${Math.min(start + pageSize, totalItems)} z ${totalItems}`}

@@ -5,9 +5,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { medicalApi, type ExpiringMedicalExam } from '@/lib/api/medical';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { SearchInput } from '@/components/ui/SearchInput';
 
 const KIND_LABELS: Record<ExpiringMedicalExam['kind'], string> = {
   Preliminary: 'Wstępne',
@@ -65,14 +67,15 @@ export function MedicalExpiringReportPage() {
   const navigate = useNavigate();
   const [days, setDays] = useState(90);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const { data, loading, error } = useApiData(() => medicalApi.expiring(days), [days]);
 
   const filtered = useMemo(() => {
     const exams = data?.exams ?? [];
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return exams;
     return exams.filter((e) => e.full_name.toLowerCase().includes(q));
-  }, [data, search]);
+  }, [data, debouncedSearch]);
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(filtered, getSortValue);
 
@@ -82,15 +85,7 @@ export function MedicalExpiringReportPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po pracowniku…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po pracowniku…" />
           <SearchableSelect
             id="medical-window"
             ariaLabel="Okno czasowe"

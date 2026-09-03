@@ -5,8 +5,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
@@ -122,6 +124,7 @@ export function ActionPlansPage() {
   const rows = useMemo(() => data?.results ?? [], [data]);
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set(STATUS_FILTER_OPTIONS.map((o) => o.value)));
   const [editSeed, setEditSeed] = useState<ActionPlanSeed | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -129,7 +132,7 @@ export function ActionPlansPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = debouncedSearch.trim().toLowerCase();
     return rows.filter((r) => {
       if (!statusFilter.has(r.status)) return false;
       if (!term) return true;
@@ -140,7 +143,7 @@ export function ActionPlansPage() {
         (r.responsible_name ?? '').toLowerCase().includes(term)
       );
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, debouncedSearch, statusFilter]);
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(filteredRows, getSortValue);
 
@@ -206,15 +209,11 @@ export function ActionPlansPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po pracowniku, umiejętności, opisie lub odpowiedzialnym…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Szukaj po pracowniku, umiejętności, opisie lub odpowiedzialnym…"
+          />
         </div>
       </div>
 

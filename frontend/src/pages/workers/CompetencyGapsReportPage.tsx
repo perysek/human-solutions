@@ -4,8 +4,10 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { useToast } from '@/lib/feedback/ToastProvider';
 import { useConfirm } from '@/lib/feedback/ConfirmProvider';
@@ -98,6 +100,7 @@ export function CompetencyGapsReportPage() {
   const [actionSeed, setActionSeed] = useState<ActionPlanSeed | null>(null);
   const [loadingPlanFor, setLoadingPlanFor] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   /** A gap row's action-icon click: no plan yet -> open a blank create form
    * (as before); a plan already exists -> fetch it and open the same
@@ -159,13 +162,13 @@ export function CompetencyGapsReportPage() {
   }
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return allRows;
     return allRows.filter(
       (r) =>
         r.full_name.toLowerCase().includes(q) || (r.job_description ?? '').toLowerCase().includes(q) || r.skill_description.toLowerCase().includes(q),
     );
-  }, [allRows, search]);
+  }, [allRows, debouncedSearch]);
 
   // Sorting flattens the backend's worker grouping — rows() only shows blank
   // worker/job/boss cells (visual grouping) in the default, unsorted order.
@@ -182,15 +185,11 @@ export function CompetencyGapsReportPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po pracowniku, stanowisku lub umiejętności…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Szukaj po pracowniku, stanowisku lub umiejętności…"
+          />
         </div>
       </div>
 

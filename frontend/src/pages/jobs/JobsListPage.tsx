@@ -6,8 +6,10 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { jobsApi, type JobListItem } from '@/lib/api/jobs';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -41,7 +43,8 @@ export function JobsListPage() {
   const orgChartToast = useOrgChartRevisionToast();
 
   const [search, setSearch] = useState('');
-  const { data, loading, error, reload } = useApiData(() => jobsApi.list(search || undefined), [search]);
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const { data, loading, error, reload } = useApiData(() => jobsApi.list(debouncedSearch || undefined), [debouncedSearch]);
   const jobs = data?.jobs ?? [];
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(jobs, getSortValue);
@@ -86,15 +89,7 @@ export function JobsListPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po kodzie lub opisie…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po kodzie lub opisie…" />
         </div>
       </div>
 
