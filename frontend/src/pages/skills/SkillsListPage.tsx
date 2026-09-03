@@ -6,8 +6,10 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { skillsApi, type SkillListItem } from '@/lib/api/skills';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -40,7 +42,8 @@ export function SkillsListPage() {
   const toast = useToast();
 
   const [search, setSearch] = useState('');
-  const { data, loading, error, reload } = useApiData(() => skillsApi.list(search || undefined), [search]);
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const { data, loading, error, reload } = useApiData(() => skillsApi.list(debouncedSearch || undefined), [debouncedSearch]);
   const skills = data?.skills ?? [];
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(skills, getSortValue);
@@ -84,15 +87,7 @@ export function SkillsListPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po kodzie lub opisie…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po kodzie lub opisie…" />
         </div>
       </div>
 
@@ -114,6 +109,7 @@ export function SkillsListPage() {
                     <SortableTh label="Powiązanych stanowisk" sortKey="job_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Pracowników z luką kompetencji" sortKey="gap_worker_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -158,6 +154,9 @@ export function SkillsListPage() {
                             </button>
                           </div>
                         )}
+                      </td>
+                      <td className="row-nav-hint-col">
+                        {canWrite && <Icon name="chevron_right" size={16} className="row-nav-hint" />}
                       </td>
                     </tr>
                   ))}

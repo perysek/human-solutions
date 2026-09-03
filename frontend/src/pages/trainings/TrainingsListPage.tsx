@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -6,8 +6,10 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useServerSort } from '@/lib/useServerSort';
 import { trainingsApi, type TrainingListItem } from '@/lib/api/trainings';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -35,6 +37,7 @@ export function TrainingsListPage() {
 
   const [tab, setTab] = useState<TabKey>('list');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [page, setPage] = useState(1);
   const { sortKey, sortOrder, onSort } = useServerSort('training_date', 'asc');
 
@@ -42,16 +45,22 @@ export function TrainingsListPage() {
     setPage(1);
   }
 
+  // Page reset lives on the debounced value's own effect, not search's
+  // onChange, so it doesn't fire on every keystroke while typing.
+  useEffect(() => {
+    resetToFirstPage();
+  }, [debouncedSearch]);
+
   const { data, loading, error } = useApiData(
     () =>
       trainingsApi.list({
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         sort: sortKey ?? undefined,
         order: sortOrder ?? undefined,
         page,
         page_size: PAGE_SIZE,
       }),
-    [search, sortKey, sortOrder, page],
+    [debouncedSearch, sortKey, sortOrder, page],
   );
 
   const trainings = data?.trainings ?? [];
@@ -95,18 +104,11 @@ export function TrainingsListPage() {
         <>
           <div className="search-card">
             <div className="search-wrapper">
-              <div className="search-input-wrap">
-                <input
-                  type="text"
-                  className="refined-input"
-                  placeholder="Szukaj po nazwie lub powiązanej umiejętności…"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    resetToFirstPage();
-                  }}
-                />
-              </div>
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Szukaj po nazwie lub powiązanej umiejętności…"
+              />
             </div>
           </div>
 
@@ -133,6 +135,7 @@ export function TrainingsListPage() {
                         <th>Data ostatniej sesji</th>
                         <th>Uczestników</th>
                         <SortableTh label="Ukończenie" sortKey="completion" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
+                        <th className="row-nav-hint-col" aria-hidden="true"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -153,6 +156,9 @@ export function TrainingsListPage() {
                           <td>{fmt(t.last_session_date)}</td>
                           <td>{t.participant_count}</td>
                           <td>{t.completion !== null ? `${t.completion}%` : '—'}</td>
+                          <td className="row-nav-hint-col">
+                            <Icon name="chevron_right" size={16} className="row-nav-hint" />
+                          </td>
                         </tr>
                       ))}
                     </tbody>

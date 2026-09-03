@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { StatCard } from '@/components/ui/StatCard';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useServerSort } from '@/lib/useServerSort';
 import { workersApi, type WorkerListItem } from '@/lib/api/workers';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -43,6 +45,7 @@ export function WorkersListPage() {
   const canWrite = !isModuleReadOnly('workers');
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [status, setStatus] = useState<'active' | 'inactive' | 'all'>('active');
   const [needsAttention, setNeedsAttention] = useState<'yes' | 'no' | 'all'>('all');
   const [page, setPage] = useState(1);
@@ -52,18 +55,24 @@ export function WorkersListPage() {
     setPage(1);
   }
 
+  // Page reset lives on the debounced value's own effect, not search's
+  // onChange, so it doesn't fire on every keystroke while typing.
+  useEffect(() => {
+    resetToFirstPage();
+  }, [debouncedSearch]);
+
   const { data, loading, error } = useApiData(
     () =>
       workersApi.list({
         status,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         needs_attention: needsAttention,
         sort: sortKey ?? undefined,
         order: sortOrder ?? undefined,
         page,
         page_size: PAGE_SIZE,
       }),
-    [status, search, needsAttention, sortKey, sortOrder, page],
+    [status, debouncedSearch, needsAttention, sortKey, sortOrder, page],
   );
 
   // task2 — stat cards atop the page, independent of the table's own
@@ -134,18 +143,11 @@ export function WorkersListPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po nazwisku, imieniu lub stanowisku…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                resetToFirstPage();
-              }}
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Szukaj po nazwisku, imieniu lub stanowisku…"
+          />
           <SearchableSelect
             id="workers-status-filter"
             ariaLabel="Filtruj po statusie"
@@ -203,6 +205,7 @@ export function WorkersListPage() {
                     <th>Status</th>
                     <th>Szkolenia wstępne</th>
                     {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,6 +283,9 @@ export function WorkersListPage() {
                           </div>
                         </td>
                       )}
+                      <td className="row-nav-hint-col">
+                        <Icon name="chevron_right" size={16} className="row-nav-hint" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

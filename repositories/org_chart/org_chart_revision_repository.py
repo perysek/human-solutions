@@ -37,7 +37,10 @@ _PENDING_CHANGES_WHERE = """
     WHERE (
         (a.entity_type = 'department' AND a.action IN ('CREATE', 'DELETE'))
         OR (a.entity_type = 'department' AND a.action = 'UPDATE' AND a.field_name = 'parent_department_id')
-        OR (a.entity_type = 'job' AND a.action = 'UPDATE' AND a.field_name IN ('is_managerial', 'is_director', 'department_id'))
+        OR (
+            a.entity_type = 'job' AND a.action = 'UPDATE'
+            AND a.field_name IN ('is_managerial', 'is_director', 'department_id')
+        )
         OR (a.entity_type = 'job' AND a.action = 'DELETE' AND a.field_name = 'org_chart_structural_delete')
     )
     AND NOT EXISTS (

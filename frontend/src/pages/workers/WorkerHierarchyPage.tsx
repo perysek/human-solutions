@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { workersApi, type WorkerListItem } from '@/lib/api/workers';
 import { useEscapeAction } from '@/lib/a11y/useEscapeAction';
@@ -33,12 +36,13 @@ export function WorkerHierarchyPage() {
   useEscapeAction(() => navigate(`/workers/${id}`));
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const allSubordinates = useMemo(() => data?.subordinates ?? [], [data]);
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return allSubordinates;
     return allSubordinates.filter((w) => w.full_name.toLowerCase().includes(q));
-  }, [allSubordinates, search]);
+  }, [allSubordinates, debouncedSearch]);
   const { sorted: subordinates, sortKey, sortOrder, onSort } = useTableSort(filtered, getSortValue);
 
   return (
@@ -55,15 +59,7 @@ export function WorkerHierarchyPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po imieniu lub nazwisku…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po imieniu lub nazwisku…" />
         </div>
       </div>
 
@@ -86,6 +82,7 @@ export function WorkerHierarchyPage() {
                   <SortableTh label="Imię i nazwisko" sortKey="full_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                   <SortableTh label="Stanowisko" sortKey="job_description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                   <SortableTh label="Status" sortKey="is_active" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                  <th className="row-nav-hint-col" aria-hidden="true"></th>
                 </tr>
               </thead>
               <tbody>
@@ -107,6 +104,9 @@ export function WorkerHierarchyPage() {
                     <td>{w.job_description ?? '—'}</td>
                     <td>
                       <span className={`status-badge ${w.is_active ? 'active' : 'inactive'}`}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</span>
+                    </td>
+                    <td className="row-nav-hint-col">
+                      <Icon name="chevron_right" size={16} className="row-nav-hint" />
                     </td>
                   </tr>
                 ))}

@@ -48,8 +48,9 @@ migration — `list_pending_changes()` starts genuinely empty right after.
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision: str = 'd6d10b667838'
 down_revision: Union[str, None] = 'cab974083e2c'

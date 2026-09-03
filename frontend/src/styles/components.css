@@ -391,8 +391,14 @@
 
 .table-scroll-body {
   overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   flex: 1;
   min-height: 0;
+}
+
+.table-scroll-body .refined-table {
+  min-width: 640px;
 }
 
 .table-footer {
@@ -581,6 +587,52 @@
   pointer-events: auto;
 }
 .action-icon-btn.danger-reveal:hover { color: var(--color-error); background: rgba(155, 44, 44, 0.1); }
+
+/* Trailing decorative column (UI_IMPROVEMENTS_PLAN.md #7) — a dedicated
+   column, not an overlay on an existing cell, because several of these
+   tables already right-align a real Edit button in their last cell
+   (canWrite-gated, per row/role) — overlaying would collide with that
+   button's own hit area. Invisible on desktop until hover/focus reveals
+   it; on touch (no hover state to reveal anything) it's just always
+   faintly visible instead, per the same @media (hover: none) idiom used
+   elsewhere in this file. */
+.row-nav-hint-col { width: 1.25rem; padding-left: 0 !important; padding-right: 0.5rem !important; }
+.row-nav-hint {
+  display: inline-flex;
+  color: var(--color-ink-subtle);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.2s var(--ease-out-expo), transform 0.2s var(--ease-out-expo);
+}
+.refined-table tbody tr:hover .row-nav-hint,
+.refined-table tbody tr:focus-within .row-nav-hint {
+  opacity: 0.5;
+  transform: none;
+}
+@media (hover: none) {
+  .row-nav-hint { opacity: 0.5; transform: none; }
+}
+
+/* Touch-target audit (UI_IMPROVEMENTS_PLAN.md #10) — .action-icon-btn's
+   32px visual size stays put (bloating it to 44px would look oversized
+   next to table text and among adjacent icons); on touch-capable
+   viewports its actual hit area grows via an invisible ::before instead,
+   following the .permission-tile min-height:44px precedent without
+   touching layout. .action-icons' gap widens by exactly the same amount
+   the hit area grows, so two adjacent buttons' expanded zones meet at the
+   midpoint rather than overlapping -- WorkerMedicalSection/WorkerBhpSection
+   etc. pack Edit+Delete only 2px apart at the base gap, where a naive
+   expansion would make it impossible to reliably tap one without the
+   other. */
+@media (pointer: coarse) {
+  .action-icons { gap: 0.75rem; }
+  .action-icon-btn { position: relative; }
+  .action-icon-btn::before {
+    content: '';
+    position: absolute;
+    inset: -6px -0.375rem;
+  }
+}
 
 /* Always-visible delete buttons (TrainingJobsSection/TrainingSkillsSection —
    one action per row, nothing to "reveal") that still want the same red
@@ -838,6 +890,24 @@
 }
 .form-btn-primary:hover { background: var(--color-ink-muted); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .form-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* Submit-loading indicator — `disabled` already blocks a double-submit,
+   this just makes the "in progress" state visible on a slow connection
+   instead of a silently-swapped label being the only signal. */
+.btn-spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: btn-spin 0.6s linear infinite;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner { animation: none; }
+}
 .form-btn-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   padding: 0.625rem 1.25rem; font-size: 0.875rem; font-weight: 500;

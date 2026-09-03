@@ -150,6 +150,23 @@ export function SearchableSelect({
     return options.filter((o) => o.label.toLowerCase().includes(q));
   }, [options, query]);
 
+  // Arrow-key navigation over the filtered option list — the popover
+  // already used role="listbox"/role="option" (implying this per ARIA
+  // authoring practices) but only had onClick handlers until now.
+  const [activeIndex, setActiveIndex] = useState(0);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Reset to the top whenever the visible option set changes (query typed,
+  // or the popover just opened onto a fresh `options` list) — otherwise
+  // activeIndex could point past the end of a newly-shorter filtered list.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [filtered]);
+
+  useEffect(() => {
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
+
   return (
     <div
       className={label ? 'form-field' : undefined}
@@ -234,15 +251,38 @@ export function SearchableSelect({
               placeholder={searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setActiveIndex((i) => Math.max(i - 1, 0));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const opt = filtered[activeIndex];
+                  if (opt) {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }
+                }
+                // Escape already closes the popover via the document-level
+                // listener above — nothing to do here.
+              }}
               aria-label={label ? `${searchPlaceholder} — ${label}` : (ariaLabel ? `${searchPlaceholder} — ${ariaLabel}` : searchPlaceholder)}
+              aria-activedescendant={filtered[activeIndex] ? `${id}-option-${activeIndex}` : undefined}
             />
             <div style={{ maxHeight: '12rem', overflowY: 'auto' }}>
               {filtered.length === 0 ? (
                 <p style={{ padding: '0.375rem 0.5rem', fontSize: '0.8125rem', color: 'var(--color-ink-subtle)' }}>Brak wyników</p>
               ) : (
-                filtered.map((opt) => (
+                filtered.map((opt, i) => (
                   <button
                     key={opt.value}
+                    id={`${id}-option-${i}`}
+                    ref={(el) => {
+                      optionRefs.current[i] = el;
+                    }}
                     type="button"
                     role="option"
                     aria-selected={opt.value === value}
@@ -250,10 +290,11 @@ export function SearchableSelect({
                     style={{
                       width: '100%',
                       border: 'none',
-                      background: opt.value === value ? 'var(--color-surface)' : 'transparent',
+                      background: i === activeIndex || opt.value === value ? 'var(--color-surface)' : 'transparent',
                       cursor: 'pointer',
                       textAlign: 'left',
                     }}
+                    onMouseEnter={() => setActiveIndex(i)}
                     onClick={() => {
                       onChange(opt.value);
                       setOpen(false);

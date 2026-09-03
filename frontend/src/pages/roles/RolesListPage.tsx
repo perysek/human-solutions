@@ -6,8 +6,10 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
 import { rolesApi, type RoleListItem } from '@/lib/api/roles';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -36,13 +38,14 @@ export function RolesListPage() {
 
   const { data, loading, error, reload } = useApiData(() => rolesApi.list());
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const filtered = useMemo(() => {
     const roles = data?.roles ?? [];
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return roles;
     return roles.filter((r) => r.display_name.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
-  }, [data, search]);
+  }, [data, debouncedSearch]);
 
   const { sorted, sortKey, sortOrder, onSort } = useTableSort(filtered, getSortValue);
 
@@ -83,15 +86,7 @@ export function RolesListPage() {
 
       <div className="search-card">
         <div className="search-wrapper">
-          <div className="search-input-wrap">
-            <input
-              type="text"
-              className="refined-input"
-              placeholder="Szukaj po nazwie roli…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Szukaj po nazwie roli…" />
         </div>
       </div>
 
@@ -112,6 +107,7 @@ export function RolesListPage() {
                     <SortableTh label="Moduły z dostępem" sortKey="access_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Chroniona" sortKey="is_protected" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -158,6 +154,9 @@ export function RolesListPage() {
                             </button>
                           )}
                         </div>
+                      </td>
+                      <td className="row-nav-hint-col">
+                        <Icon name="chevron_right" size={16} className="row-nav-hint" />
                       </td>
                     </tr>
                   ))}
