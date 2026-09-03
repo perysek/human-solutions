@@ -49,7 +49,6 @@ export function TrainingsListPage() {
   // onChange, so it doesn't fire on every keystroke while typing.
   useEffect(() => {
     resetToFirstPage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
   const { data, loading, error } = useApiData(
