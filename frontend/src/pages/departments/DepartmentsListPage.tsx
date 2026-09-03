@@ -162,6 +162,7 @@ export function DepartmentsListPage() {
                       style={NARROW_COUNT_TH_STYLE}
                     />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -224,6 +225,9 @@ export function DepartmentsListPage() {
                             </button>
                           </div>
                         )}
+                      </td>
+                      <td className="row-nav-hint-col">
+                        {canWrite && <Icon name="chevron_right" size={16} className="row-nav-hint" />}
                       </td>
                     </tr>
                   ))}

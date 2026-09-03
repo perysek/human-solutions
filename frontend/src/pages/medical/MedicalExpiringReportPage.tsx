@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { SortableTh } from '@/components/ui/SortableTh';
+import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
@@ -120,6 +121,7 @@ export function MedicalExpiringReportPage() {
                     <SortableTh label="Data badania" sortKey="performed_on" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Ważne do" sortKey="valid_until" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Status" sortKey="bucket" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -145,6 +147,9 @@ export function MedicalExpiringReportPage() {
                         <span className="refined-badge" style={BUCKET_STYLE[exam.bucket]}>
                           {BUCKET_LABELS[exam.bucket]}
                         </span>
+                      </td>
+                      <td className="row-nav-hint-col">
+                        <Icon name="chevron_right" size={16} className="row-nav-hint" />
                       </td>
                     </tr>
                   ))}

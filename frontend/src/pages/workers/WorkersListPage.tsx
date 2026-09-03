@@ -206,6 +206,7 @@ export function WorkersListPage() {
                     <th>Status</th>
                     <th>Szkolenia wstępne</th>
                     {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -283,6 +284,9 @@ export function WorkersListPage() {
                           </div>
                         </td>
                       )}
+                      <td className="row-nav-hint-col">
+                        <Icon name="chevron_right" size={16} className="row-nav-hint" />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

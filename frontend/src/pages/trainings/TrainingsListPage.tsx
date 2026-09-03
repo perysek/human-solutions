@@ -136,6 +136,7 @@ export function TrainingsListPage() {
                         <th>Data ostatniej sesji</th>
                         <th>Uczestników</th>
                         <SortableTh label="Ukończenie" sortKey="completion" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
+                        <th className="row-nav-hint-col" aria-hidden="true"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -156,6 +157,9 @@ export function TrainingsListPage() {
                           <td>{fmt(t.last_session_date)}</td>
                           <td>{t.participant_count}</td>
                           <td>{t.completion !== null ? `${t.completion}%` : '—'}</td>
+                          <td className="row-nav-hint-col">
+                            <Icon name="chevron_right" size={16} className="row-nav-hint" />
+                          </td>
                         </tr>
                       ))}
                     </tbody>

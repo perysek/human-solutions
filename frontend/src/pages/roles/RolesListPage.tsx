@@ -107,6 +107,7 @@ export function RolesListPage() {
                     <SortableTh label="Moduły z dostępem" sortKey="access_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Chroniona" sortKey="is_protected" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,6 +154,9 @@ export function RolesListPage() {
                             </button>
                           )}
                         </div>
+                      </td>
+                      <td className="row-nav-hint-col">
+                        <Icon name="chevron_right" size={16} className="row-nav-hint" />
                       </td>
                     </tr>
                   ))}

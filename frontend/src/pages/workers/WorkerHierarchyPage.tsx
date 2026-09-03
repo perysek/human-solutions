@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useTableSort } from '@/lib/useTableSort';
@@ -81,6 +82,7 @@ export function WorkerHierarchyPage() {
                   <SortableTh label="Imię i nazwisko" sortKey="full_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                   <SortableTh label="Stanowisko" sortKey="job_description" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                   <SortableTh label="Status" sortKey="is_active" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
+                  <th className="row-nav-hint-col" aria-hidden="true"></th>
                 </tr>
               </thead>
               <tbody>
@@ -102,6 +104,9 @@ export function WorkerHierarchyPage() {
                     <td>{w.job_description ?? '—'}</td>
                     <td>
                       <span className={`status-badge ${w.is_active ? 'active' : 'inactive'}`}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</span>
+                    </td>
+                    <td className="row-nav-hint-col">
+                      <Icon name="chevron_right" size={16} className="row-nav-hint" />
                     </td>
                   </tr>
                 ))}

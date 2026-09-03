@@ -109,6 +109,7 @@ export function SkillsListPage() {
                     <SortableTh label="Powiązanych stanowisk" sortKey="job_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Pracowników z luką kompetencji" sortKey="gap_worker_count" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
+                    <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,6 +154,9 @@ export function SkillsListPage() {
                             </button>
                           </div>
                         )}
+                      </td>
+                      <td className="row-nav-hint-col">
+                        {canWrite && <Icon name="chevron_right" size={16} className="row-nav-hint" />}
                       </td>
                     </tr>
                   ))}
