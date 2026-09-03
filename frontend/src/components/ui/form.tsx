@@ -181,6 +181,7 @@ export function FormActions({
   return (
     <div className="flex items-center gap-3">
       <button type="submit" className="form-btn-primary" disabled={isLoading}>
+        {isLoading && <span className="btn-spinner" aria-hidden="true" />}
         {isLoading ? 'Zapisywanie…' : submitLabel}
       </button>
       {onCancel && (
