@@ -80,14 +80,12 @@ export function Sidebar({ mobileOpen, onCloseMobile, toggleButtonRef }: SidebarP
           className="px-4 py-3 flex flex-col items-center gap-1"
           style={{ borderBottom: '1px solid var(--sidebar-border)' }}
         >
-          {/* /logo.webp was MyWay Beauty Salon's wordmark baked into the
-              image pixels (alt="" alone doesn't fix a logo whose branding
-              IS the graphic, not just its alt text) — no replacement asset
-              exists yet, so the text caption is the whole brand mark for
-              now. Re-add an <img> here once a real logo exists. */}
-          <p className="text-lg font-semibold tracking-tight text-center" style={{ color: 'var(--sidebar-text-active)' }}>
-            System Kadrowy
-          </p>
+          <img
+            src="/logo.webp"
+            alt="System Kadrowy"
+            className="h-10 w-auto"
+            style={{ filter: 'var(--sidebar-logo-filter)' }}
+          />
           <p className="text-[11px] tracking-widest uppercase text-center" style={{ color: 'var(--sidebar-text)' }}>
             Zarządzanie kadrami
           </p>
