@@ -84,10 +84,7 @@ export function AppShell() {
             </svg>
           </button>
           <div className="lg:hidden flex items-center gap-2 min-w-0">
-            {/* logo-inline.webp was MyWay Beauty Salon's wordmark (same issue
-                as Sidebar.tsx's brand header — see its comment) — no
-                replacement asset exists yet, so the condensed mobile header
-                is text-only for now. */}
+            <img src="/logo-inline.webp" alt="System Kadrowy" className="h-6 w-auto shrink-0" />
             <span className="truncate text-sm font-semibold" style={{ color: 'var(--color-ink)' }}>
               {pageTitleFor(location.pathname)}
             </span>
