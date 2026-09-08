@@ -18,6 +18,20 @@ class UserRepository(BaseRepository):
     _columns = ('id, email, password_hash, full_name, role, is_active, last_login, '
                 'failed_logins, locked_until, worker_id, created_at, updated_at')
 
+    # Same column set, qualified + a worker-name join — used by list_all/
+    # get_by_id (the admin users list/view, UsersListPage's "Pracownik"
+    # column and UserViewPage), so the linked worker's name is available
+    # without a second round-trip. get_by_email/row_to_user keep using the
+    # unqualified _columns above (login/session path — no worker name needed
+    # there, current_user.worker_id is enough for own_data_worker_id()).
+    _JOIN_COLUMNS = (
+        'users.id, users.email, users.password_hash, users.full_name, users.role, users.is_active, '
+        'users.last_login, users.failed_logins, users.locked_until, users.worker_id, '
+        'users.created_at, users.updated_at, '
+        'w.firstname AS worker_firstname, w.surname AS worker_surname'
+    )
+    _JOIN_FROM = 'FROM users LEFT JOIN workers w ON w.id = users.worker_id'
+
     def __init__(self):
         super().__init__("users")
 
@@ -29,7 +43,8 @@ class UserRepository(BaseRepository):
             if not cursor.fetchone():
                 raise ValueError(f"Rola '{role}' nie istnieje w systemie")
 
-    def create_user(self, email: str, password: str, full_name: str, role: str = 'viewer') -> int:
+    def create_user(self, email: str, password: str, full_name: str, role: str = 'viewer',
+                     worker_id: Optional[str] = None) -> int:
         """
         Utwórz nowego użytkownika z zahashowanym hasłem
 
@@ -38,6 +53,11 @@ class UserRepository(BaseRepository):
             password: Hasło w postaci jawnej (zostanie zahashowane)
             full_name: Imię i nazwisko
             role: Rola użytkownika (domyślnie 'viewer')
+            worker_id: Powiązany pracownik (opcjonalnie) — patrz set_worker_id().
+                Uniqueness (co najwyżej jedno konto na pracownika) jest
+                egzekwowana przez idx_users_worker_id_unique; wywołujący
+                (routes/users/routes.py) sprawdza to wcześniej dla czytelnego
+                komunikatu błędu.
 
         Returns:
             ID nowego użytkownika
@@ -53,10 +73,10 @@ class UserRepository(BaseRepository):
         # seeded 'staamp-poland' row the Phase 2 migration backfilled onto
         # every existing user, so every NEW user lands in it too.
         query = """
-            INSERT INTO users (email, password_hash, full_name, role, is_active, tenant_id)
-            VALUES (%s, %s, %s, %s, TRUE, (SELECT id FROM tenants WHERE slug = 'staamp-poland'))
+            INSERT INTO users (email, password_hash, full_name, role, is_active, tenant_id, worker_id)
+            VALUES (%s, %s, %s, %s, TRUE, (SELECT id FROM tenants WHERE slug = 'staamp-poland'), %s)
         """
-        return self._execute_insert(query, (email, password_hash, full_name, role))
+        return self._execute_insert(query, (email, password_hash, full_name, role, worker_id))
 
     def get_by_email(self, email: str) -> Optional[User]:
         """
@@ -128,12 +148,22 @@ class UserRepository(BaseRepository):
     def set_worker_id(self, user_id: int, worker_id: Optional[str]):
         """Link (or unlink, when ``worker_id`` is None) this login account to
         a `workers` row — the read side of Faza 5's own_data_worker_id()
-        (config/auth_config.py). No admin UI calls this yet (not required by
-        any TRN_* requirement); today's only caller is scripts/seed_dev_data.py,
-        linking the dev `trainer@dev.local` account so TRN_7's ownership gate
-        is exercisable locally without hand-written SQL."""
+        (config/auth_config.py) and of the absences module's
+        _current_worker_id(). Used by scripts/seed_dev_data.py, and now by
+        the user-employee linkage admin UI (UserForm) via update_user()'s own
+        worker_id parameter below — kept as a standalone method too for
+        scripts/one-off fixes that only need to touch this one column."""
         query = "UPDATE users SET worker_id = %s, updated_at = %s WHERE id = %s"
         self._execute(query, (worker_id, datetime.now(), user_id))
+
+    def get_by_worker_id(self, worker_id: str) -> Optional[User]:
+        """The account currently linked to this worker, if any — used to
+        enforce 'at most one account per worker' with a readable error
+        message before idx_users_worker_id_unique would otherwise raise a
+        raw IntegrityError."""
+        query = f"SELECT {self._columns} FROM users WHERE worker_id = %s"
+        row = self._fetch_one(query, (worker_id,))
+        return self.row_to_user(row) if row else None
 
     def deactivate(self, user_id: int):
         """
@@ -184,23 +214,34 @@ class UserRepository(BaseRepository):
         """
         Pobierz wszystkich użytkowników, posortowanych po nazwie.
         Zwraca surowe Row objects z polami: id, email, full_name, role, is_active,
-        last_login, created_at, failed_logins, locked_until.
+        last_login, created_at, failed_logins, locked_until, worker_id,
+        worker_firstname, worker_surname (ostatnie dwa — z LEFT JOIN, None gdy
+        konto nie jest przypisane do żadnego pracownika).
         """
-        query = f"SELECT {self._columns} FROM users ORDER BY full_name"
+        query = f"SELECT {self._JOIN_COLUMNS} {self._JOIN_FROM} ORDER BY users.full_name"
         return self._fetch_all(query)
 
-    def update_user(self, user_id: int, email: str, full_name: str, role: str, is_active: bool):
+    def get_by_id(self, user_id: int) -> Optional[Any]:
+        """Override BaseRepository.get_by_id — potrzebny LEFT JOIN dla
+        worker_firstname/worker_surname (UserViewPage's "Pracownik" pole),
+        którego generyczny `SELECT {_columns} FROM users` nie obsłuży."""
+        query = f"SELECT {self._JOIN_COLUMNS} {self._JOIN_FROM} WHERE users.id = %s"
+        return self._fetch_one(query, (user_id,))
+
+    def update_user(self, user_id: int, email: str, full_name: str, role: str, is_active: bool,
+                     worker_id: Optional[str] = None) -> None:
         """
-        Zaktualizuj dane użytkownika (email, imię, rola, aktywność).
-        Nie aktualizuje hasła — użyj update_password() osobno.
+        Zaktualizuj dane użytkownika (email, imię, rola, aktywność, przypisany
+        pracownik). `worker_id=None` odpina konto od pracownika. Nie
+        aktualizuje hasła — użyj update_password() osobno.
         """
         self._validate_role(role)
         query = """
             UPDATE users
-            SET email = %s, full_name = %s, role = %s, is_active = %s, updated_at = %s
+            SET email = %s, full_name = %s, role = %s, is_active = %s, worker_id = %s, updated_at = %s
             WHERE id = %s
         """
-        self._execute(query, (email, full_name, role, is_active, datetime.now(), user_id))
+        self._execute(query, (email, full_name, role, is_active, worker_id, datetime.now(), user_id))
 
     def delete_user(self, user_id: int) -> bool:
         """Usuń użytkownika."""

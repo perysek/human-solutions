@@ -34,6 +34,7 @@ from exceptions import AppError, ValidationError
 from repositories.absences.absence_approver_repository import WorkerAbsenceApproverRepository
 from repositories.absences.absence_category_repository import WorkerAbsenceCategoryRepository
 from repositories.audit_repository import AuditRepository
+from repositories.workers.worker_repository import WorkerRepository
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,11 @@ def my_absences():
             {'worker_id': a['approver_worker_id'], 'full_name': f"{a['firstname']} {a['surname']}"}
             for a in approvers
         ],
+        # Top of the hierarchy (jobs.is_director) has nobody to pick as
+        # "Przełożony" — the frontend uses this to skip that field and submit
+        # straight through (worker_absence_service.submit_request auto-
+        # approves in that case, see WorkerRepository.is_director's docstring).
+        'auto_approve': WorkerRepository().is_director(worker_id),
     })
 
 
@@ -173,7 +179,7 @@ def submit_request():
             date_to=_parse_date(data.get('date_to') or data.get('date_from')),
             time_from=_parse_time_opt(data.get('time_from')),
             time_to=_parse_time_opt(data.get('time_to')),
-            approver_worker_id=data['approver_worker_id'],
+            approver_worker_id=data.get('approver_worker_id') or None,
             notes=(data.get('notes') or '').strip() or None,
             created_by=current_user.id,
         )
@@ -281,6 +287,26 @@ def cancel_approved_absence(absence_id: int):
         return jsonify({'success': True, 'status': 'cancelled'})
     except AppError as e:
         return jsonify({'success': False, 'error': str(e)}), e.status_code
+
+
+@absences_bp.route('/api/manual/worker-options', methods=['GET'])
+@absence_management_required
+def manual_worker_options():
+    """Worker list for the "Dodaj ręcznie" form's "Pracownik" picker
+    (AbsenceManagementPage). Deliberately scoped by who's asking rather than
+    reusing /workers/api (module_permission_required('workers'), superadmin/
+    hr_manager only) — a plain approver (registered in worker_absence_approvers
+    for at least one worker, absence_management_required's non-admin branch)
+    can reach this page too and must only see their own team, not the whole
+    roster. Admin sees everyone active."""
+    if _is_admin():
+        rows = WorkerRepository().list_active_for_org_chart()
+        workers = [{'id': r['id'], 'full_name': f"{r['firstname']} {r['surname']}"} for r in rows]
+    else:
+        worker_id = _current_worker_id()
+        rows = WorkerAbsenceApproverRepository().list_subordinates_for(worker_id) if worker_id else []
+        workers = [{'id': r['worker_id'], 'full_name': f"{r['firstname']} {r['surname']}"} for r in rows]
+    return jsonify({'success': True, 'workers': workers})
 
 
 @absences_bp.route('/api/manual', methods=['POST'])

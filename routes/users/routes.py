@@ -9,6 +9,7 @@ by accident, unlike every other module in this app.
 """
 import logging
 from datetime import datetime
+from typing import Optional
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
@@ -17,6 +18,7 @@ from config.auth_config import role_required
 from exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from repositories.roles.role_repository import RoleRepository
 from repositories.users.user_repository import UserRepository
+from repositories.workers.worker_repository import WorkerRepository
 
 users_bp = Blueprint('users', __name__, url_prefix='/system/users')
 
@@ -31,6 +33,7 @@ def _role_repo() -> RoleRepository:
 
 def _user_json(row) -> dict:
     locked_until = row.get('locked_until')
+    worker_firstname = row.get('worker_firstname')
     return {
         'id': row['id'],
         'email': row['email'],
@@ -42,7 +45,33 @@ def _user_json(row) -> dict:
         'failed_logins': row['failed_logins'],
         'is_locked': bool(locked_until and locked_until > datetime.now()),
         'locked_until': locked_until.isoformat() if locked_until else None,
+        # Only present on rows from UserRepository.list_all/get_by_id (both
+        # now LEFT JOIN workers) — see UserRepository._JOIN_COLUMNS.
+        'worker_id': row.get('worker_id'),
+        'worker_name': f"{worker_firstname} {row.get('worker_surname')}" if worker_firstname else None,
     }
+
+
+def _parse_worker_id(data: dict) -> Optional[str]:
+    """'' / missing -> None (unlinked). Raises ValidationError/ConflictError
+    if the given id doesn't resolve to a worker, or already belongs to a
+    different account — idx_users_worker_id_unique is the hard backstop,
+    this is just the readable error message in front of it."""
+    raw = data.get('worker_id')
+    worker_id = raw.strip() if isinstance(raw, str) else None
+    if not worker_id:
+        return None
+    if not WorkerRepository().get_by_id(worker_id):
+        raise ValidationError('Wybrany pracownik nie istnieje')
+    return worker_id
+
+
+def _check_worker_not_taken(worker_id: Optional[str], *, editing_user_id: Optional[int] = None) -> None:
+    if not worker_id:
+        return
+    existing = _user_repo().get_by_worker_id(worker_id)
+    if existing and existing.id != editing_user_id:
+        raise ConflictError(f'Ten pracownik jest już przypisany do konta {existing.email}')
 
 
 # ─── API Endpoints ────────────────────────────────────────────────────────────
@@ -51,11 +80,22 @@ def _user_json(row) -> dict:
 @login_required
 @role_required('superadmin')
 def api_form_options():
-    """GET /system/users/api/form-options — lista ról dla formularzy create/edit."""
+    """GET /system/users/api/form-options — role + pracownicy dla formularzy create/edit."""
     try:
         roles = _role_repo().get_all()
+        workers = WorkerRepository().list_for_user_link()
         return jsonify({
             'roles': [{'id': r['id'], 'name': r['name'], 'display_name': r['display_name']} for r in roles],
+            'workers': [
+                {
+                    'id': w['id'],
+                    'full_name': f"{w['firstname']} {w['surname']}",
+                    'is_active': w['fire_date'] is None,
+                    'linked_user_id': w['linked_user_id'],
+                    'linked_user_name': w['linked_user_full_name'],
+                }
+                for w in workers
+            ],
         })
     except AppError:
         raise
@@ -123,9 +163,12 @@ def api_create():
     if user_repo.get_by_email(email):
         raise ConflictError(f'Uzytkownik z adresem {email} juz istnieje')
 
+    worker_id = _parse_worker_id(data)
+    _check_worker_not_taken(worker_id)
+
     try:
         user_id = user_repo.create_user(email=email, password=password,
-                                        full_name=full_name, role=role)
+                                        full_name=full_name, role=role, worker_id=worker_id)
         if not is_active:
             user_repo.deactivate(user_id)
 
@@ -186,8 +229,11 @@ def api_update(user_id):
     if new_password and len(new_password) < 8:
         raise ValidationError('Nowe haslo musi miec co najmniej 8 znakow')
 
+    worker_id = _parse_worker_id(data)
+    _check_worker_not_taken(worker_id, editing_user_id=user_id)
+
     try:
-        user_repo.update_user(user_id, email, full_name, role, is_active)
+        user_repo.update_user(user_id, email, full_name, role, is_active, worker_id=worker_id)
 
         if new_password:
             user_repo.update_password(user_id, new_password)

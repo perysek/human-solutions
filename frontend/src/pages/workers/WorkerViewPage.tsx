@@ -44,7 +44,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function WorkerViewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasModuleAccess, isModuleReadOnly } = useAuth();
+  const { hasModuleAccess, isModuleReadOnly, hasRole } = useAuth();
+  const canSeeUserLink = hasRole('superadmin');
   const canWrite = !isModuleReadOnly('workers');
   const { data: worker, loading, error, reload } = useApiData(() => workersApi.get(id as string), [id]);
   useEscapeAction(() => navigate('/workers'));
@@ -112,6 +113,27 @@ export function WorkerViewPage() {
                 <Field label="Kierownik działu" value={`kierownik działu ${worker.department_name}`} />
               )}
               <Field label="Przełożony" value={worker.boss_name ?? '—'} />
+              <Field
+                label="Konto użytkownika"
+                value={
+                  worker.linked_user_id ? (
+                    // <span> not <div> — Field renders `value` inside a <p>,
+                    // and a <div> there is invalid HTML nesting.
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="status-badge active">Przypisany</span>
+                      {canSeeUserLink ? (
+                        <Link to={`/users/${worker.linked_user_id}`} style={{ color: 'var(--color-focus-ring)' }}>
+                          {worker.linked_user_full_name ?? worker.linked_user_email}
+                        </Link>
+                      ) : (
+                        <span>{worker.linked_user_full_name ?? worker.linked_user_email}</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="status-badge inactive">Brak</span>
+                  )
+                }
+              />
               <Field label="Płeć" value={GENDER_LABELS[worker.gender] ?? worker.gender} />
               <Field label="Status" value={<StatusBadge status={worker.is_active ? 'active' : 'inactive'}>{worker.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>} />
               <Field label="Data zatrudnienia" value={worker.hire_date ? new Date(worker.hire_date).toLocaleDateString('pl-PL') : '—'} />

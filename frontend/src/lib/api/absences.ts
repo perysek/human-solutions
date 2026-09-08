@@ -40,6 +40,15 @@ export interface ApproverOption {
   full_name: string;
 }
 
+/** Row of the "Dodaj ręcznie" form's "Pracownik" picker
+ * (manual/worker-options) — scoped server-side to the caller's own team
+ * unless they're superadmin/hr_manager (see routes/absences/routes.py's
+ * manual_worker_options). */
+export interface WorkerOption {
+  id: string;
+  full_name: string;
+}
+
 export interface AbsenceBalance {
   category_id: number;
   category_name: string;
@@ -86,7 +95,9 @@ export interface SubmitAbsencePayload {
   date_to?: string;
   time_from?: string | null;
   time_to?: string | null;
-  approver_worker_id: string;
+  /** Omitted for a top-manager submitter (see `auto_approve` on `myAbsences()`
+   * — jobs.is_director has nobody above it to approve). */
+  approver_worker_id?: string;
   notes?: string | null;
 }
 
@@ -115,9 +126,14 @@ export interface CategoryPayload {
 export const absencesApi = {
   // self-service
   myAbsences: () =>
-    api.get<{ absences: AbsenceRecord[]; categories: AbsenceCategory[]; approvers: ApproverOption[] }>(
-      '/absences/api/my',
-    ),
+    api.get<{
+      absences: AbsenceRecord[];
+      categories: AbsenceCategory[];
+      approvers: ApproverOption[];
+      /** True for the worker holding jobs.is_director — MyAbsencesPage hides
+       * the "Przełożony" field and submits straight through when set. */
+      auto_approve: boolean;
+    }>('/absences/api/my'),
   previewConflicts: (params: { date_from: string; date_to?: string; time_from?: string; time_to?: string }) => {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
     return api.get<{ conflicts: unknown[] }>(`/absences/api/my/preview-conflicts?${qs}`);
@@ -135,6 +151,7 @@ export const absencesApi = {
   approve: (id: number) => api.post(`/absences/api/${id}/approve`),
   reject: (id: number, rejection_reason: string) => api.post(`/absences/api/${id}/reject`, { rejection_reason }),
   cancelApproved: (id: number) => api.post(`/absences/api/${id}/cancel-approved`),
+  manualWorkerOptions: () => api.get<{ workers: WorkerOption[] }>('/absences/api/manual/worker-options'),
   createManual: (payload: ManualAbsencePayload) => api.post<{ absence_id: number }>('/absences/api/manual', payload),
   updateManual: (id: number, payload: Omit<ManualAbsencePayload, 'worker_id'>) => api.put(`/absences/api/${id}`, payload),
   deleteAbsence: (id: number) => api.del(`/absences/api/${id}`),

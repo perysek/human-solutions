@@ -18,6 +18,7 @@ from exceptions import NotFoundError, ValidationError
 from repositories.absences.absence_approver_repository import WorkerAbsenceApproverRepository
 from repositories.absences.absence_category_repository import WorkerAbsenceCategoryRepository
 from repositories.absences.absence_repository import WorkerAbsenceRepository
+from repositories.workers.worker_repository import WorkerRepository
 
 
 def _repo() -> WorkerAbsenceRepository:
@@ -58,12 +59,20 @@ def _get_pending_or_raise(absence_id: int, approver_worker_id: Optional[str]):
 
 def submit_request(
     *, worker_id: str, category_id: int, date_from: date, date_to: date,
-    time_from: Optional[time], time_to: Optional[time], approver_worker_id: str,
+    time_from: Optional[time], time_to: Optional[time], approver_worker_id: Optional[str],
     notes: Optional[str] = None, created_by: Optional[int] = None,
 ) -> int:
     """Submit an absence request. Validates the category, the chosen approver,
     time/date field consistency, balance limits, and absence-vs-absence overlap.
-    Creates a status='pending' record. Raises ValidationError on any violation."""
+    Creates a status='pending' record — UNLESS `worker_id` holds the company's
+    top job-position (jobs.is_director, WorkerRepository.is_director): nobody
+    sits above the top of the hierarchy to approve their own request, so that
+    case skips the approver requirement entirely and lands as status='approved'
+    directly (approver_worker_id stored NULL — self-approved by hierarchy
+    position, not by any particular person). Raises ValidationError on any
+    other violation."""
+    auto_approved = WorkerRepository().is_director(worker_id)
+
     cat_row = _category_repo().get_by_id(category_id)
     if not cat_row or cat_row['is_deleted']:
         raise ValidationError('Nieprawidłowa kategoria nieobecności')
@@ -87,10 +96,13 @@ def submit_request(
         if check['blocked']:
             raise ValidationError(f"Przekroczono limit nieobecności: {check['message']} Skontaktuj się z przełożonym.")
 
-    approvers = _approver_repo().list_approvers_for(worker_id)
-    approver_ids = {row['approver_worker_id'] for row in approvers}
-    if approver_worker_id not in approver_ids:
-        raise ValidationError('Wybrany przełożony nie jest przypisany do tego pracownika')
+    if auto_approved:
+        approver_worker_id = None
+    else:
+        approvers = _approver_repo().list_approvers_for(worker_id)
+        approver_ids = {row['approver_worker_id'] for row in approvers}
+        if not approver_worker_id or approver_worker_id not in approver_ids:
+            raise ValidationError('Wybrany przełożony nie jest przypisany do tego pracownika')
 
     conflicts = _repo().check_absence_conflicts(worker_id, date_from, date_to, time_from, time_to)
     if conflicts:
@@ -102,7 +114,8 @@ def submit_request(
     return _repo().create(
         worker_id=worker_id, category_id=category_id, date_from=date_from, date_to=date_to,
         time_from=time_from, time_to=time_to, approver_worker_id=approver_worker_id,
-        status='pending', notes=notes, source='request', created_by=created_by,
+        status='approved' if auto_approved else 'pending',
+        notes=notes, source='request', created_by=created_by,
     )
 
 

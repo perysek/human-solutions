@@ -42,6 +42,10 @@ export function MyAbsencesPage() {
   const categories = data?.categories ?? [];
   const approvers = data?.approvers ?? [];
   const absences = data?.absences ?? [];
+  // Top of the hierarchy (jobs.is_director) has nobody to pick as
+  // "Przełożony" — worker_absence_service.submit_request auto-approves
+  // these instead of routing them to an approver.
+  const autoApprove = data?.auto_approve ?? false;
 
   const selectedCategory = categories.find((c) => String(c.id) === categoryId);
   const isFullDay = selectedCategory?.absence_full_day ?? true;
@@ -68,7 +72,7 @@ export function MyAbsencesPage() {
         date_to: isFullDay ? dateTo || dateFrom : dateFrom,
         time_from: isFullDay ? null : timeFrom,
         time_to: isFullDay ? null : timeTo,
-        approver_worker_id: approverId,
+        approver_worker_id: autoApprove ? undefined : approverId,
         notes: notes.trim() || null,
       });
       toast.success('Wniosek został złożony.');
@@ -129,16 +133,24 @@ export function MyAbsencesPage() {
                 options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
                 placeholder="Wybierz kategorię…"
               />
-              <SelectField
-                label="Przełożony"
-                name="approver_worker_id"
-                required
-                value={approverId}
-                onChange={(e) => setApproverId(e.target.value)}
-                options={approvers.map((a) => ({ value: a.worker_id, label: a.full_name }))}
-                placeholder={approvers.length ? 'Wybierz przełożonego…' : 'Brak przypisanego przełożonego — skontaktuj się z HR'}
-                disabled={approvers.length === 0}
-              />
+              {autoApprove ? (
+                <div className="form-field-full">
+                  <p className="text-sm" style={{ color: 'var(--color-ink-subtle)' }}>
+                    Twoje wnioski są zatwierdzane automatycznie — zajmujesz najwyższe stanowisko w hierarchii firmy.
+                  </p>
+                </div>
+              ) : (
+                <SelectField
+                  label="Przełożony"
+                  name="approver_worker_id"
+                  required
+                  value={approverId}
+                  onChange={(e) => setApproverId(e.target.value)}
+                  options={approvers.map((a) => ({ value: a.worker_id, label: a.full_name }))}
+                  placeholder={approvers.length ? 'Wybierz przełożonego…' : 'Brak przypisanego przełożonego — skontaktuj się z HR'}
+                  disabled={approvers.length === 0}
+                />
+              )}
               <TextField label="Data od" name="date_from" type="date" required value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
               {isFullDay ? (
                 <TextField label="Data do" name="date_to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} helper="Puste = jeden dzień" />

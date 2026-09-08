@@ -33,6 +33,8 @@ export function AbsenceManagementPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const { data, loading, error, reload } = useApiData(() => absencesApi.management());
+  const { data: workerOptionsData } = useApiData(() => absencesApi.manualWorkerOptions());
+  const workerOptions = (workerOptionsData?.workers ?? []).map((w) => ({ value: w.id, label: w.full_name }));
 
   const [tab, setTab] = useState<TabKey>('pending');
   const [rejectingId, setRejectingId] = useState<number | null>(null);
@@ -164,7 +166,15 @@ export function AbsenceManagementPage() {
         <form onSubmit={handleManualSubmit}>
           <FormCard>
             <FormFieldset title="Ręczna rejestracja nieobecności" description="Auto-zatwierdzona — np. zwolnienie lekarskie zgłoszone przez pracownika">
-              <TextField label="ID pracownika" name="worker_id" required value={manualWorkerId} onChange={(e) => setManualWorkerId(e.target.value)} />
+              <SelectField
+                label="Pracownik"
+                name="worker_id"
+                required
+                value={manualWorkerId}
+                onChange={(e) => setManualWorkerId(e.target.value)}
+                options={workerOptions}
+                placeholder={workerOptions.length ? 'Wybierz pracownika…' : 'Brak pracowników do wyboru'}
+              />
               <SelectField
                 label="Rodzaj nieobecności"
                 name="category_id"

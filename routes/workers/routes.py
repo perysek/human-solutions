@@ -93,6 +93,13 @@ def _worker_json(row) -> dict:
         # `onboarding_completion_pct` is that badge's own %.
         'onboarding_completed': row.get('onboarding_completed'),
         'onboarding_completion_pct': row.get('onboarding_completion_pct'),
+        # Derived via WorkerRepository._FROM_CLAUSE's LEFT JOIN users lu —
+        # the login account linked to this worker (users.worker_id), if any.
+        # Drives the "Użytkownik" przypisany/brak badge (WorkersListPage,
+        # WorkerViewPage) — the reverse of _user_json's worker_id/worker_name.
+        'linked_user_id': row.get('linked_user_id'),
+        'linked_user_email': row.get('linked_user_email'),
+        'linked_user_full_name': row.get('linked_user_full_name'),
         'gender': row['gender'],
         'hire_date': row['hire_date'].isoformat() if row['hire_date'] else None,
         'fire_date': row['fire_date'].isoformat() if row['fire_date'] else None,
