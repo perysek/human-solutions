@@ -41,6 +41,10 @@ import { TrainingsListPage } from '@/pages/trainings/TrainingsListPage';
 import { TrainingCreatePage } from '@/pages/trainings/TrainingCreatePage';
 import { TrainingViewPage } from '@/pages/trainings/TrainingViewPage';
 import { TrainingEditPage } from '@/pages/trainings/TrainingEditPage';
+import { MyAbsencesPage } from '@/pages/absences/MyAbsencesPage';
+import { AbsenceManagementPage } from '@/pages/absences/AbsenceManagementPage';
+import { AbsenceBalancesPage } from '@/pages/absences/AbsenceBalancesPage';
+import { AbsenceCategorySettingsPage } from '@/pages/absences/AbsenceCategorySettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export function AppRoutes() {
@@ -135,6 +139,25 @@ export function AppRoutes() {
             <Route path="/trainings" element={<TrainingsListPage />} />
             <Route path="/trainings/:id" element={<TrainingViewPage />} />
             <Route path="/trainings/:id/edit" element={<TrainingEditPage />} />
+          </Route>
+
+          {/* module_permission_required('absences') — routes/absences/routes.py.
+              Every role has at least own_data access (RBAC seed
+              ab01absc0003), so any authenticated worker reaches these. The
+              management view additionally requires absence_management_required
+              server-side (admin OR a registered approver) — the page itself
+              renders the resulting 403 as a plain "no permission" message
+              rather than needing a second client-side gate here. Category
+              settings are the one sub-page actually restricted to admins. */}
+          <Route element={<ProtectedRoute requireModule="absences" />}>
+            <Route path="/absences" element={<MyAbsencesPage />} />
+            <Route path="/absences/management" element={<AbsenceManagementPage />} />
+            <Route path="/absences/balances" element={<AbsenceBalancesPage />} />
+            <Route path="/absences/balances/:workerId" element={<AbsenceBalancesPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute guard={({ user }) => user.role === 'superadmin' || user.role === 'hr_manager'} />}>
+            <Route path="/absences/categories" element={<AbsenceCategorySettingsPage />} />
           </Route>
 
           {/* POST /trainings/api is role_required('superadmin', 'hr_manager')

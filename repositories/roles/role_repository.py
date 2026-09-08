@@ -8,7 +8,7 @@ from config.database import get_db_connection
 # All known modules (must match auth_config.MODULE_PERMISSIONS keys).
 # Staamp HR domain (IMPLEMENTATION_PLAN.md §5.1) — replaces the salon's
 # invoices/appointments/clients/employees/services/... module list.
-ALL_MODULES = ['workers', 'jobs', 'medical', 'bhp', 'skills', 'trainings', 'dashboard', 'audit', 'admin']
+ALL_MODULES = ['workers', 'jobs', 'medical', 'bhp', 'skills', 'trainings', 'absences', 'dashboard', 'audit', 'admin']
 
 MODULE_DISPLAY_NAMES = {
     'workers':    'Pracownicy',
@@ -17,6 +17,7 @@ MODULE_DISPLAY_NAMES = {
     'bhp':        'Szkolenia BHP',
     'skills':     'Umiejętności',
     'trainings':  'Szkolenia wewnętrzne',
+    'absences':   'Nieobecności',
     'dashboard':  'Pulpit',
     'audit':      'Historia zmian',
     'admin':      'Administracja',

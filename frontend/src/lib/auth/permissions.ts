@@ -11,4 +11,4 @@
  * module-gated route yet (user/role management use a literal superadmin
  * role check instead — see routes/users/routes.py's module docstring).
  */
-export type ModuleName = 'workers' | 'jobs' | 'medical' | 'bhp' | 'skills' | 'trainings' | 'dashboard' | 'audit' | 'admin';
+export type ModuleName = 'workers' | 'jobs' | 'medical' | 'bhp' | 'skills' | 'trainings' | 'absences' | 'dashboard' | 'audit' | 'admin';
