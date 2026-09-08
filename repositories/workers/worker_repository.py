@@ -44,6 +44,16 @@ _DEFAULT_SORT = 'surname'
 # worker's job has no department, or that department has no managerial job,
 # or nobody currently holds it.
 #
+# Three-tier CASE mirrors JobRepository._columns's supervisor_job_id exactly
+# (bug fix, 2026-09-08: this used to join only `sj`, so a worker whose OWN
+# job is_managerial=TRUE always came back with boss_name=NULL — `sj` excludes
+# `sj.id != j.id`, and idx_jobs_one_manager_per_department guarantees no
+# *other* manager job exists in the same department. Managers' boss is the
+# director, not a sibling manager):
+#   - regular job -> boss is the department's managerial job (sj);
+#   - managerial job -> boss is the company's director job (dj), NOT sj;
+#   - director job -> no boss (NULL).
+#
 # Split into columns/FROM (rather than one opaque string) so get_all can
 # splice in `_NEEDS_ATTENTION_SQL` as one more selected column without
 # duplicating the join list — see get_all's own query below.
@@ -51,7 +61,9 @@ _BASE_COLUMNS = """
     w.id, w.firstname, w.surname, w.job_id, j.description AS job_description,
     j.is_managerial AS job_is_managerial, j.department_id, d.name AS department_name,
     (SELECT STRING_AGG(bw.firstname || ' ' || bw.surname, ', ' ORDER BY bw.surname, bw.firstname)
-       FROM workers bw WHERE bw.job_id = sj.id AND bw.fire_date IS NULL) AS boss_name,
+       FROM workers bw
+       WHERE bw.job_id = (CASE WHEN j.is_director THEN NULL WHEN j.is_managerial THEN dj.id ELSE sj.id END)
+         AND bw.fire_date IS NULL) AS boss_name,
     w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at,
     wos.completed AS onboarding_completed, wos.completion_pct AS onboarding_completion_pct,
     lu.id AS linked_user_id, lu.email AS linked_user_email, lu.full_name AS linked_user_full_name
@@ -62,6 +74,7 @@ _FROM_CLAUSE = """
     LEFT JOIN departments d ON d.id = j.department_id
     LEFT JOIN jobs sj ON sj.department_id = j.department_id
         AND sj.is_managerial = TRUE AND sj.id != j.id
+    LEFT JOIN jobs dj ON dj.is_director = TRUE AND dj.id != j.id
     LEFT JOIN worker_onboarding_status wos ON wos.worker_id = w.id AND wos.job_id = w.job_id
     LEFT JOIN users lu ON lu.worker_id = w.id
 """
