@@ -683,6 +683,32 @@ sudo chown -R deploy:deploy /opt/human-solutions
 
 Retry the `git pull` / `npm install` as `deploy` afterward.
 
+### A new `/module/api` location block doesn't take effect after editing `sites-available`
+
+Hit during the absence-management deploy: `nginx -t` passed and `systemctl
+reload nginx` reported success, but the new endpoint still fell through to
+the SPA (`index.html`, HTTP 200) instead of hitting Gunicorn. Cause:
+`/etc/nginx/sites-enabled/human-solutions` had drifted into a standalone
+*copy* of the file instead of a symlink to `sites-available` — so nginx was
+loading a stale config that Step 14's edits never touched. Confirm and fix:
+
+```bash
+ls -la /etc/nginx/sites-enabled/human-solutions   # should show "-> /etc/nginx/sites-available/human-solutions"
+```
+
+If it's a regular file instead of a symlink, `diff` the two, reconcile
+whichever has drifted (the file actually being served — i.e. sites-enabled —
+is authoritative), then replace it with a real symlink so this can't
+silently drift again:
+
+```bash
+diff /etc/nginx/sites-available/human-solutions /etc/nginx/sites-enabled/human-solutions
+cp /etc/nginx/sites-enabled/human-solutions /etc/nginx/sites-available/human-solutions   # if sites-enabled wins
+rm /etc/nginx/sites-enabled/human-solutions
+ln -s /etc/nginx/sites-available/human-solutions /etc/nginx/sites-enabled/human-solutions
+nginx -t && sudo systemctl reload nginx
+```
+
 ### Permission denied on log directory
 
 ```bash
