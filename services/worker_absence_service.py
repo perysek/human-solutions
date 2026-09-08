@@ -9,15 +9,15 @@ cancel flows, manual entry, hard-delete guards) carries over almost
 verbatim, adapted to this repo's function-based service / exceptions.py
 error hierarchy convention (see services/worker_service.py).
 """
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 from typing import List, Optional
 
+import services.worker_absence_balance_service as balance_service
 from config.database import managed_transaction
 from exceptions import NotFoundError, ValidationError
 from repositories.absences.absence_approver_repository import WorkerAbsenceApproverRepository
 from repositories.absences.absence_category_repository import WorkerAbsenceCategoryRepository
 from repositories.absences.absence_repository import WorkerAbsenceRepository
-import services.worker_absence_balance_service as balance_service
 
 
 def _repo() -> WorkerAbsenceRepository:
@@ -94,8 +94,9 @@ def submit_request(
 
     conflicts = _repo().check_absence_conflicts(worker_id, date_from, date_to, time_from, time_to)
     if conflicts:
+        first = conflicts[0]
         raise ValidationError(
-            f"Wniosek koliduje z istniejącą nieobecnością: {conflicts[0]['category_name']} ({conflicts[0]['date_from']})"
+            f"Wniosek koliduje z istniejącą nieobecnością: {first['category_name']} ({first['date_from']})"
         )
 
     return _repo().create(
@@ -188,7 +189,6 @@ def create_manual(
         if check.get('warning'):
             balance_warning = check
 
-    now = datetime.now()
     absence_id = _repo().create(
         worker_id=worker_id, category_id=category_id, date_from=date_from, date_to=date_to,
         time_from=time_from, time_to=time_to, approver_worker_id=creator_worker_id,

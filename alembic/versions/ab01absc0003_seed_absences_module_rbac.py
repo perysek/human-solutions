@@ -15,6 +15,7 @@ access, matching their access to every other worker-data module.
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = 'ab01absc0003'

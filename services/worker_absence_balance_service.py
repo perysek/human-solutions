@@ -210,9 +210,10 @@ def check_before_submit(worker_id: str, category_id: int, proposed_value: float,
     warning_pct = balance['warning_threshold_pct']
 
     if net_used_after > limit:
+        over = net_used_after - limit
         msg = (
             f"Limit {balance['category_name']}: {balance['net_used']:.1f}/{limit} {unit}. "
-            f"Proponowana nieobecność ({proposed_value:.1f} {unit}) przekroczy limit o {net_used_after - limit:.1f} {unit}."
+            f"Proponowana nieobecność ({proposed_value:.1f} {unit}) przekroczy limit o {over:.1f} {unit}."
         )
         blocked = (source == 'request')
         return {'ok': not blocked, 'blocked': blocked, 'warning': True, 'message': msg, 'balance': balance}

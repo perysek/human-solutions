@@ -21,16 +21,16 @@ worker (worker_absence_approvers) — independent of role, mirrors the golden
 standard's own absence_management_required.
 """
 import logging
-from datetime import datetime, date, time
+from datetime import date, datetime
 from functools import wraps
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 import services.worker_absence_balance_service as balance_service
 import services.worker_absence_service as absence_service
 from config.auth_config import module_permission_required
-from exceptions import AppError, NotFoundError, ValidationError
+from exceptions import AppError, ValidationError
 from repositories.absences.absence_approver_repository import WorkerAbsenceApproverRepository
 from repositories.absences.absence_category_repository import WorkerAbsenceCategoryRepository
 from repositories.audit_repository import AuditRepository
@@ -180,7 +180,8 @@ def submit_request():
         return jsonify({'success': True, 'id': absence_id}), 201
     except (AppError, KeyError, ValueError) as e:
         status = getattr(e, 'status_code', 400)
-        return jsonify({'success': False, 'error': str(e) if not isinstance(e, KeyError) else f'Brakujące pole: {e}'}), status
+        msg = str(e) if not isinstance(e, KeyError) else f'Brakujące pole: {e}'
+        return jsonify({'success': False, 'error': msg}), status
 
 
 @absences_bp.route('/api/my/<int:absence_id>/cancel', methods=['POST'])
@@ -290,10 +291,11 @@ def create_manual():
     try:
         worker_id = data['worker_id']
         if worker_id == creator_worker_id and not _is_admin():
-            return jsonify({
-                'success': False,
-                'error': 'Nie możesz tworzyć manualnej nieobecności dla siebie. Złóż wniosek przez "Moje nieobecności".',
-            }), 403
+            error = (
+                'Nie możesz tworzyć manualnej nieobecności dla siebie. '
+                'Złóż wniosek przez "Moje nieobecności".'
+            )
+            return jsonify({'success': False, 'error': error}), 403
         result = absence_service.create_manual(
             worker_id=worker_id,
             category_id=int(data['category_id']),
@@ -308,7 +310,8 @@ def create_manual():
         return jsonify({'success': True, **result}), 201
     except (AppError, KeyError, ValueError) as e:
         status = getattr(e, 'status_code', 400)
-        return jsonify({'success': False, 'error': str(e) if not isinstance(e, KeyError) else f'Brakujące pole: {e}'}), status
+        msg = str(e) if not isinstance(e, KeyError) else f'Brakujące pole: {e}'
+        return jsonify({'success': False, 'error': msg}), status
 
 
 @absences_bp.route('/api/<int:absence_id>', methods=['PUT'])
@@ -521,8 +524,8 @@ def worker_balances(worker_id: str):
         from repositories.workers.worker_repository import WorkerRepository
         balances = balance_service.get_all_balances_for_worker(worker_id)
         worker_row = WorkerRepository().get_by_id(worker_id)
-        return jsonify({'success': True, 'balances': balances,
-                        'worker_name': f"{worker_row['firstname']} {worker_row['surname']}" if worker_row else worker_id})
+        worker_name = f"{worker_row['firstname']} {worker_row['surname']}" if worker_row else worker_id
+        return jsonify({'success': True, 'balances': balances, 'worker_name': worker_name})
     except Exception as e:
         logger.exception('worker_balances failed')
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -566,14 +569,15 @@ def delete_worker_limit(worker_id: str, limit_id: int):
 def list_worker_adjustments(worker_id: str):
     from repositories.absences.absence_adjustment_repository import WorkerAbsenceAdjustmentRepository
     rows = WorkerAbsenceAdjustmentRepository().list_for_worker(worker_id)
-    return jsonify({'success': True, 'adjustments': [
-        {
+    def _fmt(r):
+        created_at = r['created_at']
+        return {
             'id': r['id'], 'category_name': r['category_name'], 'delta_value': float(r['delta_value']),
             'reason': r['reason'], 'period_label': r['period_label'],
-            'created_at': r['created_at'].isoformat() if hasattr(r['created_at'], 'isoformat') else str(r['created_at']),
+            'created_at': created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at),
             'created_by_name': r['created_by_name'],
-        } for r in rows
-    ]})
+        }
+    return jsonify({'success': True, 'adjustments': [_fmt(r) for r in rows]})
 
 
 @absences_bp.route('/api/workers/<worker_id>/adjustments', methods=['POST'])
