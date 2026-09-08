@@ -164,6 +164,26 @@ def preview_conflicts():
         return jsonify({'success': False, 'error': str(e)}), e.status_code
 
 
+@absences_bp.route('/api/my/resolve-reviewer', methods=['GET'])
+@module_permission_required('absences')
+def resolve_reviewer():
+    """Backs the request form's auto-assigned 'przełożony' — the form no
+    longer offers a free-choice select. Called whenever the requester picks
+    a date_from; see worker_absence_service.resolve_reviewer for the
+    org-structure escalation logic (also re-run authoritatively inside
+    submit_request, so this endpoint's result is advisory for the UI, not
+    trusted on its own for the actual submission)."""
+    worker_id = _current_worker_id()
+    if not worker_id:
+        return jsonify({'success': False, 'error': 'Twoje konto nie jest przypisane do żadnego pracownika.'}), 400
+    try:
+        date_from = _parse_date(request.args.get('date_from'))
+        resolution = absence_service.resolve_reviewer(worker_id, date_from)
+        return jsonify({'success': True, **resolution})
+    except AppError as e:
+        return jsonify({'success': False, 'error': str(e)}), e.status_code
+
+
 @absences_bp.route('/api/my/submit', methods=['POST'])
 @module_permission_required('absences')
 def submit_request():
@@ -259,9 +279,15 @@ def management_index():
 @absences_bp.route('/api/<int:absence_id>/approve', methods=['POST'])
 @absence_management_required
 def approve_request(absence_id: int):
-    worker_id = _current_worker_id() if not _is_admin() else None
+    # acting_worker_id is always the caller's own linked worker — even for
+    # superadmin/hr_manager — so worker_absence_service can block
+    # self-approval regardless of role. approver_worker_id stays None for
+    # admins (any assigned approver is fine for them) but that's a separate
+    # "are you the assigned approver" check, not the self-approval guard.
+    acting_worker_id = _current_worker_id()
+    approver_worker_id = None if _is_admin() else acting_worker_id
     try:
-        absence_service.approve(absence_id, worker_id)
+        absence_service.approve(absence_id, approver_worker_id, acting_worker_id=acting_worker_id)
         return jsonify({'success': True, 'status': 'approved'})
     except AppError as e:
         return jsonify({'success': False, 'error': str(e)}), e.status_code
@@ -270,10 +296,12 @@ def approve_request(absence_id: int):
 @absences_bp.route('/api/<int:absence_id>/reject', methods=['POST'])
 @absence_management_required
 def reject_request(absence_id: int):
-    worker_id = _current_worker_id() if not _is_admin() else None
+    acting_worker_id = _current_worker_id()
+    approver_worker_id = None if _is_admin() else acting_worker_id
     data = request.get_json(silent=True) or {}
     try:
-        absence_service.reject(absence_id, worker_id, (data.get('rejection_reason') or '').strip())
+        absence_service.reject(absence_id, approver_worker_id, (data.get('rejection_reason') or '').strip(),
+                                acting_worker_id=acting_worker_id)
         return jsonify({'success': True, 'status': 'rejected'})
     except AppError as e:
         return jsonify({'success': False, 'error': str(e)}), e.status_code

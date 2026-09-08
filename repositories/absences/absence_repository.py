@@ -132,6 +132,25 @@ class WorkerAbsenceRepository(AuditableMixin, BaseRepository):
         """
         return self._fetch_all(query, tuple(params))
 
+    def has_approved_absence_in_range(self, worker_id: str, date_from: date, date_to: date) -> bool:
+        """Used by worker_absence_service.resolve_reviewer's org-structure
+        escalation: does this candidate reviewer have an approved (not
+        merely pending) absence overlapping the given window? Deliberately
+        narrower than check_absence_conflicts (status='approved' only,
+        no time-slot handling) — an escalation decision cares whether the
+        supervisor will actually be out, not whether they have a pending
+        request of their own."""
+        row = self._fetch_one(
+            """
+            SELECT 1 FROM worker_absences
+            WHERE worker_id = %s AND is_deleted = FALSE AND status = 'approved'
+              AND date_from <= %s AND date_to >= %s
+            LIMIT 1
+            """,
+            (worker_id, date_to, date_from),
+        )
+        return row is not None
+
     # ── conflict detection (absence-vs-absence only — no appointments here) ────
 
     def check_absence_conflicts(

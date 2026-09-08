@@ -95,10 +95,24 @@ export interface SubmitAbsencePayload {
   date_to?: string;
   time_from?: string | null;
   time_to?: string | null;
-  /** Omitted for a top-manager submitter (see `auto_approve` on `myAbsences()`
-   * — jobs.is_director has nobody above it to approve). */
+  /** Only meaningful when resolveReviewer() returned more than one
+   * candidate (dropdown shown) — otherwise the server auto-assigns the
+   * reviewer itself and ignores this field. Omitted entirely for a
+   * top-manager submitter (jobs.is_director has nobody above it to
+   * approve). See ReviewerResolution. */
   approver_worker_id?: string;
   notes?: string | null;
+}
+
+export interface ReviewerResolution {
+  auto_approve: boolean;
+  /** Non-empty only when there's genuine ambiguity to resolve — render a
+   * select from these and require a choice. Empty (or single-item) means
+   * no picker is needed. */
+  candidates: ApproverOption[];
+  /** Set when exactly one reviewer is available at the resolved org-chart
+   * level — the form should show this name read-only, no select. */
+  resolved_approver_worker_id: string | null;
 }
 
 export interface ManualAbsencePayload {
@@ -138,6 +152,8 @@ export const absencesApi = {
     const qs = new URLSearchParams(params as Record<string, string>).toString();
     return api.get<{ conflicts: unknown[] }>(`/absences/api/my/preview-conflicts?${qs}`);
   },
+  resolveReviewer: (date_from: string) =>
+    api.get<ReviewerResolution>(`/absences/api/my/resolve-reviewer?date_from=${encodeURIComponent(date_from)}`),
   submit: (payload: SubmitAbsencePayload) => api.post<{ id: number }>('/absences/api/my/submit', payload),
   cancelOwn: (id: number) => api.post(`/absences/api/my/${id}/cancel`),
   cancelOwnApproved: (id: number) => api.post(`/absences/api/my/${id}/cancel-approved`),
