@@ -8,9 +8,13 @@ export interface BhpTraining {
   kind: 'Initial' | 'Periodic' | 'Control';
 }
 
-export interface ExpiringBhpTraining extends BhpTraining {
+/** UI-fixes-08092026 task3 — see ExpiringMedicalExam's docstring; same
+ * reasoning for bhp_trainings' 'missing' ("brak zapisów") rows. */
+export interface ExpiringBhpTraining extends Omit<BhpTraining, 'id' | 'kind'> {
+  id: number | null;
+  kind: BhpTraining['kind'] | null;
   full_name: string;
-  bucket: 'critical' | 'warning' | 'notice';
+  bucket: 'critical' | 'warning' | 'notice' | 'expired' | 'missing';
 }
 
 export interface BhpTrainingPayload {

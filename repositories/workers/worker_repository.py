@@ -108,6 +108,53 @@ _MEDICAL_EXPIRED_SQL = """
 _NEEDS_ATTENTION_EXPR = f"({_GAP_EXISTS_SQL} OR {_BHP_EXPIRED_SQL} OR {_MEDICAL_EXPIRED_SQL})"
 _NEEDS_ATTENTION_SQL = f"{_NEEDS_ATTENTION_EXPR} AS needs_attention"
 
+# UI-fixes-08092026 task1/3 — two more "needs attention" categories, added
+# alongside (not folded into) _NEEDS_ATTENTION_EXPR above: that expression
+# also drives the pre-existing "Wymaga uwagi" filter dropdown, whose
+# gap/medical/bhp meaning stays unchanged. These two get their own stat
+# cards, their own multi-select `alert_categories` filter, and their own
+# flag in the "Alerty" column's badge grid — see _ALERT_CATEGORY_SQL below.
+#
+#  - onboarding overdue: worker has an onboarding-flagged
+#    (training_participants.is_onboarding = TRUE) enrollment whose
+#    training has already happened (training_date < today) without
+#    clearing the same "done" bar WorkerOnboardingRepository.recalculate
+#    uses (finish_date AND effectiveness_date both set).
+#  - foreigner doc expired: worker has a foreigner_data row (opted into
+#    foreigner tracking, WRK_5) whose document_validity has passed. A
+#    worker with no foreigner_data row at all isn't flagged — nothing
+#    tracked, nothing to have expired (foreigner status here is opt-in via
+#    the worker form's "Dane cudzoziemca" checkbox, not derived from
+#    worker_nationality).
+_ONBOARDING_OVERDUE_SQL = """
+    EXISTS (
+        SELECT 1 FROM training_participants tp
+        JOIN trainings t ON t.id = tp.training_id
+        WHERE tp.worker_id = w.id AND tp.is_onboarding = TRUE AND NOT tp.is_deleted
+          AND t.training_date < CURRENT_DATE
+          AND NOT (tp.finish_date IS NOT NULL AND tp.effectiveness_date IS NOT NULL)
+    )
+"""
+_FOREIGNER_DOC_EXPIRED_SQL = """
+    EXISTS (
+        SELECT 1 FROM foreigner_data fd
+        WHERE fd.worker_id = w.id AND fd.document_validity IS NOT NULL AND fd.document_validity < CURRENT_DATE
+    )
+"""
+
+# Keys double as the API's `alert_categories` filter values and the
+# "Alerty" column's per-row flag names (routes/workers/routes.py's
+# _worker_json) — one dict, so filter/column/stat-card counts can never
+# name a category differently from each other.
+_ALERT_CATEGORY_SQL = {
+    'gap': _GAP_EXISTS_SQL,
+    'medical': _MEDICAL_EXPIRED_SQL,
+    'bhp': _BHP_EXPIRED_SQL,
+    'onboarding_overdue': _ONBOARDING_OVERDUE_SQL,
+    'foreigner_doc': _FOREIGNER_DOC_EXPIRED_SQL,
+}
+_ALERT_FLAGS_SQL = ', '.join(f'{sql} AS alert_{key}' for key, sql in _ALERT_CATEGORY_SQL.items())
+
 
 class WorkerRepository(AuditableMixin, BaseRepository):
     audit_entity_type = 'worker'
@@ -150,7 +197,7 @@ class WorkerRepository(AuditableMixin, BaseRepository):
 
     def get_all(
         self, *, status: Optional[str] = None, search: Optional[str] = None,
-        needs_attention: Optional[str] = None,
+        needs_attention: Optional[str] = None, alert_categories: Optional[List[str]] = None,
         sort: Optional[str] = None, order: str = 'asc',
         page: int = 1, page_size: int = 25,
     ) -> Tuple[List[Any], int]:
@@ -159,9 +206,15 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         PaginatedTable needs the total to render page controls even though
         it only receives one page's worth of rows.
 
-        `needs_attention`: 'yes' | 'no' | None/'all' — task3's "Wymaga
+        `needs_attention`: 'yes' | 'no' | None/'all' — the original "Wymaga
         uwagi" filter dropdown, reusing `_NEEDS_ATTENTION_EXPR` so the
-        filter always agrees with the badge each row gets."""
+        filter always agrees with the badge each row gets.
+
+        `alert_categories` — UI-fixes-08092026 task2: the stat cards'
+        multi-select filter (any of `_ALERT_CATEGORY_SQL`'s keys), OR'd
+        together and AND'd against `needs_attention`/search/status. Kept as
+        a separate filter rather than folded into `needs_attention` so the
+        original dropdown's 3-category meaning doesn't shift under it."""
         conditions = []
         params: list = []
 
@@ -184,6 +237,11 @@ class WorkerRepository(AuditableMixin, BaseRepository):
             conditions.append(f'NOT {_NEEDS_ATTENTION_EXPR}')
         # needs_attention in (None, 'all') -> no filter
 
+        if alert_categories:
+            category_sql = [_ALERT_CATEGORY_SQL[c] for c in alert_categories if c in _ALERT_CATEGORY_SQL]
+            if category_sql:
+                conditions.append(f"({' OR '.join(category_sql)})")
+
         where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ''
 
         sort_column = _SORT_COLUMNS.get(sort or _DEFAULT_SORT, _SORT_COLUMNS[_DEFAULT_SORT])
@@ -194,7 +252,7 @@ class WorkerRepository(AuditableMixin, BaseRepository):
 
         offset = max(page - 1, 0) * page_size
         list_query = (
-            f"SELECT {_BASE_COLUMNS}, {_NEEDS_ATTENTION_SQL} {_FROM_CLAUSE}"
+            f"SELECT {_BASE_COLUMNS}, {_NEEDS_ATTENTION_SQL}, {_ALERT_FLAGS_SQL} {_FROM_CLAUSE}"
             + where_clause
             + f" ORDER BY {sort_column} {order_sql}, w.id ASC LIMIT %s OFFSET %s"
         )
@@ -249,14 +307,18 @@ class WorkerRepository(AuditableMixin, BaseRepository):
     def count_needs_attention_by_category(self) -> dict:
         """task2 — WorkersListPage's stat cards. Active-worker (fire_date
         IS NULL, same "aktywny" scope as count_active) counts per 'needs
-        attention' category, using the exact same three expressions
-        get_all's row-level flag and the 'yes'/'no' filter use, so the
-        cards' numbers always agree with which rows the badge/filter show."""
+        attention' category, using the exact same expressions get_all's
+        row-level flags and the 'yes'/'no'/`alert_categories` filters use,
+        so the cards' numbers always agree with which rows the badge/filter
+        show. UI-fixes-08092026 task1 added onboarding_overdue_count/
+        foreigner_doc_count alongside the original three."""
         query = f"""
             SELECT
                 COUNT(*) FILTER (WHERE {_GAP_EXISTS_SQL}) AS gap_count,
                 COUNT(*) FILTER (WHERE {_MEDICAL_EXPIRED_SQL}) AS medical_count,
-                COUNT(*) FILTER (WHERE {_BHP_EXPIRED_SQL}) AS bhp_count
+                COUNT(*) FILTER (WHERE {_BHP_EXPIRED_SQL}) AS bhp_count,
+                COUNT(*) FILTER (WHERE {_ONBOARDING_OVERDUE_SQL}) AS onboarding_overdue_count,
+                COUNT(*) FILTER (WHERE {_FOREIGNER_DOC_EXPIRED_SQL}) AS foreigner_doc_count
             FROM workers w
             WHERE w.fire_date IS NULL
         """
@@ -265,6 +327,8 @@ class WorkerRepository(AuditableMixin, BaseRepository):
             'gap_count': row['gap_count'],
             'medical_count': row['medical_count'],
             'bhp_count': row['bhp_count'],
+            'onboarding_overdue_count': row['onboarding_overdue_count'],
+            'foreigner_doc_count': row['foreigner_doc_count'],
         }
 
     def count_active(self) -> int:

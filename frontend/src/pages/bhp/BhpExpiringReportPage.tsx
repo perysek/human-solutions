@@ -12,7 +12,7 @@ import { bhpApi, type ExpiringBhpTraining } from '@/lib/api/bhp';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 
-const KIND_LABELS: Record<ExpiringBhpTraining['kind'], string> = {
+const KIND_LABELS: Record<NonNullable<ExpiringBhpTraining['kind']>, string> = {
   Initial: 'Wstępne',
   Periodic: 'Okresowe',
   Control: 'Kontrolne',
@@ -37,12 +37,25 @@ const BUCKET_STYLE: Record<ExpiringBhpTraining['bucket'], React.CSSProperties> =
     background: 'rgba(107, 114, 128, 0.08)',
     color: 'var(--color-ink-muted)',
   },
+  // UI-fixes-08092026 task3 — see MedicalExpiringReportPage's identical
+  // comment: 'expired' splits out of the old 'critical', 'missing' is a
+  // worker with zero bhp_trainings rows at all.
+  expired: {
+    background: 'rgba(155, 44, 44, 0.14)',
+    color: 'var(--color-error)',
+  },
+  missing: {
+    background: 'rgba(107, 114, 128, 0.12)',
+    color: 'var(--color-ink-muted)',
+  },
 };
 
 const BUCKET_LABELS: Record<ExpiringBhpTraining['bucket'], string> = {
   critical: 'Pilne (≤30 dni)',
   warning: 'Zbliża się (≤60 dni)',
   notice: 'Do obserwacji (≤90 dni)',
+  expired: 'Wygasłe',
+  missing: 'Brak zapisów',
 };
 
 /** BHP_5 (IMPLEMENTATION_PLAN.md §9) — global report of soon-expiring/
@@ -53,7 +66,7 @@ function getSortValue(row: ExpiringBhpTraining, key: string): string | number | 
     case 'full_name':
       return row.full_name;
     case 'kind':
-      return KIND_LABELS[row.kind];
+      return row.kind ? KIND_LABELS[row.kind] : null;
     case 'training_date':
       return row.training_date;
     case 'valid_until':
@@ -128,7 +141,7 @@ export function BhpExpiringReportPage() {
                 <tbody>
                   {sorted.map((training, i) => (
                     <tr
-                      key={training.id}
+                      key={training.id ?? `missing-${training.worker_id}`}
                       onClick={() => navigate(`/workers/${encodeURIComponent(training.worker_id)}`)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') navigate(`/workers/${encodeURIComponent(training.worker_id)}`);
@@ -141,7 +154,7 @@ export function BhpExpiringReportPage() {
                       aria-label={`Zobacz pracownika ${training.full_name}`}
                     >
                       <td>{training.full_name}</td>
-                      <td>{KIND_LABELS[training.kind]}</td>
+                      <td>{training.kind ? KIND_LABELS[training.kind] : '—'}</td>
                       <td>{training.training_date ? new Date(training.training_date).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>{training.valid_until ? new Date(training.valid_until).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>

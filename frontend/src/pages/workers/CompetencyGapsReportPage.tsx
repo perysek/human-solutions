@@ -49,16 +49,6 @@ function gapBucket(gap: number): 'critical' | 'warning' | 'notice' {
   return 'notice';
 }
 
-/** "Zaplanowane działanie" column text — the plan's own description, or
- * (for a "Szkolenie" plan) the linked training's title, plus its planned
- * date. Blank when the row has no plan at all. */
-function formatPlannedAction(row: CompetencyGapRow): string {
-  if (!row.action_plan_id) return '—';
-  const label = row.action_is_training ? (row.action_training_description ?? 'Szkolenie') : (row.action_description ?? '—');
-  const date = row.action_planned_date ? new Date(row.action_planned_date).toLocaleDateString('pl-PL') : null;
-  return date ? `${label} — ${date}` : label;
-}
-
 function getSortValue(row: CompetencyGapRow, key: string): string | number | null {
   switch (key) {
     case 'full_name':
@@ -195,7 +185,7 @@ export function CompetencyGapsReportPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={10} />
+          <TableSkeleton cols={9} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : rows.length === 0 ? (
@@ -218,7 +208,6 @@ export function CompetencyGapsReportPage() {
                     <SortableTh label="Aktualny poziom" sortKey="current_rating" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Luka" sortKey="gap" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
                     <SortableTh label="Ostatnia ocena" sortKey="last_update" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
-                    <th>Zaplanowane działanie</th>
                     <th className="text-right">Akcja</th>
                   </tr>
                 </thead>
@@ -254,13 +243,23 @@ export function CompetencyGapsReportPage() {
                         <td>{row.current_rating ?? 'Brak oceny'}</td>
                         <td>
                           <span className="refined-badge" style={GAP_BUCKET_STYLE[gapBucket(row.gap)]}>
-                            Luka: {row.gap}
+                            {row.gap}
                           </span>
                         </td>
                         <td>{row.last_update ? new Date(row.last_update).toLocaleDateString('pl-PL') : '—'}</td>
-                        <td>{formatPlannedAction(row)}</td>
                         <td className="text-right">
                           <div className="action-icons">
+                            {row.action_plan_id && (
+                              <button
+                                type="button"
+                                className="action-icon-btn"
+                                title="Przejdź do planu działania"
+                                aria-label={`Przejdź do planu działania — ${row.full_name}, ${row.skill_description}`}
+                                onClick={() => navigate('/workers/action-plans')}
+                              >
+                                <Icon name="arrow_forward" />
+                              </button>
+                            )}
                             {row.action_plan_id && canWrite && (
                               <button
                                 type="button"

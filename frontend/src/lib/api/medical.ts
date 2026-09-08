@@ -9,9 +9,16 @@ export interface MedicalExam {
   kind: 'Preliminary' | 'Periodic';
 }
 
-export interface ExpiringMedicalExam extends MedicalExam {
+/** UI-fixes-08092026 task3 — a 'missing' row ("brak zapisów", the worker
+ * has zero medical_exams rows at all) has no real exam to describe, so
+ * `id`/`performed_on`/`valid_until`/`kind` are all null on it — narrower
+ * than the base MedicalExam (used by the real create/edit forms, where
+ * these are always present). */
+export interface ExpiringMedicalExam extends Omit<MedicalExam, 'id' | 'kind'> {
+  id: number | null;
+  kind: MedicalExam['kind'] | null;
   full_name: string;
-  bucket: 'critical' | 'warning' | 'notice';
+  bucket: 'critical' | 'warning' | 'notice' | 'expired' | 'missing';
 }
 
 export interface MedicalExamPayload {

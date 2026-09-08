@@ -123,3 +123,20 @@ class MedicalExamRepository(AuditableMixin, BaseRepository):
             ORDER BY me.valid_until ASC
         """
         return self._fetch_all(query, (days_threshold,))
+
+    def get_missing(self) -> List[Any]:
+        """UI-fixes-08092026 task2/3 — active workers with zero medical_exams
+        rows at all ("brak zapisów"). get_expiring above can never surface
+        these: it joins FROM medical_exams, so a worker who was never
+        examined has no row to match. Distinct from a record whose
+        valid_until is NULL, which this codebase treats as "bezterminowe"
+        (indefinitely valid, see frontend's expiryStatus.ts) — that's not a
+        gap, so it's deliberately not included here."""
+        query = """
+            SELECT w.id AS worker_id, w.firstname, w.surname
+            FROM workers w
+            WHERE w.fire_date IS NULL
+              AND NOT EXISTS (SELECT 1 FROM medical_exams me WHERE me.worker_id = w.id)
+            ORDER BY w.surname, w.firstname
+        """
+        return self._fetch_all(query)

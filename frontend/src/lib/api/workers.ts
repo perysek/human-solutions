@@ -15,6 +15,10 @@ export interface WorkerListItem {
   /** task3 — competence gap, or no currently-valid BHP training/medical
    * exam despite having records of that kind. List-only (api_list). */
   needs_attention: boolean;
+  /** UI-fixes-08092026 task1/3 — "Alerty" column badge grid. Subset of
+   * WorkerAlertCategory (see lib/workerAlerts.ts); list-only (api_list),
+   * same as `needs_attention` above. */
+  alerts: string[];
   /** Derived, not manually assigned — whoever holds the is_managerial job
    * in this worker's own job's department (comma-joined if more than one
    * holds it). null if their job has no department, or that department has
@@ -97,6 +101,9 @@ export interface WorkersListParams {
   search?: string;
   /** task3 — WorkersListPage's "Wymaga uwagi" filter dropdown. */
   needs_attention?: 'yes' | 'no' | 'all';
+  /** UI-fixes-08092026 task2 — stat cards' multi-select filter (any of
+   * WorkerAlertCategory's keys), AND'd against `needs_attention` above. */
+  alert_categories?: string[];
   sort?: string;
   order?: 'asc' | 'desc';
   page?: number;
@@ -171,6 +178,7 @@ function buildQuery(params: WorkersListParams): string {
   if (params.status) usp.set('status', params.status);
   if (params.search) usp.set('search', params.search);
   if (params.needs_attention && params.needs_attention !== 'all') usp.set('needs_attention', params.needs_attention);
+  if (params.alert_categories && params.alert_categories.length > 0) usp.set('alert_categories', params.alert_categories.join(','));
   if (params.sort) usp.set('sort', params.sort);
   if (params.order) usp.set('order', params.order);
   if (params.page) usp.set('page', String(params.page));
@@ -200,7 +208,10 @@ export interface NeedsAttentionSummary {
   gap_count: number;
   medical_count: number;
   bhp_count: number;
-  /** Literal sum of the three counts above — a worker in two categories
+  /** UI-fixes-08092026 task1 — added alongside the original three. */
+  onboarding_overdue_count: number;
+  foreigner_doc_count: number;
+  /** Literal sum of all five counts above — a worker in two categories
    * at once counts toward `total` twice, not a distinct-worker count. */
   total: number;
 }

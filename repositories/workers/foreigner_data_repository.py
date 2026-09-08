@@ -65,3 +65,22 @@ class ForeignerDataRepository(AuditableMixin, BaseRepository):
             ORDER BY fd.document_validity ASC
         """
         return self._fetch_all(query, (days_threshold,))
+
+    def get_missing_document(self) -> list:
+        """UI-fixes-08092026 task2 — workers opted into foreigner tracking
+        (they have a foreigner_data row, WRK_5) whose document_validity was
+        never recorded ("brak zapisów"). get_expiring above requires
+        document_validity IS NOT NULL, so these rows never appear there —
+        no overlap between the two result sets. A worker with no
+        foreigner_data row at all isn't a gap: nothing here says they
+        should have one (see WorkerRepository's _FOREIGNER_DOC_EXPIRED_SQL
+        comment on why foreigner status is opt-in, not nationality-derived)."""
+        query = """
+            SELECT fd.worker_id, w.firstname, w.surname, fd.document_kind, fd.document_validity
+            FROM foreigner_data fd
+            JOIN workers w ON w.id = fd.worker_id
+            WHERE fd.document_validity IS NULL
+              AND w.fire_date IS NULL
+            ORDER BY w.surname, w.firstname
+        """
+        return self._fetch_all(query)

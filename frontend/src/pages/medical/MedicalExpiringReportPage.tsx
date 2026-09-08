@@ -12,7 +12,7 @@ import { medicalApi, type ExpiringMedicalExam } from '@/lib/api/medical';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 
-const KIND_LABELS: Record<ExpiringMedicalExam['kind'], string> = {
+const KIND_LABELS: Record<NonNullable<ExpiringMedicalExam['kind']>, string> = {
   Preliminary: 'Wstępne',
   Periodic: 'Okresowe',
 };
@@ -36,12 +36,25 @@ const BUCKET_STYLE: Record<ExpiringMedicalExam['bucket'], React.CSSProperties> =
     background: 'rgba(107, 114, 128, 0.08)',
     color: 'var(--color-ink-muted)',
   },
+  // UI-fixes-08092026 task3 — a date already in the past (was previously
+  // lumped into 'critical'), and a worker with zero medical_exams rows at
+  // all ("brak zapisów").
+  expired: {
+    background: 'rgba(155, 44, 44, 0.14)',
+    color: 'var(--color-error)',
+  },
+  missing: {
+    background: 'rgba(107, 114, 128, 0.12)',
+    color: 'var(--color-ink-muted)',
+  },
 };
 
 const BUCKET_LABELS: Record<ExpiringMedicalExam['bucket'], string> = {
   critical: 'Pilne (≤30 dni)',
   warning: 'Zbliża się (≤60 dni)',
   notice: 'Do obserwacji (≤90 dni)',
+  expired: 'Wygasłe',
+  missing: 'Brak zapisów',
 };
 
 /** MED_6 (IMPLEMENTATION_PLAN.md §9) — global report of soon-expiring/
@@ -52,7 +65,7 @@ function getSortValue(row: ExpiringMedicalExam, key: string): string | number | 
     case 'full_name':
       return row.full_name;
     case 'kind':
-      return KIND_LABELS[row.kind];
+      return row.kind ? KIND_LABELS[row.kind] : null;
     case 'performed_on':
       return row.performed_on;
     case 'valid_until':
@@ -127,7 +140,7 @@ export function MedicalExpiringReportPage() {
                 <tbody>
                   {sorted.map((exam, i) => (
                     <tr
-                      key={exam.id}
+                      key={exam.id ?? `missing-${exam.worker_id}`}
                       onClick={() => navigate(`/workers/${encodeURIComponent(exam.worker_id)}`)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') navigate(`/workers/${encodeURIComponent(exam.worker_id)}`);
@@ -140,7 +153,7 @@ export function MedicalExpiringReportPage() {
                       aria-label={`Zobacz pracownika ${exam.full_name}`}
                     >
                       <td>{exam.full_name}</td>
-                      <td>{KIND_LABELS[exam.kind]}</td>
+                      <td>{exam.kind ? KIND_LABELS[exam.kind] : '—'}</td>
                       <td>{exam.performed_on ? new Date(exam.performed_on).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>{exam.valid_until ? new Date(exam.valid_until).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>

@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { StatCard } from '@/components/ui/StatCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AlertPanel, type AlertPanelRow } from '@/components/dashboard/AlertPanel';
 import { useApiData } from '@/lib/api/useApiData';
@@ -18,16 +17,20 @@ const BHP_KIND_LABELS: Record<string, string> = { Initial: 'Wstępne', Periodic:
 export function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data: summary, loading: summaryLoading, error: summaryError } = useApiData(() => dashboardApi.summary(), []);
   const { data: alerts, loading: alertsLoading, error: alertsError } = useApiData(() => dashboardApi.alerts(), []);
 
+  // UI-fixes-08092026 task2 — a 'missing' row ("brak zapisów") has no
+  // real record id/kind/date to describe (see ExpiringMedicalExam's
+  // docstring), so it gets its own fixed detail text and a worker-scoped
+  // synthetic key instead of `m-${null}` (which would collide across every
+  // missing-records worker).
   const medicalRows: AlertPanelRow[] =
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.medical.map((r) => ({
-          key: `m-${r.id}`,
+          key: r.id != null ? `m-${r.id}` : `m-missing-${r.worker_id}`,
           id: r.worker_id,
           fullName: r.full_name,
-          detail: MEDICAL_KIND_LABELS[r.kind] ?? r.kind,
+          detail: r.kind ? (MEDICAL_KIND_LABELS[r.kind] ?? r.kind) : 'Brak zarejestrowanego badania',
           date: r.valid_until,
           bucket: r.bucket,
         }))
@@ -36,10 +39,10 @@ export function DashboardPage() {
   const bhpRows: AlertPanelRow[] =
     alerts && !isOwnTrainingsAlerts(alerts)
       ? alerts.bhp.map((r) => ({
-          key: `b-${r.id}`,
+          key: r.id != null ? `b-${r.id}` : `b-missing-${r.worker_id}`,
           id: r.worker_id,
           fullName: r.full_name,
-          detail: BHP_KIND_LABELS[r.kind] ?? r.kind,
+          detail: r.kind ? (BHP_KIND_LABELS[r.kind] ?? r.kind) : 'Brak zarejestrowanego szkolenia',
           date: r.valid_until,
           bucket: r.bucket,
         }))
@@ -51,7 +54,7 @@ export function DashboardPage() {
           key: `f-${r.worker_id}-${i}`,
           id: r.worker_id,
           fullName: r.full_name,
-          detail: r.document_kind ?? 'Dokument',
+          detail: r.bucket === 'missing' ? 'Brak daty ważności dokumentu' : (r.document_kind ?? 'Dokument'),
           date: r.document_validity,
           bucket: r.bucket,
         }))
@@ -135,21 +138,6 @@ export function DashboardPage() {
         }
       />
 
-      {summaryError ? (
-        <EmptyState icon="error" title="Nie udało się wczytać podsumowania" message={summaryError} />
-      ) : (
-        <div className="stats-grid">
-          <StatCard label="Aktywni pracownicy" value={summaryLoading ? '…' : (summary?.active_workers ?? 0)} icon="people" color="blue" index={0} />
-          <StatCard
-            label="Szkolenia w tym miesiącu"
-            value={summaryLoading ? '…' : (summary?.trainings_this_month ?? 0)}
-            icon="event"
-            color="green"
-            index={1}
-          />
-        </div>
-      )}
-
       {alertsLoading ? (
         <p className="page-subtitle">Ładowanie alertów…</p>
       ) : alertsError ? (
@@ -194,7 +182,7 @@ export function DashboardPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4" style={{ gap: '1rem' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '1rem' }}>
           <AlertPanel title="Badania lekarskie" rows={medicalRows} emptyMessage="Żadne badanie nie wygasa wkrótce." />
           <AlertPanel title="Szkolenia BHP" rows={bhpRows} emptyMessage="Żadne szkolenie BHP nie wygasa wkrótce." />
           <AlertPanel title="Dokumenty cudzoziemców" rows={foreignerDocRows} emptyMessage="Żaden dokument nie wygasa wkrótce." />

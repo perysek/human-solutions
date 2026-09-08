@@ -1,11 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
-import { ColumnFilterDropdown } from '@/components/ui/ColumnFilterDropdown';
-import { SearchInput } from '@/components/ui/SearchInput';
 import { useApiData } from '@/lib/api/useApiData';
-import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { trainingsApi } from '@/lib/api/trainings';
 import { ACTION_PLAN_STATUS_OPTIONS } from '@/lib/actionPlanStatus';
 
@@ -16,9 +13,19 @@ function fmt(d: string | null) {
 // An open enrollment (get_open_report's own filter) can never have reached
 // 'effective' — dropping it here keeps the status filter's option list (and
 // its "select all" == "no filter" state) honest about what can actually
-// appear in this table.
-const STATUS_OPTIONS = ACTION_PLAN_STATUS_OPTIONS.filter((o) => o.value !== 'effective');
-const STATUS_BY_VALUE = new Map(STATUS_OPTIONS.map((o) => [o.value, o]));
+// appear in this table. Exported — UI-fixes-08092026 moved the toolbar that
+// renders this filter up into TrainingsListPage's page-tabs row, so the
+// parent needs the option list too (for the dropdown itself and to seed
+// its "everything selected" initial state).
+export const OPEN_TRAININGS_STATUS_OPTIONS = ACTION_PLAN_STATUS_OPTIONS.filter((o) => o.value !== 'effective');
+const STATUS_BY_VALUE = new Map(OPEN_TRAININGS_STATUS_OPTIONS.map((o) => [o.value, o]));
+
+interface OpenTrainingsTabProps {
+  /** Already-debounced — TrainingsListPage owns the raw input + debounce,
+   * same as it does for the "Lista szkoleń" tab's own search. */
+  search: string;
+  statusFilter: Set<string>;
+}
 
 /** Task 4 — "Szkolenia otwarte": every worker's not-yet-fully-completed
  * training enrollments, grouped under the worker the same way
@@ -26,18 +33,18 @@ const STATUS_BY_VALUE = new Map(STATUS_OPTIONS.map((o) => [o.value, o]));
  * block carries their name, the rest render that cell blank, with a
  * border-top separator between blocks) — rows already arrive worker-first
  * from the backend (TrainingParticipantRepository.get_open_report), so no
- * client-side sort is needed to keep that grouping intact after filtering. */
-export function OpenTrainingsTab() {
+ * client-side sort is needed to keep that grouping intact after filtering.
+ *
+ * UI-fixes-08092026 — `search`/`statusFilter` are now controlled props
+ * (TrainingsListPage renders the actual toolbar inline in its page-tabs
+ * row); this component owns only the data fetch + row filtering + table. */
+export function OpenTrainingsTab({ search, statusFilter }: OpenTrainingsTabProps) {
   const navigate = useNavigate();
   const { data, loading, error } = useApiData(() => trainingsApi.openReport());
   const allRows = useMemo(() => data?.results ?? [], [data]);
 
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
-  const [statusFilter, setStatusFilter] = useState<Set<string>>(() => new Set(STATUS_OPTIONS.map((o) => o.value)));
-
   const rows = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
     return allRows.filter((r) => {
       if (!statusFilter.has(r.status)) return false;
       if (!q) return true;
@@ -47,23 +54,12 @@ export function OpenTrainingsTab() {
         (r.trainer_name ?? '').toLowerCase().includes(q)
       );
     });
-  }, [allRows, debouncedSearch, statusFilter]);
+  }, [allRows, search, statusFilter]);
 
   const workerCount = useMemo(() => new Set(rows.map((r) => r.worker_id)).size, [rows]);
 
   return (
     <>
-      <div className="search-card">
-        <div className="search-wrapper">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Szukaj po pracowniku, szkoleniu lub prowadzącym…"
-          />
-          <ColumnFilterDropdown columnLabel="Status" options={STATUS_OPTIONS} selected={statusFilter} onChange={setStatusFilter} />
-        </div>
-      </div>
-
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
           <TableSkeleton cols={7} />
@@ -73,7 +69,7 @@ export function OpenTrainingsTab() {
           <EmptyState
             icon="check_circle"
             title="Brak otwartych szkoleń"
-            message={search || statusFilter.size < STATUS_OPTIONS.length ? 'Żaden wiersz nie pasuje do filtrów.' : 'Każde szkolenie zostało ukończone i potwierdzone jako skuteczne.'}
+            message={search || statusFilter.size < OPEN_TRAININGS_STATUS_OPTIONS.length ? 'Żaden wiersz nie pasuje do filtrów.' : 'Każde szkolenie zostało ukończone i potwierdzone jako skuteczne.'}
           />
         ) : (
           <>

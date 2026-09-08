@@ -10,6 +10,12 @@ interface StatCardProps {
   color?: StatColor;
   /** Position within its stats-grid — staggers the entrance animation. */
   index?: number;
+  /** UI-fixes-08092026 task1 — when provided, the card renders as a
+   * toggle button (WorkersListPage's stat-card-as-filter) instead of a
+   * static tile. */
+  onClick?: () => void;
+  /** Toggled-on visual state — dimmed green ring, only meaningful with `onClick`. */
+  active?: boolean;
 }
 
 /** Numeric values count up from 0 (mount) / their previous value (refresh);
@@ -21,9 +27,18 @@ function StatValue({ value }: { value: string | number }) {
 }
 
 /** Matches input.css .stats-grid / .stat-card / .stat-icon / .stat-value / .stat-label. */
-export function StatCard({ label, value, icon, color = 'blue', index = 0 }: StatCardProps) {
-  return (
-    <div className="stat-card stagger-item" style={{ animationDelay: `${index * 50}ms` }}>
+export function StatCard({ label, value, icon, color = 'blue', index = 0, onClick, active = false }: StatCardProps) {
+  const className = [
+    'stat-card',
+    'stagger-item',
+    onClick && 'stat-card-clickable',
+    active && 'stat-card-active',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const content = (
+    <>
       <div>
         <p className="stat-label mb-1">{label}</p>
         <p className={`stat-value ${color}`}>
@@ -33,6 +48,26 @@ export function StatCard({ label, value, icon, color = 'blue', index = 0 }: Stat
       <div className={`stat-icon ${color}`}>
         <Icon name={icon} size={24} />
       </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={className}
+        style={{ animationDelay: `${index * 50}ms` }}
+        onClick={onClick}
+        aria-pressed={active}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className} style={{ animationDelay: `${index * 50}ms` }}>
+      {content}
     </div>
   );
 }

@@ -5,26 +5,33 @@ export interface DashboardSummary {
   trainings_this_month: number;
 }
 
-export type AlertBucket = 'critical' | 'warning' | 'notice';
+/** UI-fixes-08092026 task2/3 added 'expired' (a date already in the past —
+ * distinct from 'critical', still-in-the-future-but-close) and 'missing'
+ * ("brak zapisów" — no record at all, or, for foreigner docs, a record
+ * with no document_validity). Both are excluded from the alert kinds that
+ * never carried them (upcoming terminations, overdue trainings/action
+ * plans — see their own Exclude<...> below), so those keep their
+ * pre-existing 2-tier meaning unchanged. */
+export type AlertBucket = 'critical' | 'warning' | 'notice' | 'expired' | 'missing';
 
 export interface MedicalAlert {
-  id: number;
+  id: number | null;
   worker_id: string;
   full_name: string;
   description: string | null;
   performed_on: string | null;
   valid_until: string | null;
-  kind: 'Preliminary' | 'Periodic';
+  kind: 'Preliminary' | 'Periodic' | null;
   bucket: AlertBucket;
 }
 
 export interface BhpAlert {
-  id: number;
+  id: number | null;
   worker_id: string;
   full_name: string;
   training_date: string | null;
   valid_until: string | null;
-  kind: 'Initial' | 'Periodic' | 'Control';
+  kind: 'Initial' | 'Periodic' | 'Control' | null;
   bucket: AlertBucket;
 }
 
@@ -33,8 +40,11 @@ export interface ForeignerDocAlert {
   full_name: string;
   document_kind: string | null;
   document_validity: string | null;
-  /** DSH_4 — only ever 'critical' | 'warning' (OQ_1: this module has no notice tier). */
-  bucket: Exclude<AlertBucket, 'notice'>;
+  /** DSH_4 — 'critical' | 'warning' (OQ_1: this module has no notice tier)
+   * plus UI-fixes-08092026 task2's 'missing' ("brak zapisów"). No
+   * 'expired' tier here — get_expiring_foreigner_docs_with_bucket still
+   * uses the original 2-tier critical/warning split for actual dates. */
+  bucket: Exclude<AlertBucket, 'notice' | 'expired'>;
 }
 
 /** Task 2 — a job-position with no department assigned (jobs.department_id
@@ -54,7 +64,7 @@ export interface UpcomingTerminationAlert {
   worker_id: string;
   full_name: string;
   planned_fire_date: string | null;
-  bucket: Exclude<AlertBucket, 'notice'>;
+  bucket: Exclude<AlertBucket, 'notice' | 'expired' | 'missing'>;
 }
 
 /** Pulpit's "Zaległe szkolenia" alert (Faza 7) — a training whose
@@ -67,7 +77,7 @@ export interface OverdueTrainingAlert {
   training_date: string;
   pending_participants: number;
   delay_days: number;
-  bucket: Exclude<AlertBucket, 'notice'>;
+  bucket: Exclude<AlertBucket, 'notice' | 'expired' | 'missing'>;
 }
 
 /** Pulpit's "Działania do luk kompetencji" alert (Faza 7) — an open action
@@ -79,7 +89,7 @@ export interface OverdueActionPlanAlert {
   responsible_name: string | null;
   planned_date: string;
   delay_days: number;
-  bucket: Exclude<AlertBucket, 'notice'>;
+  bucket: Exclude<AlertBucket, 'notice' | 'expired' | 'missing'>;
 }
 
 export interface OwnTraining {

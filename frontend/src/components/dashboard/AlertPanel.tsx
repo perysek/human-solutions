@@ -29,18 +29,24 @@ interface AlertPanelProps {
 /** Same bucket palette as MedicalExpiringReportPage/BhpExpiringReportPage
  * (Faza 4) — kept in sync manually since each report page already
  * duplicates its own copy; DSH_4's foreigner_docs panel only ever passes
- * 'critical'/'warning' rows (see ForeignerDocAlert's type), so 'notice'
- * exists here only for the medical/bhp panels. */
+ * 'critical'/'warning'/'missing' rows (see ForeignerDocAlert's type), so
+ * 'notice'/'expired' exist here only for the medical/bhp panels.
+ * UI-fixes-08092026 task2/3 added 'expired' (already past, not just
+ * "close") and 'missing' ("brak zapisów" — no record at all). */
 const BUCKET_STYLE: Record<AlertBucket, React.CSSProperties> = {
   critical: { background: 'rgba(155, 44, 44, 0.08)', color: 'var(--color-error)' },
   warning: { background: 'var(--color-orange-bg)', color: 'var(--color-orange)' },
   notice: { background: 'rgba(107, 114, 128, 0.08)', color: 'var(--color-ink-muted)' },
+  expired: { background: 'rgba(155, 44, 44, 0.14)', color: 'var(--color-error)' },
+  missing: { background: 'rgba(107, 114, 128, 0.12)', color: 'var(--color-ink-muted)' },
 };
 
 const BUCKET_LABELS: Record<AlertBucket, string> = {
   critical: 'Pilne',
   warning: 'Zbliża się',
   notice: 'Do obserwacji',
+  expired: 'Wygasłe',
+  missing: 'Brak zapisów',
 };
 
 /** Faza 6 (IMPLEMENTATION_PLAN.md §11) — one alert panel card for the
@@ -53,7 +59,10 @@ export function AlertPanel({ title, rows, emptyMessage, dateLabel = 'Ważne do',
   const handleClick = onRowClick ?? ((row: AlertPanelRow) => navigate(`/workers/${encodeURIComponent(row.id)}`));
 
   return (
-    <div className="refined-card" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    // UI-fixes-08092026 task2 — padding trimmed from 1.25rem: at 2-per-row
+    // width the card reads as mostly empty frame around its row list, same
+    // "excessive padding" call as the page-chrome density pass earlier.
+    <div className="refined-card" style={{ padding: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2 className="text-base font-semibold" style={{ color: 'var(--color-ink)' }}>
           {title}

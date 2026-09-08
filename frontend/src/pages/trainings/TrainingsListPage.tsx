@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/Button';
 import { PaginatedTable } from '@/components/ui/PaginatedTable';
 import { SortableTh } from '@/components/ui/SortableTh';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { ColumnFilterDropdown } from '@/components/ui/ColumnFilterDropdown';
 import { Icon } from '@/lib/icons/Icon';
 import { useApiData } from '@/lib/api/useApiData';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useServerSort } from '@/lib/useServerSort';
 import { trainingsApi, type TrainingListItem } from '@/lib/api/trainings';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { OpenTrainingsTab } from './OpenTrainingsTab';
+import { OpenTrainingsTab, OPEN_TRAININGS_STATUS_OPTIONS } from './OpenTrainingsTab';
 
 const PAGE_SIZE = 25;
 
@@ -39,6 +40,15 @@ export function TrainingsListPage() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [page, setPage] = useState(1);
+
+  // UI-fixes-08092026 — "Szkolenia otwarte"'s own search/status filter,
+  // now owned here so the toolbar can render inline in the page-tabs row
+  // (see OpenTrainingsTab's controlled-props docstring).
+  const [openSearch, setOpenSearch] = useState('');
+  const debouncedOpenSearch = useDebouncedValue(openSearch, 300);
+  const [openStatusFilter, setOpenStatusFilter] = useState<Set<string>>(
+    () => new Set(OPEN_TRAININGS_STATUS_OPTIONS.map((o) => o.value)),
+  );
   const { sortKey, sortOrder, onSort } = useServerSort('training_date', 'asc');
 
   function resetToFirstPage() {
@@ -89,29 +99,48 @@ export function TrainingsListPage() {
         }
       />
 
-      <div className="page-tabs" role="tablist" aria-label="Widok szkoleń">
-        <button type="button" role="tab" aria-selected={tab === 'list'} className={`page-tab ${tab === 'list' ? 'is-active' : ''}`} onClick={() => setTab('list')}>
-          Lista szkoleń
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'open'} className={`page-tab ${tab === 'open' ? 'is-active' : ''}`} onClick={() => setTab('open')}>
-          Pracownicy do szkolenia
-        </button>
+      <div className="page-tabs-row">
+        <div className="page-tabs" role="tablist" aria-label="Widok szkoleń">
+          <button type="button" role="tab" aria-selected={tab === 'list'} className={`page-tab ${tab === 'list' ? 'is-active' : ''}`} onClick={() => setTab('list')}>
+            Lista szkoleń
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'open'} className={`page-tab ${tab === 'open' ? 'is-active' : ''}`} onClick={() => setTab('open')}>
+            Pracownicy do szkolenia
+          </button>
+        </div>
+
+        {/* UI-fixes-08092026 — the active tab's own filter row, inline to
+            the right of the tabs instead of a separate .search-card block
+            below, filling the rest of the row's width. */}
+        <div className="page-tabs-toolbar">
+          {tab === 'list' ? (
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Szukaj po nazwie lub powiązanej umiejętności…"
+            />
+          ) : (
+            <>
+              <SearchInput
+                value={openSearch}
+                onChange={setOpenSearch}
+                placeholder="Szukaj po pracowniku, szkoleniu lub prowadzącym…"
+              />
+              <ColumnFilterDropdown
+                columnLabel="Status"
+                options={OPEN_TRAININGS_STATUS_OPTIONS}
+                selected={openStatusFilter}
+                onChange={setOpenStatusFilter}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {tab === 'open' ? (
-        <OpenTrainingsTab />
+        <OpenTrainingsTab search={debouncedOpenSearch} statusFilter={openStatusFilter} />
       ) : (
         <>
-          <div className="search-card">
-            <div className="search-wrapper">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Szukaj po nazwie lub powiązanej umiejętności…"
-              />
-            </div>
-          </div>
-
           <div className="table-container" style={{ flex: 1 }}>
             {loading ? (
               <TableSkeleton cols={6} />

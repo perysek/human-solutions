@@ -38,9 +38,15 @@ export function SortableTh({ label, sortKey, currentSort, currentOrder, onSort, 
 
   return (
     <th className={`th-sortable ${isActive ? 'sort-active' : ''} ${alignClass}`} aria-sort={ariaSort} id={`th-${sortKey}`} style={style}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+      {/* UI-fixes-08092026 — min-width:0 down this whole flex chain
+          (th-sort-wrap > th-sort-btn > th-sort-label): a flex item's
+          default min-width:auto refuses to shrink below its content's own
+          width, which for a fixed-width column silently clips the label
+          instead of letting it wrap — invisible until a column is narrow
+          enough to expose it (ActionPlansPage's table-layout:fixed did). */}
+      <span className="th-sort-wrap">
         <button type="button" className="th-sort-btn" onClick={() => onSort(sortKey)}>
-          <span>{label}</span>
+          <span className="th-sort-label">{label}</span>
           <span className="th-sort-icon" id={`si-${sortKey}`} aria-hidden="true">
             {glyph}
           </span>

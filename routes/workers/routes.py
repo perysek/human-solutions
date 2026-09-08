@@ -56,6 +56,11 @@ def _parse_date(value, *, field_label: str):
 
 workers_bp = Blueprint('workers', __name__, url_prefix='/workers')
 
+# UI-fixes-08092026 task1/3 — mirrors WorkerRepository._ALERT_CATEGORY_SQL's
+# keys (kept as a plain tuple here rather than importing the SQL dict, since
+# the route layer only needs the key order, not the SQL fragments).
+_ALERT_CATEGORY_KEYS = ('gap', 'medical', 'bhp', 'onboarding_overdue', 'foreigner_doc')
+
 
 def _worker_json(row) -> dict:
     return {
@@ -71,6 +76,11 @@ def _worker_json(row) -> dict:
         # Only present on rows from WorkerRepository.get_all (api_list, task3) —
         # get_by_id/get_subordinates/get_by_job don't compute it.
         'needs_attention': bool(row.get('needs_attention', False)),
+        # UI-fixes-08092026 task1/3 — "Alerty" column badge grid. Only
+        # present on rows from get_all (its SELECT is the only one that
+        # joins _ALERT_FLAGS_SQL); row.get(...) reads None -> falsy on
+        # every other caller, so `alerts` is simply [] there.
+        'alerts': [key for key in _ALERT_CATEGORY_KEYS if row.get(f'alert_{key}')],
         # Derived, not stored (see WorkerRepository._BASE_COLUMNS) — the
         # worker(s) holding the is_managerial job in this worker's own job's
         # department, comma-joined if more than one holds it, None if their
@@ -136,12 +146,17 @@ def _termination_json(row) -> dict:
 @login_required
 @module_permission_required('workers')
 def api_list():
-    """GET /workers/api?status=&search=&needs_attention=&sort=&order=&page=&page_size= — WRK_1/WRK_11."""
+    """GET /workers/api?status=&search=&needs_attention=&alert_categories=&sort=&order=&page=&page_size=
+    — WRK_1/WRK_11."""
     try:
         worker_service.finalize_due_terminations()
         status = request.args.get('status') or None
         search = request.args.get('search') or None
         needs_attention = request.args.get('needs_attention') or None
+        # UI-fixes-08092026 task2 — stat cards' multi-select filter, comma-
+        # separated category keys (see WorkerRepository._ALERT_CATEGORY_SQL).
+        alert_categories_raw = request.args.get('alert_categories') or None
+        alert_categories = [c for c in alert_categories_raw.split(',') if c] if alert_categories_raw else None
         sort = request.args.get('sort') or None
         order = request.args.get('order') or 'asc'
         page = max(int(request.args.get('page', 1)), 1)
@@ -149,6 +164,7 @@ def api_list():
 
         rows, total = WorkerRepository().get_all(
             status=status, search=search, needs_attention=needs_attention,
+            alert_categories=alert_categories,
             sort=sort, order=order, page=page, page_size=page_size,
         )
         return jsonify({
@@ -171,13 +187,18 @@ def api_list():
 @module_permission_required('workers')
 def api_needs_attention_summary():
     """GET /workers/api/needs-attention-summary — task2's stat cards atop
-    WorkersListPage. `total` is the literal sum of the three category
+    WorkersListPage. `total` is the literal sum of all five category
     counts (a worker in two categories at once counts toward `total`
     twice, same as it counts toward two separate cards) — this is a sum of
-    issues, not a count of distinct flagged workers."""
+    issues, not a count of distinct flagged workers. UI-fixes-08092026
+    task1 folded onboarding_overdue_count/foreigner_doc_count into that
+    sum alongside the original three."""
     try:
         counts = WorkerRepository().count_needs_attention_by_category()
-        counts['total'] = counts['gap_count'] + counts['medical_count'] + counts['bhp_count']
+        counts['total'] = (
+            counts['gap_count'] + counts['medical_count'] + counts['bhp_count']
+            + counts['onboarding_overdue_count'] + counts['foreigner_doc_count']
+        )
         return jsonify(counts)
     except AppError:
         raise

@@ -16,7 +16,7 @@ import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { useServerSort } from '@/lib/useServerSort';
 import { workersApi, type WorkerListItem } from '@/lib/api/workers';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { onboardingBadgeInfo } from '@/lib/onboardingStatus';
+import { WORKER_ALERT_CATEGORIES, WORKER_ALERT_INFO, type WorkerAlertCategory } from '@/lib/workerAlerts';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Aktywni' },
@@ -48,6 +48,9 @@ export function WorkersListPage() {
   const debouncedSearch = useDebouncedValue(search, 300);
   const [status, setStatus] = useState<'active' | 'inactive' | 'all'>('active');
   const [needsAttention, setNeedsAttention] = useState<'yes' | 'no' | 'all'>('all');
+  // UI-fixes-08092026 task1 — the stat cards' own multi-select filter,
+  // independent of (AND'd against) the "Wymaga uwagi" dropdown above.
+  const [alertFilters, setAlertFilters] = useState<Set<WorkerAlertCategory>>(new Set());
   const [page, setPage] = useState(1);
   const { sortKey, sortOrder, onSort } = useServerSort('surname', 'asc');
 
@@ -61,18 +64,24 @@ export function WorkersListPage() {
     resetToFirstPage();
   }, [debouncedSearch]);
 
+  const alertFiltersKey = Array.from(alertFilters).sort().join(',');
+
   const { data, loading, error } = useApiData(
     () =>
       workersApi.list({
         status,
         search: debouncedSearch || undefined,
         needs_attention: needsAttention,
+        alert_categories: alertFilters.size > 0 ? Array.from(alertFilters) : undefined,
         sort: sortKey ?? undefined,
         order: sortOrder ?? undefined,
         page,
         page_size: PAGE_SIZE,
       }),
-    [status, debouncedSearch, needsAttention, sortKey, sortOrder, page],
+    // alertFiltersKey (not alertFilters itself) — a Set has no useful
+    // identity for a dependency array; the sorted, joined string is what
+    // actually needs to compare equal across renders.
+    [status, debouncedSearch, needsAttention, alertFiltersKey, sortKey, sortOrder, page],
   );
 
   // task2 — stat cards atop the page, independent of the table's own
@@ -84,6 +93,26 @@ export function WorkersListPage() {
 
   function handleSort(key: string) {
     onSort(key);
+    resetToFirstPage();
+  }
+
+  // UI-fixes-08092026 task1 — toggling a stat card adds/removes its
+  // category from the multi-select filter (OR'd together server-side).
+  function toggleAlertFilter(category: WorkerAlertCategory) {
+    setAlertFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+    resetToFirstPage();
+  }
+
+  // "Łącznie wymaga uwagi" card — selects every category at once; clicking
+  // it again (already all-selected) clears the filter entirely.
+  const allAlertsSelected = alertFilters.size === WORKER_ALERT_CATEGORIES.length;
+  function toggleAllAlertFilters() {
+    setAlertFilters(allAlertsSelected ? new Set() : new Set(WORKER_ALERT_CATEGORIES));
     resetToFirstPage();
   }
 
@@ -110,34 +139,60 @@ export function WorkersListPage() {
         }
       />
 
-      <div className="stats-grid">
+      <div className="stats-grid stats-grid-compact">
         <StatCard
-          label="Luka kompetencyjna"
+          label={WORKER_ALERT_INFO.gap.cardLabel}
           value={summaryLoading ? '…' : (summary?.gap_count ?? 0)}
-          icon="checklist"
+          icon={WORKER_ALERT_INFO.gap.icon}
           color="orange"
           index={0}
+          onClick={() => toggleAlertFilter('gap')}
+          active={alertFilters.has('gap')}
         />
         <StatCard
-          label="Wygasłe badania lekarskie"
+          label={WORKER_ALERT_INFO.medical.cardLabel}
           value={summaryLoading ? '…' : (summary?.medical_count ?? 0)}
-          icon="warning"
+          icon={WORKER_ALERT_INFO.medical.icon}
           color="orange"
           index={1}
+          onClick={() => toggleAlertFilter('medical')}
+          active={alertFilters.has('medical')}
         />
         <StatCard
-          label="Wygasłe szkolenia BHP"
+          label={WORKER_ALERT_INFO.bhp.cardLabel}
           value={summaryLoading ? '…' : (summary?.bhp_count ?? 0)}
-          icon="warning"
+          icon={WORKER_ALERT_INFO.bhp.icon}
           color="orange"
           index={2}
+          onClick={() => toggleAlertFilter('bhp')}
+          active={alertFilters.has('bhp')}
+        />
+        <StatCard
+          label={WORKER_ALERT_INFO.onboarding_overdue.cardLabel}
+          value={summaryLoading ? '…' : (summary?.onboarding_overdue_count ?? 0)}
+          icon={WORKER_ALERT_INFO.onboarding_overdue.icon}
+          color="orange"
+          index={3}
+          onClick={() => toggleAlertFilter('onboarding_overdue')}
+          active={alertFilters.has('onboarding_overdue')}
+        />
+        <StatCard
+          label={WORKER_ALERT_INFO.foreigner_doc.cardLabel}
+          value={summaryLoading ? '…' : (summary?.foreigner_doc_count ?? 0)}
+          icon={WORKER_ALERT_INFO.foreigner_doc.icon}
+          color="orange"
+          index={4}
+          onClick={() => toggleAlertFilter('foreigner_doc')}
+          active={alertFilters.has('foreigner_doc')}
         />
         <StatCard
           label="Łącznie wymaga uwagi"
           value={summaryLoading ? '…' : (summary?.total ?? 0)}
           icon="error_outline"
           color="orange"
-          index={3}
+          index={5}
+          onClick={toggleAllAlertFilters}
+          active={allAlertsSelected}
         />
       </div>
 
@@ -203,7 +258,7 @@ export function WorkersListPage() {
                     <SortableTh label="Data zatrudnienia" sortKey="hire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <SortableTh label="Data zwolnienia" sortKey="fire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <th>Status</th>
-                    <th>Szkolenia wstępne</th>
+                    <th>Alerty</th>
                     {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
                     <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
@@ -229,41 +284,29 @@ export function WorkersListPage() {
                       <td>{w.hire_date ? new Date(w.hire_date).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>{w.fire_date ? new Date(w.fire_date).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>
-                        <span className="flex items-center gap-1.5">
-                          <StatusBadge status={w.is_active ? 'active' : 'inactive'}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>
-                          {w.needs_attention && (
-                            <span
-                              title="Wymaga uwagi — luka kompetencyjna, wygasłe badanie lub szkolenie BHP"
-                              aria-label="Wymaga uwagi"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'var(--color-warning)',
-                                background: 'rgba(154, 103, 0, 0.12)',
-                                borderRadius: '9999px',
-                                width: '1.25rem',
-                                height: '1.25rem',
-                                flexShrink: 0,
-                              }}
-                            >
-                              <Icon name="warning" size={14} />
-                            </span>
-                          )}
-                        </span>
+                        <StatusBadge status={w.is_active ? 'active' : 'inactive'}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>
                       </td>
                       <td>
-                        {(() => {
-                          const badge = onboardingBadgeInfo(w.onboarding_completed, w.onboarding_completion_pct);
-                          return (
-                            <StatusBadge status={badge.status}>
-                              {badge.label}
-                              {badge.pct !== null && (
-                                <span style={{ marginLeft: '0.375rem', opacity: 0.7 }}>{badge.pct}%</span>
-                              )}
-                            </StatusBadge>
-                          );
-                        })()}
+                        {w.alerts.length === 0 ? (
+                          <span style={{ color: 'var(--color-ink-subtle)' }}>—</span>
+                        ) : (
+                          <div className="alert-badge-grid">
+                            {w.alerts.slice(0, 6).map((key) => {
+                              const info = WORKER_ALERT_INFO[key as WorkerAlertCategory];
+                              if (!info) return null;
+                              return (
+                                <span
+                                  key={key}
+                                  className={`alert-badge-chip ${info.tone}`}
+                                  title={info.badgeLabel}
+                                  aria-label={info.badgeLabel}
+                                >
+                                  <Icon name={info.icon} size={14} />
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
                       {canWrite && (
                         <td>

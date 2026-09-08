@@ -74,15 +74,22 @@ def get_expiring_foreigner_docs(days_threshold: int = DEFAULT_FOREIGNER_DOC_THRE
 
 
 def _bucket(valid_until: Optional[date], thresholds: dict) -> str:
-    """critical / warning / notice dla jednej daty ważności, wg progów
-    `thresholds` ({critical_days, warning_days, notice_days} — Faza 6:
-    konfigurowalne per moduł zamiast globalnych stałych). Wywołujący już
+    """expired / critical / warning / notice dla jednej daty ważności, wg
+    progów `thresholds` ({critical_days, warning_days, notice_days} — Faza
+    6: konfigurowalne per moduł zamiast globalnych stałych). Wywołujący już
     odfiltrował NULL-e (get_expiring pomija valid_until IS NULL), więc None
     tu nie powinno wystąpić — traktowane jako najmniej pilne, żeby nigdy
-    nie ukryć wiersza."""
+    nie ukryć wiersza.
+
+    UI-fixes-08092026 task3 split 'expired' out of what used to be lumped
+    into 'critical': a date already in the past (days_left < 0) now reads
+    as its own "wygasłe" badge, distinct from "critical" ("Pilne (≤N dni)"
+    — still in the future, just close)."""
     if valid_until is None:
         return 'notice'
     days_left = (valid_until - date.today()).days
+    if days_left < 0:
+        return 'expired'
     if days_left <= thresholds['critical_days']:
         return 'critical'
     if days_left <= thresholds['warning_days']:
@@ -101,26 +108,59 @@ def _bucket_2tier(valid_until: Optional[date], thresholds: dict) -> str:
     return 'critical' if days_left <= thresholds['critical_days'] else 'warning'
 
 
+def _missing_medical_rows() -> list:
+    """UI-fixes-08092026 task2/3 — MedicalExamRepository.get_missing's rows,
+    reshaped to the same dict keys as an expiring-exam row (with 'bucket':
+    'missing') so callers/consumers (routes/medical/routes.py's
+    _exam_json, DashboardPage) never need a second branch for these."""
+    return [
+        {
+            'id': None, 'worker_id': row['worker_id'], 'firstname': row['firstname'], 'surname': row['surname'],
+            'description': None, 'performed_on': None, 'valid_until': None, 'kind': None, 'bucket': 'missing',
+        }
+        for row in MedicalExamRepository().get_missing()
+    ]
+
+
+def _missing_bhp_rows() -> list:
+    """Analogous to `_missing_medical_rows`, for bhp_trainings (no
+    `description` column — see BhpTrainingRepository's own docstring)."""
+    return [
+        {
+            'id': None, 'worker_id': row['worker_id'], 'firstname': row['firstname'], 'surname': row['surname'],
+            'training_date': None, 'valid_until': None, 'kind': None, 'bucket': 'missing',
+        }
+        for row in BhpTrainingRepository().get_missing()
+    ]
+
+
 def get_expiring_medical(threshold_days: Optional[int] = None) -> list:
     """MED_6 — badania lekarskie wygasające w ciągu `threshold_days` dni
     (lub już wygasłe; brak argumentu = skonfigurowany `notice_days` modułu
-    medical, Faza 6), każde z dopisanym kubełkiem critical/warning/notice."""
+    medical, Faza 6), każde z dopisanym kubełkiem expired/critical/warning/
+    notice. UI-fixes-08092026 task2/3 prepends workers with ZERO medical_
+    exams rows at all ('missing' bucket, "brak zapisów") — independent of
+    `threshold_days`, since there's no date to fall inside/outside a
+    window; MedicalExamRepository.get_expiring can never surface these on
+    its own (it queries FROM medical_exams)."""
     thresholds = _get_thresholds('medical')
     days = threshold_days if threshold_days is not None else thresholds['notice_days']
-    return [
+    expiring = [
         {**row, 'bucket': _bucket(row['valid_until'], thresholds)}
         for row in MedicalExamRepository().get_expiring(days)
     ]
+    return _missing_medical_rows() + expiring
 
 
 def get_expiring_bhp(threshold_days: Optional[int] = None) -> list:
     """BHP_5 — analogicznie do get_expiring_medical, dla bhp_trainings."""
     thresholds = _get_thresholds('bhp')
     days = threshold_days if threshold_days is not None else thresholds['notice_days']
-    return [
+    expiring = [
         {**row, 'bucket': _bucket(row['valid_until'], thresholds)}
         for row in BhpTrainingRepository().get_expiring(days)
     ]
+    return _missing_bhp_rows() + expiring
 
 
 def get_expiring_foreigner_docs_with_bucket(days_threshold: Optional[int] = None) -> list:
@@ -132,7 +172,13 @@ def get_expiring_foreigner_docs_with_bucket(days_threshold: Optional[int] = None
     thresholds = _get_thresholds('foreigner_docs')
     days = days_threshold if days_threshold is not None else thresholds['warning_days']
     rows = get_expiring_foreigner_docs(days)
-    return [{**row, 'bucket': _bucket_2tier(row['document_validity'], thresholds)} for row in rows]
+    tagged = [{**row, 'bucket': _bucket_2tier(row['document_validity'], thresholds)} for row in rows]
+    # UI-fixes-08092026 task2 — workers opted into foreigner tracking with
+    # no document_validity recorded at all ('missing', "brak zapisów").
+    # get_expiring_foreigner_docs requires document_validity IS NOT NULL,
+    # so there's no overlap with `tagged` above.
+    missing = [{**row, 'bucket': 'missing'} for row in ForeignerDataRepository().get_missing_document()]
+    return missing + tagged
 
 
 def get_upcoming_terminations(days_threshold: int = WORKER_TERMINATION_WINDOW_DAYS) -> list:

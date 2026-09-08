@@ -68,6 +68,21 @@ function statusBadge(status: string) {
   );
 }
 
+/** Local (not UTC) today as 'YYYY-MM-DD' — comparable directly against
+ * `planned_date`'s own ISO date string, same convention as
+ * lib/expiryStatus.ts's private todayStr(). */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** UI-fixes-08092026 task4 — "opóźnione": planned_date has passed with no
+ * completed_date recorded yet. Additive to the plan's own status badge
+ * (a plan can be "W trakcie" AND overdue at once), not a replacement. */
+function isOverdue(plan: ActionPlan): boolean {
+  return !!plan.planned_date && !plan.completed_date && plan.planned_date < todayStr();
+}
+
 function formatHistoryValue(fieldName: string | null, value: string | null): string {
   if (value === null || value === '') return '—';
   if (fieldName === 'status') return ACTION_PLAN_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? value;
@@ -229,7 +244,23 @@ export function ActionPlansPage() {
         ) : (
           <PaginatedTable rows={sorted} pageSize={25}>
             {(pageRows) => (
-              <table className="refined-table">
+              <table className="refined-table action-plans-table">
+                {/* UI-fixes-08092026 task2 — table-layout:fixed against these
+                    9 widths (see .action-plans-table's CSS comment) keeps
+                    the table at exactly 100% of its container regardless of
+                    cell content, so no column-count/width change here can
+                    reintroduce the horizontal scrollbar. */}
+                <colgroup>
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '13%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '11%' }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <SortableTh label="Pracownik" sortKey="worker_name" currentSort={sortKey} currentOrder={sortOrder} onSort={onSort} />
@@ -272,12 +303,12 @@ export function ActionPlansPage() {
                           {plan.worker_name}
                         </td>
                         <td>{plan.skill_description}</td>
-                        <td style={{ maxWidth: '18rem' }}>{plan.description}</td>
+                        <td>{plan.description}</td>
                         <td>{plan.responsible_name ?? '—'}</td>
                         <td>{plan.planned_date ? new Date(plan.planned_date).toLocaleDateString('pl-PL') : '—'}</td>
                         <td>{plan.completed_date ? new Date(plan.completed_date).toLocaleDateString('pl-PL') : '—'}</td>
                         <td>{plan.effectiveness_date ? new Date(plan.effectiveness_date).toLocaleDateString('pl-PL') : '—'}</td>
-                        <td>{statusBadge(plan.status)}</td>
+                        <td>{isOverdue(plan) ? <span className="refined-badge badge-red">Opóźnione</span> : statusBadge(plan.status)}</td>
                         <td className="text-right">
                           <div className="action-icons">
                             <button

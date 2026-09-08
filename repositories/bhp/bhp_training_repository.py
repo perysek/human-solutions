@@ -112,3 +112,18 @@ class BhpTrainingRepository(AuditableMixin, BaseRepository):
             ORDER BY bt.valid_until ASC
         """
         return self._fetch_all(query, (days_threshold,))
+
+    def get_missing(self) -> List[Any]:
+        """UI-fixes-08092026 task2/3 — active workers with zero
+        bhp_trainings rows at all ("brak zapisów") — see
+        MedicalExamRepository.get_missing's docstring for the same
+        reasoning (get_expiring can't surface these, NULL valid_until on an
+        existing row is deliberately excluded)."""
+        query = """
+            SELECT w.id AS worker_id, w.firstname, w.surname
+            FROM workers w
+            WHERE w.fire_date IS NULL
+              AND NOT EXISTS (SELECT 1 FROM bhp_trainings bt WHERE bt.worker_id = w.id)
+            ORDER BY w.surname, w.firstname
+        """
+        return self._fetch_all(query)
