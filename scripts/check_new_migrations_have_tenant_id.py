@@ -39,6 +39,15 @@ EXEMPT_TABLES = {
     'alert_thresholds',
     'worker_onboarding_status',
     'worker_terminations',
+
+    # Same grandfathering as above, for the absence-management feature
+    # (alembic/versions/ab01absc0001, ab01absc0002) — worker-scoped domain
+    # tables added after this guard existed, but on a branch that had already
+    # diverged from master before the guard was wired in, so they were never
+    # caught. Retrofitting tenant_id is the same deferred Phase B/C work as
+    # the rest of this block, not specific to absences.
+    'worker_absence_categories', 'worker_absence_approvers', 'worker_absences',
+    'worker_absence_limits', 'worker_absence_balance_adjustments',
 }
 
 CREATE_TABLE_RE = re.compile(r"op\.create_table\(\s*['\"](\w+)['\"]")

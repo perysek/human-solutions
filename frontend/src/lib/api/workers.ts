@@ -29,6 +29,12 @@ export interface WorkerListItem {
    * ever run the bulk-schedule flow for this worker's current job. */
   onboarding_completed: boolean | null;
   onboarding_completion_pct: number | null;
+  /** The login account linked to this worker (users.worker_id), if any —
+   * drives the "Użytkownik" przypisany/brak badge (WorkersListPage,
+   * WorkerViewPage). The reverse of UserListItem's worker_id/worker_name. */
+  linked_user_id: number | null;
+  linked_user_email: string | null;
+  linked_user_full_name: string | null;
   gender: 'Male' | 'Female' | 'UNKNOWN';
   hire_date: string | null;
   fire_date: string | null;

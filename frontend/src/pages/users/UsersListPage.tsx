@@ -109,7 +109,7 @@ export function UsersListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={6} />
+          <TableSkeleton cols={7} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : sorted.length === 0 ? (
@@ -136,6 +136,7 @@ export function UsersListPage() {
                       filter={{ options: STATUS_OPTIONS, selected: statusFilter, onChange: setStatusFilter }}
                     />
                     <th>Blokada</th>
+                    <th>Pracownik</th>
                     <th className="text-right"><span className="sr-only">Akcje</span></th>
                     <th className="row-nav-hint-col" aria-hidden="true"></th>
                   </tr>
@@ -166,6 +167,11 @@ export function UsersListPage() {
                         ) : (
                           '—'
                         )}
+                      </td>
+                      <td>
+                        <span className={`status-badge ${u.worker_id ? 'active' : 'inactive'}`} title={u.worker_name ?? undefined}>
+                          {u.worker_id ? 'Przypisany' : 'Brak'}
+                        </span>
                       </td>
                       <td>
                         <div className="action-icons">

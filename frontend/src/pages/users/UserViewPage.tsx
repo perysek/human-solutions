@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -68,6 +68,23 @@ export function UserViewPage() {
               <Field label="Email" value={user.email} />
               <Field label="Rola" value={ROLE_LABELS[user.role] ?? user.role} />
               <Field label="Status" value={<span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>{user.is_active ? 'Aktywny' : 'Nieaktywny'}</span>} />
+              <Field
+                label="Pracownik"
+                value={
+                  user.worker_id ? (
+                    // <span> not <div> — Field renders `value` inside a <p>,
+                    // and a <div> there is invalid HTML nesting.
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="status-badge active">Przypisany</span>
+                      <Link to={`/workers/${encodeURIComponent(user.worker_id)}`} style={{ color: 'var(--color-focus-ring)' }}>
+                        {user.worker_name}
+                      </Link>
+                    </span>
+                  ) : (
+                    <span className="status-badge inactive">Brak</span>
+                  )
+                }
+              />
               <Field
                 label="Blokada konta"
                 value={

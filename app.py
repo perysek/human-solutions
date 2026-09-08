@@ -114,6 +114,7 @@ def create_app() -> Flask:
 
     # --- Blueprints ---
     # employees_bp (salon domain) retired here — IMPLEMENTATION_PLAN.md §5.4.
+    from routes.absences.routes import absences_bp
     from routes.auth.routes import auth_bp
     from routes.bhp.routes import bhp_bp
     from routes.dashboard.routes import dashboard_bp
@@ -130,6 +131,7 @@ def create_app() -> Flask:
     from routes.workers.routes import workers_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(absences_bp)
     app.register_blueprint(public_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(roles_bp)

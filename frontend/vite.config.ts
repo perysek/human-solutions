@@ -47,6 +47,9 @@ export default defineConfig({
       // API suffix is proxied. CSV export (TRN_11) rides this same proxy
       // entry as a plain browser navigation, not a fetch() call.
       '/trainings/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      // ABSENCE_MANAGEMENT_PLAN.md — same '/prefix/api' collision as above
+      // ('/absences' and '/absences/...' are React Router pages too).
+      '/absences/api': { target: 'http://127.0.0.1:5001', changeOrigin: true },
       // Faza 6 (IMPLEMENTATION_PLAN.md §11) — same '/prefix/api' scoping.
       // No frontend-route collision today ('/' and '/alert-thresholds' are
       // the dashboard's own pages, not under '/dashboard'), but scoping to

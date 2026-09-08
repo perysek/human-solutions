@@ -24,10 +24,24 @@ export function UserForm({ mode, initial, onSaved, onCancel }: UserFormProps) {
   const [role, setRole] = useState(initial?.role ?? '');
   const [isActive, setIsActive] = useState(initial?.is_active ?? true);
   const [password, setPassword] = useState('');
+  const [workerId, setWorkerId] = useState(initial?.worker_id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const roleOptions = useMemo(() => (options?.roles ?? []).map((r) => ({ value: r.name, label: r.display_name })), [options]);
+
+  // Workers already linked to a DIFFERENT account are dropped from the list —
+  // idx_users_worker_id_unique enforces one account per worker, so offering
+  // an already-taken one would just bounce back as a 409. The worker
+  // currently linked to *this* account (edit mode) stays selectable so the
+  // field doesn't appear to lose its own value.
+  const workerOptions = useMemo(
+    () =>
+      (options?.workers ?? [])
+        .filter((w) => !w.linked_user_id || w.linked_user_id === initial?.id)
+        .map((w) => ({ value: w.id, label: w.is_active ? w.full_name : `${w.full_name} (nieaktywny)` })),
+    [options, initial],
+  );
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,6 +57,7 @@ export function UserForm({ mode, initial, onSaved, onCancel }: UserFormProps) {
       full_name: fullName,
       role,
       is_active: isActive,
+      worker_id: workerId || null,
     };
     if (mode === 'create') payload.password = password;
     if (mode === 'edit' && password) payload.new_password = password;
@@ -80,6 +95,15 @@ export function UserForm({ mode, initial, onSaved, onCancel }: UserFormProps) {
           options={roleOptions}
           placeholder="Wybierz rolę…"
           required
+        />
+        <SelectField
+          label="Pracownik"
+          name="worker_id"
+          value={workerId}
+          onChange={(e) => setWorkerId(e.target.value)}
+          options={workerOptions}
+          placeholder="Brak — konto nieprzypisane"
+          helper="Wymagane, aby to konto mogło składać wnioski o nieobecność jako konkretny pracownik."
         />
         <TextField
           label={mode === 'create' ? 'Hasło' : 'Nowe hasło (opcjonalnie)'}

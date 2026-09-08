@@ -47,6 +47,11 @@ MODULE_PERMISSIONS = {
     'dashboard': ['superadmin', 'hr_manager', 'trainer'],
     'audit': ['superadmin', 'hr_manager'],
     'admin': ['superadmin'],
+    # DB-unavailable fallback only — see role_repository.ALL_MODULES and
+    # alembic/versions/ab01absc0003_seed_absences_module_rbac.py for the real,
+    # own_data-aware grants. Every role gets *some* access: everyone is a
+    # worker who may need to submit their own absence requests.
+    'absences': ['superadmin', 'hr_manager', 'trainer', 'viewer'],
 }
 
 def role_required(*roles):

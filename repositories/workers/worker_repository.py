@@ -53,7 +53,8 @@ _BASE_COLUMNS = """
     (SELECT STRING_AGG(bw.firstname || ' ' || bw.surname, ', ' ORDER BY bw.surname, bw.firstname)
        FROM workers bw WHERE bw.job_id = sj.id AND bw.fire_date IS NULL) AS boss_name,
     w.gender, w.hire_date, w.fire_date, w.created_at, w.updated_at,
-    wos.completed AS onboarding_completed, wos.completion_pct AS onboarding_completion_pct
+    wos.completed AS onboarding_completed, wos.completion_pct AS onboarding_completion_pct,
+    lu.id AS linked_user_id, lu.email AS linked_user_email, lu.full_name AS linked_user_full_name
 """
 _FROM_CLAUSE = """
     FROM workers w
@@ -62,6 +63,7 @@ _FROM_CLAUSE = """
     LEFT JOIN jobs sj ON sj.department_id = j.department_id
         AND sj.is_managerial = TRUE AND sj.id != j.id
     LEFT JOIN worker_onboarding_status wos ON wos.worker_id = w.id AND wos.job_id = w.job_id
+    LEFT JOIN users lu ON lu.worker_id = w.id
 """
 _SELECT_BASE = f"SELECT {_BASE_COLUMNS} {_FROM_CLAUSE}"
 
@@ -348,6 +350,38 @@ class WorkerRepository(AuditableMixin, BaseRepository):
         """Active+inactive workers holding this job (JOB_5)."""
         query = _SELECT_BASE + " WHERE w.job_id = %s ORDER BY w.surname, w.firstname"
         return self._fetch_all(query, (job_id,))
+
+    def list_for_user_link(self) -> List[Any]:
+        """Lean id/name/status/linked-account rows for the user-employee
+        linkage picker (UserForm's "Pracownik" SearchableSelect,
+        routes/users/routes.py's api_form_options). Every worker, active or
+        not — an admin fixing up a stale link on a since-terminated worker's
+        old account still needs to see it — with the LEFT JOIN users telling
+        the frontend which ones are already taken so it can filter them out
+        (except the one the form is currently editing)."""
+        return self._fetch_all(
+            """
+            SELECT w.id, w.firstname, w.surname, w.fire_date,
+                   u.id AS linked_user_id, u.full_name AS linked_user_full_name
+            FROM workers w
+            LEFT JOIN users u ON u.worker_id = w.id
+            ORDER BY w.surname, w.firstname
+            """
+        )
+
+    def is_director(self, worker_id: str) -> bool:
+        """True when this worker currently holds the company's single
+        is_director=TRUE job-position ('Dyrektor zakładu', jobs.is_director —
+        see alembic/versions/f3a4b5c6d7e8). The absence-request auto-approve
+        signal (services/worker_absence_service.submit_request): nobody sits
+        above the top of the hierarchy to approve their own requests, so
+        their self-service submissions skip the approver requirement and
+        land as status='approved' directly."""
+        row = self._fetch_one(
+            "SELECT j.is_director FROM workers w JOIN jobs j ON j.id = w.job_id WHERE w.id = %s",
+            (worker_id,),
+        )
+        return bool(row and row['is_director'])
 
     def list_active_for_org_chart(self) -> List[Any]:
         """Bare id/name/job_id for active workers only (fire_date IS NULL) —

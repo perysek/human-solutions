@@ -232,7 +232,7 @@ export function WorkersListPage() {
 
       <div className="table-container" style={{ flex: 1 }}>
         {loading ? (
-          <TableSkeleton cols={7} />
+          <TableSkeleton cols={8} />
         ) : error ? (
           <EmptyState icon="error" title="Nie udało się wczytać danych" message={error} />
         ) : workers.length === 0 ? (
@@ -258,6 +258,7 @@ export function WorkersListPage() {
                     <SortableTh label="Data zatrudnienia" sortKey="hire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <SortableTh label="Data zwolnienia" sortKey="fire_date" currentSort={sortKey} currentOrder={sortOrder} onSort={handleSort} />
                     <th>Status</th>
+                    <th>Użytkownik</th>
                     <th>Alerty</th>
                     {canWrite && <th className="text-right"><span className="sr-only">Akcje</span></th>}
                     <th className="row-nav-hint-col" aria-hidden="true"></th>
@@ -285,6 +286,14 @@ export function WorkersListPage() {
                       <td>{w.fire_date ? new Date(w.fire_date).toLocaleDateString('pl-PL') : '—'}</td>
                       <td>
                         <StatusBadge status={w.is_active ? 'active' : 'inactive'}>{w.is_active ? 'Aktywny' : 'Nieaktywny'}</StatusBadge>
+                      </td>
+                      <td>
+                        <span
+                          className={`status-badge ${w.linked_user_id ? 'active' : 'inactive'}`}
+                          title={w.linked_user_email ?? undefined}
+                        >
+                          {w.linked_user_id ? 'Przypisany' : 'Brak'}
+                        </span>
                       </td>
                       <td>
                         {w.alerts.length === 0 ? (
