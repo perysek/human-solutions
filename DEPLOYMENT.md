@@ -669,6 +669,20 @@ fallback in Nginx isn't in place. Confirm `frontend/dist/index.html` exists
 git config --global --add safe.directory /opt/human-solutions
 ```
 
+### `git pull` fails with `insufficient permission for adding an object` / `npm install` fails with `EACCES`
+
+Some files under `/opt/human-solutions` have drifted to `root` ownership —
+usually because an earlier session ran `git`/`npm` as `root` directly instead
+of `sudo -u deploy ...`. Check how widespread it is, then fix ownership for
+the whole tree (safe — metadata only, no content touched):
+
+```bash
+find /opt/human-solutions -not -user deploy | wc -l   # non-zero confirms it
+sudo chown -R deploy:deploy /opt/human-solutions
+```
+
+Retry the `git pull` / `npm install` as `deploy` afterward.
+
 ### Permission denied on log directory
 
 ```bash
